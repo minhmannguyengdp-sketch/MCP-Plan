@@ -28,7 +28,7 @@ function buildOrderKpis(orders: OrderDto[]) {
   const openOrders = orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length;
 
   return [
-    { label: "Don hang", value: orders.length, hint: "Tu API client" },
+    { label: "Don hang", value: orders.length, hint: "Trong ky hien tai" },
     { label: "Doanh so", value: money.format(totalAmount), hint: "Tong gia tri" },
     { label: "SKU", value: skuCount, hint: "Mat hang ban" },
     { label: "Cho xu ly", value: openOrders, hint: "Chua giao/huy" }
@@ -80,8 +80,8 @@ function OrderDetailSheet({ order, onClose }: { order: OrderDto | null; onClose:
           </div>
 
           <div className="sheet-note-card">
-            <h3>Goi y thao tac</h3>
-            <p>Khi noi backend that, popup nay se them cap nhat trang thai, xem SKU, in/chia se don va tao plan theo doi sau ban.</p>
+            <h3>Xu ly tiep theo</h3>
+            <p>Theo doi giao hang, cap nhat trang thai va tao viec cham soc sau ban neu can.</p>
           </div>
         </div>
       ) : null}
@@ -99,9 +99,9 @@ export function OrdersClientPage({ ordersResult }: { ordersResult: ApiResult<Ord
       <PageHeader
         eyebrow="Orders"
         title="Don hang"
-        subtitle="Don hang dung card va popup bottom sheet de giong mobile app that hon."
+        subtitle="Theo doi don hang theo diem ban, tuyen, sale phu trach va trang thai xu ly."
       >
-        <span className="badge">{ordersResult.source}</span>
+        <span className="badge">Dang theo doi</span>
       </PageHeader>
 
       <FilterBar
@@ -125,11 +125,11 @@ export function OrdersClientPage({ ordersResult }: { ordersResult: ApiResult<Ord
         </div>
 
         <div className="card">
-          <h2 className="panel-title">Mobile pattern</h2>
+          <h2 className="panel-title">Can xu ly</h2>
           <div className="grid">
-            <div className="metric-row"><span>Card</span><strong>Xem nhanh</strong></div>
-            <div className="metric-row"><span>Popup</span><strong>Xu ly</strong></div>
-            <div className="metric-row"><span>Plan</span><strong>Theo sau</strong></div>
+            <div className="metric-row"><span>Don moi</span><strong>Can chot</strong></div>
+            <div className="metric-row"><span>Giao hang</span><strong>Theo doi</strong></div>
+            <div className="metric-row"><span>Sau ban</span><strong>Cham soc</strong></div>
           </div>
         </div>
       </section>
