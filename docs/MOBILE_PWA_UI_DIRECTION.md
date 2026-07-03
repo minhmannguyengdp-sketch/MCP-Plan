@@ -28,6 +28,8 @@ Linear       = spacing gon, danh sach sach, trang thai ro
 
 ```text
 src/app/mobile.css
+src/app/manifest.ts
+src/app/layout.tsx
 src/ui/shell/AppShell.tsx
 src/ui/shell/navigation.ts
 src/ui/table/DataTable.tsx
@@ -41,6 +43,8 @@ Thay doi:
 - them short label va icon cho nav
 - DataTable co desktop table + mobile card mode
 - toi uu spacing, card, filter chip, KPI mobile
+- them manifest cho PWA standalone
+- them theme color va apple web app metadata
 ```
 
 ## Man can soi sau buoc nay
@@ -60,7 +64,6 @@ Thay doi:
 ```text
 1. Test tren mobile viewport
 2. Chinh tung man neu card qua dai
-3. Them PWA manifest/icon
-4. Them install-safe metadata
-5. Toi uu offline shell sau
+3. Them app icon PNG day du kich thuoc
+4. Them offline shell sau
 ```
