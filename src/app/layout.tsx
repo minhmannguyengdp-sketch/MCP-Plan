@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mobile.css";
 import "./order-popups.css";
+import "./outlet-profile.css";
 import "./mobile-nav-tune.css";
 
 export const metadata: Metadata = {
