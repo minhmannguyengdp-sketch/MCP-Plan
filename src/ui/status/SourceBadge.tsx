@@ -3,5 +3,5 @@ type SourceBadgeProps = {
 };
 
 export function SourceBadge({ source }: SourceBadgeProps) {
-  return <span className="badge">{source === "api" ? "API that" : "Mock"}</span>;
+  return <span className="badge">{source === "api" ? "API thật" : "Dữ liệu mẫu"}</span>;
 }
