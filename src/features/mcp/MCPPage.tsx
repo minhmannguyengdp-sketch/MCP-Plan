@@ -11,6 +11,8 @@ import type { DayLineSource, DayLineStatus, McpDayData, McpDayLine, McpDayResult
 import type { RouteCustomersData, RouteCustomerItem, RouteCustomerStatus } from "@/features/mcp/route-customers.types";
 import { buildGoogleMapsUrl } from "@/features/mcp/route-customers.types";
 import type { RoutesData, RouteItem, RouteStatus } from "@/features/routes/routes.types";
+import { McpLineCard } from "./McpLineCard";
+import { mcpCustomerActionDescription, mcpCustomerActionLabel, type McpCustomerAction } from "./mcp-customer-actions";
 import { MCP_SESSION_SNAPSHOT_RULES } from "./mcp-session-contract";
 
 function routeStatusLabel(status: RouteStatus) {
@@ -137,23 +139,68 @@ function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem
   );
 }
 
-function CustomerSheet({ line, onClose }: { line: McpDayLine | null; onClose: () => void }) {
+function CustomerActionSheet({
+  selection,
+  onClose
+}: {
+  selection: { line: McpDayLine; action: McpCustomerAction } | null;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet
+      open={Boolean(selection)}
+      onClose={onClose}
+      title={selection ? mcpCustomerActionLabel(selection.action) : "Hanh dong MCP"}
+      description={selection ? selection.line.accountName : undefined}
+      footer={
+        <div className="sheet-action-grid">
+          <button className="button primary" type="button">Luu nhap</button>
+          <button className="button" type="button">Chuyen sang form chi tiet</button>
+          <button className="button" type="button" onClick={onClose}>Dong</button>
+        </div>
+      }
+    >
+      {selection ? (
+        <div className="visit-sheet-content">
+          <div className="visit-focus-card">
+            <span>Gan voi Session Customer Snapshot</span>
+            <strong>{mcpCustomerActionLabel(selection.action)}</strong>
+            <small>{mcpCustomerActionDescription(selection.action)}</small>
+          </div>
+          <div className="grid">
+            <div className="metric-row"><span>Diem ban</span><strong>{selection.line.accountName}</strong></div>
+            <div className="metric-row"><span>Khu vuc</span><strong>{selection.line.area}</strong></div>
+            <div className="metric-row"><span>Thu tu ghe</span><strong>{selection.line.sortOrder}</strong></div>
+            <div className="metric-row"><span>Trang thai</span><strong>{lineStatusLabel(selection.line.status)}</strong></div>
+          </div>
+          <div className="sheet-note-card">
+            <h3>Khong tach roi MCP</h3>
+            <p>Don hang, test san pham, bao cao thi truong va viec can lam duoc tao tu customer card trong phien. Sau nay form chi tiet se ghi kem sessionCustomerId.</p>
+          </div>
+        </div>
+      ) : null}
+    </BottomSheet>
+  );
+}
+
+function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; onClose: () => void; onAction: (line: McpDayLine, action: McpCustomerAction) => void }) {
   return (
     <BottomSheet
       open={Boolean(line)}
       onClose={onClose}
       title={line ? line.accountName : "Xu ly diem ban"}
       description={line ? `${line.area} · ${sourceLabel(line.source)}` : undefined}
-      footer={
+      footer={line ? (
         <div className="sheet-action-grid">
           <button className="button primary" type="button">Check-in</button>
-          <button className="button" type="button">Co don</button>
-          <button className="button" type="button">Co test</button>
+          <button className="button" type="button" onClick={() => onAction(line, "order")}>Co don</button>
+          <button className="button" type="button" onClick={() => onAction(line, "test")}>Co test</button>
           <button className="button" type="button">Khong mua</button>
-          <button className="button" type="button">Bao cao</button>
+          <button className="button" type="button" onClick={() => onAction(line, "market_report")}>Bao cao</button>
+          <button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Tao viec</button>
           <button className="button" type="button" onClick={onClose}>Dong</button>
         </div>
-      }
+      ) : undefined}
     >
       {line ? (
         <div className="visit-sheet-content">
@@ -192,8 +239,13 @@ export function MCPPage({
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
   const [selectedLine, setSelectedLine] = useState<McpDayLine | null>(null);
   const [selectedRouteCustomer, setSelectedRouteCustomer] = useState<RouteCustomerItem | null>(null);
+  const [selectedAction, setSelectedAction] = useState<{ line: McpDayLine; action: McpCustomerAction } | null>(null);
   const [sessionStatus, setSessionStatus] = useState("opened");
   const run = mcpDayData.run;
+
+  function openCustomerAction(line: McpDayLine, action: McpCustomerAction) {
+    setSelectedAction({ line, action });
+  }
 
   const routeColumns = useMemo<DataTableColumn<RouteItem>[]>(() => [
     { key: "name", header: "Tuyen", render: (row) => row.name },
@@ -274,17 +326,26 @@ export function MCPPage({
       </section>
 
       <section className="card">
-        <h2 className="panel-title">3. Khach trong phien MCP ngay</h2>
+        <h2 className="panel-title">3. MCPCustomerCard trong phien ngay</h2>
+        <div className="grid">
+          {mcpDayData.lines.map((line) => (
+            <McpLineCard key={line.id} line={line} onOpen={setSelectedLine} onAction={openCustomerAction} />
+          ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <h2 className="panel-title">4. Bang snapshot khach trong phien</h2>
         <DataTable columns={customerColumns} rows={mcpDayData.lines} getRowKey={(row) => row.id} />
       </section>
 
       <section className="card">
-        <h2 className="panel-title">4. Ket qua da ghe</h2>
+        <h2 className="panel-title">5. Ket qua da ghe</h2>
         <DataTable columns={resultColumns} rows={mcpDayData.results} getRowKey={(row) => row.id} />
       </section>
 
       <section className="card">
-        <h2 className="panel-title">5. Session snapshot contract</h2>
+        <h2 className="panel-title">6. Session snapshot contract</h2>
         <div className="grid">
           {MCP_SESSION_SNAPSHOT_RULES.map((rule) => (
             <article className="action-card" key={rule}>
@@ -306,7 +367,8 @@ export function MCPPage({
         }}
       />
       <RouteCustomerSheet customer={selectedRouteCustomer} onClose={() => setSelectedRouteCustomer(null)} />
-      <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} />
+      <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} />
+      <CustomerActionSheet selection={selectedAction} onClose={() => setSelectedAction(null)} />
     </AppShell>
   );
 }
