@@ -12,6 +12,7 @@ GET /api/routes/data
 GET /api/routes/customers/data
 GET /api/mcp-day/current
 GET /api/mcp-day/data
+GET /api/orders
 ```
 
 These endpoints return wrapped payloads:
@@ -47,6 +48,9 @@ curl -fsS http://127.0.0.1:3001/api/routes/customers/data
 curl -fsS 'http://127.0.0.1:3001/api/routes/customers/data?routeId=route-cho-gao-center'
 curl -fsS http://127.0.0.1:3001/api/mcp-day/current
 curl -fsS http://127.0.0.1:3001/api/mcp-day/data
+curl -fsS http://127.0.0.1:3001/api/orders
+curl -fsS 'http://127.0.0.1:3001/api/orders?status=confirmed'
+curl -fsS 'http://127.0.0.1:3001/api/orders?search=Minh'
 
 curl -fsS http://165.22.109.61/api/dashboard/summary
 curl -fsS http://165.22.109.61/api/dashboard/overview
@@ -55,6 +59,7 @@ curl -fsS http://165.22.109.61/api/routes/data
 curl -fsS http://165.22.109.61/api/routes/customers/data
 curl -fsS http://165.22.109.61/api/mcp-day/current
 curl -fsS http://165.22.109.61/api/mcp-day/data
+curl -fsS http://165.22.109.61/api/orders
 ```
 
 Expected dashboard summary shape:
@@ -135,6 +140,31 @@ data.results
 receivedAt
 ```
 
+Expected orders shape:
+
+```text
+data[]
+data[].id
+data[].code
+data[].date
+data[].accountName
+data[].routeName
+data[].owner
+data[].source
+data[].skuCount
+data[].quantity
+data[].totalAmount
+data[].status
+receivedAt
+```
+
+Supported order query params:
+
+```text
+status
+search
+```
+
 ## Next endpoint order
 
 ```text
@@ -145,7 +175,7 @@ receivedAt
 5. /api/routes/customers/data - done
 6. /api/mcp-day/current - done
 7. /api/mcp-day/data - done
-8. /api/orders
+8. /api/orders - done
 9. /api/tests
 10. /api/market-checks
 11. /api/actions
