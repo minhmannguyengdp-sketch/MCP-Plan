@@ -21,6 +21,12 @@ const routeCustomers = [
   { id: "rc-006", routeId: "route-maintenance", routeName: "Tuyen bao tri du lieu", accountId: "acc-data-001", accountName: "Diem ban thieu thong tin", contactName: "Chua cap nhat", area: "Tong hop", sortOrder: 99, status: "hidden", note: "Tam an khoi tuyen ngay, khong hard delete." }
 ];
 
+const orders = [
+  { id: "order-001", code: "DH-0001", date: "2026-07-03", accountName: "Diem ban Minh Chau", routeName: "Tuyen Cho Gao", owner: "Sale A", source: "MCP session", skuCount: 4, quantity: 36, totalAmount: 2450000, status: "confirmed" },
+  { id: "order-002", code: "DH-0002", date: "2026-07-03", accountName: "Diem ban Thanh Phat", routeName: "Tuyen Cho Gao", owner: "Sale A", source: "Visit result", skuCount: 3, quantity: 24, totalAmount: 1780000, status: "delivered" },
+  { id: "order-003", code: "DH-0003", date: "2026-07-02", accountName: "Diem ban Tan Loi", routeName: "Tuyen Cai Be", owner: "Sale B", source: "Phone", skuCount: 5, quantity: 42, totalAmount: 3150000, status: "confirmed" }
+];
+
 const mcpDay = {
   run: { id: "day-001", routeName: "Tuyen Cho Gao", date: "2026-07-03", owner: "Sale A", status: "opened", openedAt: "08:00" },
   lines: [
@@ -177,6 +183,20 @@ function getMcpDayData() {
   };
 }
 
+function getOrders(url) {
+  const status = url.searchParams.get("status");
+  const search = url.searchParams.get("search")?.trim().toLowerCase();
+
+  return orders.filter((order) => {
+    if (status && order.status !== status) return false;
+    if (search) {
+      const haystack = `${order.code} ${order.accountName} ${order.routeName} ${order.owner} ${order.source}`.toLowerCase();
+      return haystack.includes(search);
+    }
+    return true;
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || `${HOST}:${PORT}`}`);
 
@@ -232,6 +252,11 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === "/api/mcp-day/data") {
     json(res, 200, wrap(getMcpDayData()));
+    return;
+  }
+
+  if (url.pathname === "/api/orders") {
+    json(res, 200, wrap(getOrders(url)));
     return;
   }
 
