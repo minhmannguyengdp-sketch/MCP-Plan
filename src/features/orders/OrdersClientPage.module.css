@@ -1,0 +1,167 @@
+.section {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 12px;
+  box-shadow: var(--shadow), var(--ring-soft);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.head span {
+  color: var(--brand-strong);
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 3px;
+}
+
+.head h3 {
+  font-size: 16px;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.status {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 5px 8px;
+}
+
+.confirmed {
+  background: #fff6df;
+  color: #9a5a00;
+}
+
+.delivered {
+  background: #e7f9eb;
+  color: #167c32;
+}
+
+.draft {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.cancelled {
+  background: #fff0ed;
+  color: #c63b2e;
+}
+
+.customer {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.customer b {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer small {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr;
+  gap: 7px;
+}
+
+.metrics span {
+  border: 1px solid rgba(228, 231, 236, 0.86);
+  border-radius: 14px;
+  background: #fbfffd;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.metrics b {
+  display: block;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.metrics small {
+  color: var(--muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+
+.actions button {
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 900;
+  min-height: 32px;
+  padding: 0 8px;
+}
+
+.nextCard {
+  margin-top: 16px;
+}
+
+@media (max-width: 820px) {
+  .section {
+    margin-top: 13px;
+  }
+
+  .card {
+    border-color: rgba(228, 231, 236, 0.78);
+    background: rgba(255, 255, 255, 0.92);
+    padding: 10px;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .head h3 {
+    font-size: 15px;
+  }
+
+  .metrics {
+    gap: 6px;
+  }
+
+  .metrics span {
+    padding: 7px 5px;
+  }
+
+  .actions button {
+    min-height: 30px;
+    padding: 0 5px;
+  }
+}
