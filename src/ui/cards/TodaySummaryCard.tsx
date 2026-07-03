@@ -12,16 +12,18 @@ type TodaySummaryCardProps = {
 };
 
 export function TodaySummaryCard({ eyebrow, value, description, pills = [], tone = "dark" }: TodaySummaryCardProps) {
+  const classes = ["dashboard-today-card", tone === "teal" ? "mcp-session-hero" : null].filter(Boolean).join(" ");
+
   return (
-    <section className={`today-summary-card today-summary-${tone}`}>
-      <div className="today-summary-main">
+    <section className={classes}>
+      <div className="dashboard-today-main">
         <span>{eyebrow}</span>
         <h2>{value}</h2>
         <p>{description}</p>
       </div>
 
       {pills.length > 0 ? (
-        <div className="today-summary-pills">
+        <div className="dashboard-today-pills">
           {pills.map((pill) => (
             <strong key={pill.label}>{pill.value} {pill.label}</strong>
           ))}
