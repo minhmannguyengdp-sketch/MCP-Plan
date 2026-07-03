@@ -37,9 +37,17 @@ Bang public hien co:
 5. Security hardening: RLS, role, function permission.
 6. AI planning/mindmap/report automation.
 
+## Runtime split
+
+- Vercel chay frontend Next.js.
+- VPS chay backend API va nghiep vu.
+- Supabase giu database va RLS.
+- Frontend chi goi API base URL, khong giu service role key.
+
 ## Tai lieu chinh
 
 - `docs/DB_AUDIT.md`
 - `docs/IMPLEMENTATION_PLAN.md`
 - `docs/API_PLAN.md`
 - `docs/DB_EXTENSION_PLAN.md`
+- `docs/VPS_BACKEND_HANDOFF.md`
