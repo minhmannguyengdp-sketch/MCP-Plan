@@ -1,6 +1,9 @@
-import { accountsMock } from "./accounts.mock";
+import { createApiClient } from "@/lib/api/api-client";
 import { OutletsClientPage } from "./OutletsClientPage";
 
-export function AccountsPage() {
-  return <OutletsClientPage kpis={accountsMock.kpis} items={accountsMock.accounts} />;
+export async function AccountsPage() {
+  const api = createApiClient();
+  const accountsResult = await api.getAccountsData();
+
+  return <OutletsClientPage kpis={accountsResult.data.kpis} items={accountsResult.data.accounts} />;
 }
