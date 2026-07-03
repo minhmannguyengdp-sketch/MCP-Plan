@@ -7,6 +7,9 @@ Goal: align frontend screens with real backend read endpoints, one module at a t
 ```text
 GET /api/dashboard/summary
 GET /api/dashboard/overview
+GET /api/routes
+GET /api/routes/data
+GET /api/routes/customers/data
 ```
 
 These endpoints return wrapped payloads:
@@ -36,11 +39,19 @@ On VPS:
 curl -fsS http://127.0.0.1:3001/api/health
 curl -fsS http://127.0.0.1:3001/api/dashboard/summary
 curl -fsS http://127.0.0.1:3001/api/dashboard/overview
+curl -fsS http://127.0.0.1:3001/api/routes
+curl -fsS http://127.0.0.1:3001/api/routes/data
+curl -fsS http://127.0.0.1:3001/api/routes/customers/data
+curl -fsS 'http://127.0.0.1:3001/api/routes/customers/data?routeId=route-cho-gao-center'
+
 curl -fsS http://165.22.109.61/api/dashboard/summary
 curl -fsS http://165.22.109.61/api/dashboard/overview
+curl -fsS http://165.22.109.61/api/routes
+curl -fsS http://165.22.109.61/api/routes/data
+curl -fsS http://165.22.109.61/api/routes/customers/data
 ```
 
-Expected summary shape:
+Expected dashboard summary shape:
 
 ```json
 {
@@ -55,7 +66,7 @@ Expected summary shape:
 }
 ```
 
-Expected overview shape:
+Expected dashboard overview shape:
 
 ```text
 data.kpis
@@ -65,19 +76,52 @@ data.insights
 receivedAt
 ```
 
+Expected routes list shape:
+
+```text
+data[]
+data[].id
+data[].name
+data[].area
+data[].owner
+data[].active
+receivedAt
+```
+
+Expected routes data shape:
+
+```text
+data.kpis
+data.routes
+receivedAt
+```
+
+Expected route customers data shape:
+
+```text
+data.kpis
+data.customers
+data.customers[].routeId
+data.customers[].accountName
+data.customers[].status
+data.customers[].gps optional
+receivedAt
+```
+
 ## Next endpoint order
 
 ```text
 1. /api/dashboard/summary - done
 2. /api/dashboard/overview - done
-3. /api/routes
-4. /api/routes/:id/customers or /api/routes/customers/data
-5. /api/route-sessions
-6. /api/visits
-7. /api/orders
-8. /api/tests
-9. /api/market-checks
-10. /api/actions
+3. /api/routes - done
+4. /api/routes/data - done
+5. /api/routes/customers/data - done
+6. /api/route-sessions
+7. /api/visits
+8. /api/orders
+9. /api/tests
+10. /api/market-checks
+11. /api/actions
 ```
 
 ## Important rule
