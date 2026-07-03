@@ -59,6 +59,11 @@ export type OrderDto = {
   code: string;
   date: string;
   accountName: string;
+  routeName: string;
+  owner: string;
+  source: string;
+  skuCount: number;
+  quantity: number;
   totalAmount: number;
   status: string;
 };
