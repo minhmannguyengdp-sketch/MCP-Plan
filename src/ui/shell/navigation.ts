@@ -6,13 +6,23 @@ export type NavItem = {
   icon: string;
 };
 
-export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", shortLabel: "Tong quan", href: "/", description: "Tong quan NPP", icon: "⌂" },
-  { label: "Tuyen ban hang", shortLabel: "Tuyen", href: "/routes", description: "Route va diem ban", icon: "◎" },
-  { label: "Khach hang", shortLabel: "Khach", href: "/customers", description: "Ho so diem ban", icon: "□" },
-  { label: "Luot ghe tham", shortLabel: "MCP", href: "/visits", description: "Cham soc thi truong", icon: "◇" },
-  { label: "Test san pham", shortLabel: "Test", href: "/field-checks", description: "File test va ket qua", icon: "◌" },
-  { label: "Bao cao thi truong", shortLabel: "BC", href: "/reports", description: "Gia, doi thu, trung bay, ton kho", icon: "◇" },
-  { label: "Don hang", shortLabel: "Don", href: "/orders", description: "Doanh so va SKU", icon: "＋" },
-  { label: "MCP-Plan", shortLabel: "Plan", href: "/plans", description: "Ke hoach hanh dong", icon: "✓" }
+export const PRIMARY_NAV_ITEMS: NavItem[] = [
+  { label: "Tổng quan", shortLabel: "Tổng", href: "/", description: "Tổng quan NPP", icon: "⌂" },
+  { label: "MCP", shortLabel: "MCP", href: "/visits", description: "Phiên tuyến và lượt ghé", icon: "◇" },
+  { label: "Đơn hàng", shortLabel: "Đơn", href: "/orders", description: "Doanh số và SKU", icon: "+" },
+  { label: "Test sản phẩm", shortLabel: "Test", href: "/field-checks", description: "File test và kết quả", icon: "◌" },
+  { label: "MCP-Plan", shortLabel: "Plan", href: "/plans", description: "Kế hoạch hành động", icon: "✓" }
 ];
+
+export const SIDEBAR_NAV_ITEMS: NavItem[] = [
+  PRIMARY_NAV_ITEMS[0],
+  { label: "Tuyến bán hàng", shortLabel: "Tuyến", href: "/routes", description: "Route và điểm bán", icon: "◎" },
+  { label: "Khách hàng", shortLabel: "Khách", href: "/customers", description: "Hồ sơ điểm bán", icon: "□" },
+  PRIMARY_NAV_ITEMS[1],
+  PRIMARY_NAV_ITEMS[2],
+  PRIMARY_NAV_ITEMS[3],
+  { label: "Báo cáo thị trường", shortLabel: "BC", href: "/reports", description: "Giá, đối thủ, trưng bày, tồn kho", icon: "▣" },
+  PRIMARY_NAV_ITEMS[4]
+];
+
+export const NAV_ITEMS = SIDEBAR_NAV_ITEMS;
