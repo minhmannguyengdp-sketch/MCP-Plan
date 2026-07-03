@@ -22,17 +22,21 @@ Linear       = spacing gon, danh sach sach, trang thai ro
 5. Touch target toi thieu khoang 44px
 6. Filter chip scroll ngang, khong ep xuong qua nhieu dong
 7. Noi dung quan trong nam tren dau man
+8. Moi tab co popup/sheet rieng theo nghiep vu, khong ep chung mot form
 ```
 
 ## Da lam
 
 ```text
 src/app/mobile.css
+src/app/order-popups.css
 src/app/manifest.ts
 src/app/layout.tsx
+src/ui/overlay/BottomSheet.tsx
 src/ui/shell/AppShell.tsx
 src/ui/shell/navigation.ts
 src/ui/table/DataTable.tsx
+src/features/orders/OrdersClientPage.tsx
 ```
 
 Thay doi:
@@ -45,6 +49,19 @@ Thay doi:
 - toi uu spacing, card, filter chip, KPI mobile
 - them manifest cho PWA standalone
 - them theme color va apple web app metadata
+- them bottom sheet primitive
+- /orders co popup chi tiet don mau
+```
+
+## Popup pattern theo tab
+
+```text
+/orders       -> chi tiet don, trang thai, tao viec theo doi
+/field-checks -> ghi nhan san pham/gia/doi thu
+/visits       -> check-in, bo qua khach, ket qua ghe
+/plans        -> cap nhat viec, doi owner, doi han
+/routes       -> xem tuyen, mo phien MCP
+/customers    -> thong tin diem ban, lich su giao dich
 ```
 
 ## Man can soi sau buoc nay
@@ -62,8 +79,9 @@ Thay doi:
 ## Buoc tiep theo
 
 ```text
-1. Test tren mobile viewport
-2. Chinh tung man neu card qua dai
-3. Them app icon PNG day du kich thuoc
-4. Them offline shell sau
+1. Test /orders popup tren mobile viewport
+2. Chinh lai card neu qua dai
+3. Lam popup mau cho /field-checks
+4. Them app icon PNG day du kich thuoc
+5. Them offline shell sau
 ```
