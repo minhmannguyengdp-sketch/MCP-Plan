@@ -16,6 +16,8 @@ GET /api/orders
 GET /api/tests
 GET /api/market-checks
 GET /api/market-checks/data
+GET /api/actions
+GET /api/actions/data
 ```
 
 These endpoints return wrapped payloads:
@@ -59,6 +61,10 @@ curl -fsS http://127.0.0.1:3001/api/market-checks
 curl -fsS http://127.0.0.1:3001/api/market-checks/data
 curl -fsS 'http://127.0.0.1:3001/api/market-checks?status=risk'
 curl -fsS 'http://127.0.0.1:3001/api/market-checks/data?search=Sua'
+curl -fsS http://127.0.0.1:3001/api/actions
+curl -fsS http://127.0.0.1:3001/api/actions/data
+curl -fsS 'http://127.0.0.1:3001/api/actions?priority=high'
+curl -fsS 'http://127.0.0.1:3001/api/actions/data?status=doing'
 
 curl -fsS http://165.22.109.61/api/dashboard/summary
 curl -fsS http://165.22.109.61/api/dashboard/overview
@@ -71,6 +77,8 @@ curl -fsS http://165.22.109.61/api/orders
 curl -fsS http://165.22.109.61/api/tests
 curl -fsS http://165.22.109.61/api/market-checks
 curl -fsS http://165.22.109.61/api/market-checks/data
+curl -fsS http://165.22.109.61/api/actions
+curl -fsS http://165.22.109.61/api/actions/data
 ```
 
 Expected dashboard summary shape:
@@ -200,28 +208,58 @@ data[].status
 receivedAt
 ```
 
+Expected actions list shape:
+
+```text
+data[]
+data[].id
+data[].title
+data[].owner
+data[].priority
+data[].status
+data[].dueDate
+receivedAt
+```
+
+Expected actions data shape:
+
+```text
+data.kpis
+data.items
+data.items[].id
+data.items[].title
+data.items[].accountName
+data.items[].routeName
+data.items[].owner
+data.items[].source
+data.items[].priority
+data.items[].status
+data.items[].dueDate
+data.items[].note
+receivedAt
+```
+
 Supported query params:
 
 ```text
 status
+priority
 search
 ```
 
-## Next endpoint order
+## Read API status
 
 ```text
-1. /api/dashboard/summary - done
-2. /api/dashboard/overview - done
-3. /api/routes - done
-4. /api/routes/data - done
-5. /api/routes/customers/data - done
-6. /api/mcp-day/current - done
-7. /api/mcp-day/data - done
-8. /api/orders - done
-9. /api/tests - done
-10. /api/market-checks - done
-11. /api/market-checks/data - done
-12. /api/actions
+Phase 7 read endpoints are complete for current frontend modules.
+```
+
+## Next backend work
+
+```text
+1. Replace in-memory mock data with Supabase read queries behind the same API contracts.
+2. Add backend write APIs module by module.
+3. Move browser writes to backend-owned endpoints.
+4. Tighten Supabase RLS only after backend write flow is verified.
 ```
 
 ## Important rule
