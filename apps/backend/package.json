@@ -1,0 +1,15 @@
+{
+  "name": "mcp-plan-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "build": "node -e \"console.log('No build step required for plain Node backend')\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {}
+}
