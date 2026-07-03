@@ -54,7 +54,9 @@ export const mockApiClient: McpApiClient = {
   },
   async listOrders() {
     return result([
-      { id: "order-001", code: "DH-0001", date: "2026-07-03", accountName: "Diem ban Minh Chau", totalAmount: 2450000, status: "confirmed" }
+      { id: "order-001", code: "DH-0001", date: "2026-07-03", accountName: "Diem ban Minh Chau", routeName: "Tuyen Cho Gao", owner: "Sale A", source: "MCP session", skuCount: 4, quantity: 36, totalAmount: 2450000, status: "confirmed" },
+      { id: "order-002", code: "DH-0002", date: "2026-07-03", accountName: "Diem ban Thanh Phat", routeName: "Tuyen Cho Gao", owner: "Sale A", source: "Visit result", skuCount: 3, quantity: 24, totalAmount: 1780000, status: "delivered" },
+      { id: "order-003", code: "DH-0003", date: "2026-07-02", accountName: "Diem ban Tan Loi", routeName: "Tuyen Cai Be", owner: "Sale B", source: "Phone", skuCount: 5, quantity: 42, totalAmount: 3150000, status: "confirmed" }
     ]);
   },
   async listActions() {
