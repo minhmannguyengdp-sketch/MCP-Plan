@@ -11,6 +11,7 @@ import { mcpDayMock } from "@/features/mcp-day/mcp-day.mock";
 import type { DayLineSource, DayLineStatus, McpDayLine, McpDayResult } from "@/features/mcp-day/mcp-day.types";
 import { routesMock } from "@/features/routes/routes.mock";
 import type { RouteItem, RouteStatus } from "@/features/routes/routes.types";
+import { MCP_SESSION_SNAPSHOT_RULES } from "./mcp-session-contract";
 
 function routeStatusLabel(status: RouteStatus) {
   if (status === "active") return "Dang chay";
@@ -196,6 +197,20 @@ export function MCPPage({ activeHref = "/visits" }: { activeHref?: string }) {
       <section className="card">
         <h2 className="panel-title">3. Ket qua da ghe</h2>
         <DataTable columns={resultColumns} rows={mcpDayMock.results} getRowKey={(row) => row.id} />
+      </section>
+
+      <section className="card">
+        <h2 className="panel-title">4. Session snapshot contract</h2>
+        <div className="grid">
+          {MCP_SESSION_SNAPSHOT_RULES.map((rule) => (
+            <article className="action-card" key={rule}>
+              <div>
+                <span className="badge">MCP rule</span>
+                <p className="page-subtitle">{rule}</p>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <StartSessionSheet
