@@ -6,6 +6,8 @@ import { marketChecksMock } from "@/features/market-checks/market-checks.mock";
 import type { MarketChecksData } from "@/features/market-checks/market-checks.types";
 import { mcpDayMock } from "@/features/mcp-day/mcp-day.mock";
 import type { McpDayData } from "@/features/mcp-day/mcp-day.types";
+import { routeCustomersMock } from "@/features/mcp/route-customers.mock";
+import type { RouteCustomersData } from "@/features/mcp/route-customers.types";
 import { routesMock } from "@/features/routes/routes.mock";
 import type { RoutesData } from "@/features/routes/routes.types";
 import type {
@@ -26,6 +28,7 @@ export type McpApiClient = {
   getDashboardOverview(): Promise<ApiResult<DashboardOverviewDto>>;
   listRoutes(query?: ListQuery): Promise<ApiResult<RouteDto[]>>;
   getRoutesData(query?: ListQuery): Promise<ApiResult<RoutesData>>;
+  getRouteCustomersData(query?: ListQuery): Promise<ApiResult<RouteCustomersData>>;
   listAccounts(query?: ListQuery): Promise<ApiResult<AccountDto[]>>;
   getAccountsData(query?: ListQuery): Promise<ApiResult<AccountsData>>;
   getCurrentDayRun(query?: ListQuery): Promise<ApiResult<DayRunDto>>;
@@ -82,6 +85,9 @@ export const mockApiClient: McpApiClient = {
   },
   async getRoutesData() {
     return result(routesMock);
+  },
+  async getRouteCustomersData() {
+    return result(routeCustomersMock);
   },
   async listAccounts() {
     return result([
