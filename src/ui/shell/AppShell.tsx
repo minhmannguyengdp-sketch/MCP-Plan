@@ -35,8 +35,17 @@ export function AppShell({ children, activeHref = "/" }: AppShellProps) {
 
         <NavLinks activeHref={activeHref} mode="sidebar" />
 
+        <a className={activeHref === "/settings" ? "sidebar-link active utility-link" : "sidebar-link utility-link"} href="/settings">
+          <span className="nav-icon" aria-hidden="true">⚙</span>
+          <span>Cai dat</span>
+        </a>
+
         <div className="sidebar-footer">Frontend sach truoc. Backend/VPS va Supabase noi sau theo API contract.</div>
       </aside>
+
+      <a className={activeHref === "/settings" ? "mobile-settings-link active" : "mobile-settings-link"} href="/settings" aria-label="Cai dat">
+        ⚙
+      </a>
 
       <main className="main">{children}</main>
       <NavLinks activeHref={activeHref} mode="bottom" />
