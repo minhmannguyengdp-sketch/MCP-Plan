@@ -54,16 +54,16 @@ export async function DashboardPage() {
       <PageHeader
         eyebrow="Dashboard"
         title="Tong quan NPP"
-        subtitle="Dashboard lay data qua API client contract. Sau nay doi backend/VPS/Supabase ma khong sua UI."
+        subtitle="Theo doi nhanh doanh so, tuyen ban hang, diem ban can cham soc va viec can xu ly trong ngay."
       >
-        <span className="badge">{dashboardResult.source}</span>
+        <span className="badge">Hom nay</span>
       </PageHeader>
 
       <FilterBar
         filters={[
-          { label: "Nguon du lieu", value: dashboardResult.source },
           { label: "Ky bao cao", value: "Hom nay" },
-          { label: "Backend", value: "VPS-ready contract" }
+          { label: "Tuyen", value: "Tat ca" },
+          { label: "Trang thai", value: "Dang theo doi" }
         ]}
       />
 
