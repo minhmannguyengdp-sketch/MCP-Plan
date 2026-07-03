@@ -1,19 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { KpiCard } from "@/ui/cards/KpiCard";
+import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
 import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
-import { DataTable, type DataTableColumn } from "@/ui/table/DataTable";
 import type { MarketCheckItem, MarketCheckKpi, MarketCheckStatus } from "./market-checks.types";
+import styles from "./MarketChecksClientPage.module.css";
 
-const money = new Intl.NumberFormat("vi-VN", {
-  style: "currency",
-  currency: "VND",
-  maximumFractionDigits: 0
-});
+const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
 function getStatusLabel(status: MarketCheckStatus) {
   if (status === "opportunity") return "Co hoi";
@@ -21,18 +17,48 @@ function getStatusLabel(status: MarketCheckStatus) {
   return "Binh thuong";
 }
 
-function buildColumns(onSelect: (check: MarketCheckItem) => void): DataTableColumn<MarketCheckItem>[] {
-  return [
-    { key: "date", header: "Ngay", render: (row) => row.date },
-    { key: "routeName", header: "Tuyen", render: (row) => row.routeName },
-    { key: "accountName", header: "Diem ban", render: (row) => row.accountName },
-    { key: "productName", header: "San pham", render: (row) => row.productName },
-    { key: "competitorName", header: "Doi thu", render: (row) => row.competitorName },
-    { key: "shelfPrice", header: "Gia ke", render: (row) => money.format(row.shelfPrice), align: "right" },
-    { key: "stockStatus", header: "Ton kho", render: (row) => row.stockStatus },
-    { key: "status", header: "Danh gia", render: (row) => <span className="badge">{getStatusLabel(row.status)}</span> },
-    { key: "detail", header: "", render: (row) => <button className="button compact" type="button" onClick={() => onSelect(row)}>Xem</button> }
-  ];
+function getStatusClass(status: MarketCheckStatus) {
+  if (status === "opportunity") return `${styles.status} ${styles.opportunity}`;
+  if (status === "risk") return `${styles.status} ${styles.risk}`;
+  return `${styles.status} ${styles.normal}`;
+}
+
+function buildSetupMetrics(checks: MarketCheckItem[]) {
+  const products = new Set(checks.map((check) => check.productName)).size;
+  const accounts = new Set(checks.map((check) => check.accountName)).size;
+  const pending = checks.filter((check) => check.status === "normal").length;
+  return { products, accounts, pending };
+}
+
+function TestResultCard({ check, onSelect }: { check: MarketCheckItem; onSelect: (check: MarketCheckItem) => void }) {
+  return (
+    <article className={styles.card}>
+      <div className={styles.head}>
+        <div>
+          <span>{check.date}</span>
+          <h3>{check.productName}</h3>
+        </div>
+        <strong className={getStatusClass(check.status)}>{getStatusLabel(check.status)}</strong>
+      </div>
+
+      <div className={styles.context}>
+        <b>{check.accountName}</b>
+        <small>{check.routeName} - {check.note}</small>
+      </div>
+
+      <div className={styles.metrics}>
+        <span><b>{money.format(check.shelfPrice)}</b><small>Gia ke</small></span>
+        <span><b>{check.competitorName}</b><small>Doi thu</small></span>
+        <span><b>{check.stockStatus}</b><small>Ton kho</small></span>
+      </div>
+
+      <div className={styles.actions}>
+        <button className="button primary" type="button" onClick={() => onSelect(check)}>Nhap</button>
+        <button className="button" type="button">Anh</button>
+        <button className="button" type="button">Viec</button>
+      </div>
+    </article>
+  );
 }
 
 function FieldCheckSheet({ check, onClose }: { check: MarketCheckItem | null; onClose: () => void }) {
@@ -41,33 +67,19 @@ function FieldCheckSheet({ check, onClose }: { check: MarketCheckItem | null; on
       open={Boolean(check)}
       onClose={onClose}
       title={check ? check.productName : "Chi tiet kiem tra"}
-      description={check ? `${check.accountName} · ${check.routeName}` : undefined}
-      footer={
-        <div className="sheet-action-grid">
-          <button className="button primary" type="button">Tao viec xu ly</button>
-          <button className="button" type="button" onClick={onClose}>Dong</button>
-        </div>
-      }
+      description={check ? `${check.accountName} - ${check.routeName}` : undefined}
+      footer={<div className="sheet-action-grid"><button className="button primary" type="button">Tao viec xu ly</button><button className="button" type="button" onClick={onClose}>Dong</button></div>}
     >
       {check ? (
         <div className="field-sheet-content">
-          <div className="field-focus-card">
-            <span>Danh gia</span>
-            <strong>{getStatusLabel(check.status)}</strong>
-            <small>{check.note}</small>
-          </div>
-
+          <div className="field-focus-card"><span>Danh gia</span><strong>{getStatusLabel(check.status)}</strong><small>{check.note}</small></div>
           <div className="grid">
             <div className="metric-row"><span>Gia ke</span><strong>{money.format(check.shelfPrice)}</strong></div>
             <div className="metric-row"><span>Doi thu</span><strong>{check.competitorName}</strong></div>
             <div className="metric-row"><span>Ton kho</span><strong>{check.stockStatus}</strong></div>
             <div className="metric-row"><span>Ngay</span><strong>{check.date}</strong></div>
           </div>
-
-          <div className="sheet-note-card">
-            <h3>Huong xu ly</h3>
-            <p>Kiem tra lai gia, ton kho, doi thu va tao viec cho sale/giam sat neu phat hien co hoi hoac rui ro.</p>
-          </div>
+          <div className="sheet-note-card"><h3>Nhap ket qua</h3><p>Cap nhat gia ke, ton kho, doi thu va tao viec neu phat hien co hoi hoac rui ro.</p></div>
         </div>
       ) : null}
     </BottomSheet>
@@ -76,47 +88,41 @@ function FieldCheckSheet({ check, onClose }: { check: MarketCheckItem | null; on
 
 export function MarketChecksClientPage({ kpis, checks }: { kpis: MarketCheckKpi[]; checks: MarketCheckItem[] }) {
   const [selectedCheck, setSelectedCheck] = useState<MarketCheckItem | null>(null);
-  const columns = useMemo(() => buildColumns(setSelectedCheck), []);
+  const setup = useMemo(() => buildSetupMetrics(checks), [checks]);
+  const needAction = checks.filter((check) => check.status !== "normal").length;
 
   return (
     <AppShell activeHref="/field-checks">
-      <PageHeader
-        eyebrow="Field Checks"
-        title="Kiem tra thi truong"
-        subtitle="Ghi nhan gia ke, doi thu, ton kho va co hoi xu ly tai tung diem ban."
-      >
-        <span className="badge">Dang theo doi</span>
-      </PageHeader>
+      <PageHeader eyebrow="Product Test" title="Test san pham" subtitle="Tach rieng file test, diem ban can nhap ket qua va viec can xu ly."><span className="badge">Dang theo doi</span></PageHeader>
+      <FilterBar filters={[{ label: "Ngay", value: "Gan nhat" }, { label: "Tuyen", value: "Tat ca" }, { label: "Danh gia", value: "Tat ca" }]} />
 
-      <FilterBar
-        filters={[
-          { label: "Ngay", value: "Gan nhat" },
-          { label: "Tuyen", value: "Tat ca" },
-          { label: "Danh gia", value: "Tat ca" }
-        ]}
-      />
-
-      <section className="grid cards">
-        {kpis.map((item) => (
-          <KpiCard key={item.label} label={item.label} value={item.value} hint={item.hint} />
-        ))}
-      </section>
-
-      <section className="hero-panel" style={{ marginTop: 18 }}>
-        <div className="card">
-          <h2 className="panel-title">Bang kiem tra thi truong</h2>
-          <DataTable columns={columns} rows={checks} getRowKey={(row) => row.id} />
-        </div>
-
-        <div className="card">
-          <h2 className="panel-title">Diem can theo doi</h2>
-          <div className="grid">
-            <div className="metric-row"><span>Gia</span><strong>Cap nhat</strong></div>
-            <div className="metric-row"><span>Doi thu</span><strong>Theo doi</strong></div>
-            <div className="metric-row"><span>Viec can lam</span><strong>Xu ly</strong></div>
+      <section className={styles.setupGrid}>
+        <div className={styles.setupCard}>
+          <span>File setup</span>
+          <h2>Dot test san pham</h2>
+          <p>Quan ly san pham test, diem ban duoc gan va trang thai nhap ket qua.</p>
+          <div className={styles.setupMetrics}>
+            <strong><b>{setup.products}</b><small>San pham</small></strong>
+            <strong><b>{setup.accounts}</b><small>Diem ban</small></strong>
+            <strong><b>{setup.pending}</b><small>Cho nhap</small></strong>
           </div>
         </div>
+
+        <div className={styles.setupCard}>
+          <span>Nhap ket qua</span>
+          <h2>{needAction} can xu ly</h2>
+          <p>Uu tien cac ket qua co co hoi hoac rui ro de tao viec cho sale/giam sat.</p>
+        </div>
       </section>
+
+      <CompactKpiStrip items={kpis} />
+
+      <section className={styles.section}>
+        <div className="dashboard-section-head"><h2>Ket qua theo diem ban</h2><span>{checks.length} dong</span></div>
+        <div className={styles.list}>{checks.map((check) => <TestResultCard key={check.id} check={check} onSelect={setSelectedCheck} />)}</div>
+      </section>
+
+      <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Diem can theo doi</h2><div className="grid"><div className="metric-row"><span>Gia</span><strong>Cap nhat</strong></div><div className="metric-row"><span>Doi thu</span><strong>Theo doi</strong></div><div className="metric-row"><span>Viec can lam</span><strong>Xu ly</strong></div></div></section>
 
       <FieldCheckSheet check={selectedCheck} onClose={() => setSelectedCheck(null)} />
     </AppShell>
