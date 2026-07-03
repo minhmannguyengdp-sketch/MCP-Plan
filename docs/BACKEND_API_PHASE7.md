@@ -10,6 +10,8 @@ GET /api/dashboard/overview
 GET /api/routes
 GET /api/routes/data
 GET /api/routes/customers/data
+GET /api/mcp-day/current
+GET /api/mcp-day/data
 ```
 
 These endpoints return wrapped payloads:
@@ -43,12 +45,16 @@ curl -fsS http://127.0.0.1:3001/api/routes
 curl -fsS http://127.0.0.1:3001/api/routes/data
 curl -fsS http://127.0.0.1:3001/api/routes/customers/data
 curl -fsS 'http://127.0.0.1:3001/api/routes/customers/data?routeId=route-cho-gao-center'
+curl -fsS http://127.0.0.1:3001/api/mcp-day/current
+curl -fsS http://127.0.0.1:3001/api/mcp-day/data
 
 curl -fsS http://165.22.109.61/api/dashboard/summary
 curl -fsS http://165.22.109.61/api/dashboard/overview
 curl -fsS http://165.22.109.61/api/routes
 curl -fsS http://165.22.109.61/api/routes/data
 curl -fsS http://165.22.109.61/api/routes/customers/data
+curl -fsS http://165.22.109.61/api/mcp-day/current
+curl -fsS http://165.22.109.61/api/mcp-day/data
 ```
 
 Expected dashboard summary shape:
@@ -108,6 +114,27 @@ data.customers[].gps optional
 receivedAt
 ```
 
+Expected MCP current day shape:
+
+```text
+data.id
+data.routeName
+data.date
+data.owner
+data.status
+receivedAt
+```
+
+Expected MCP day data shape:
+
+```text
+data.run
+data.kpis
+data.lines
+data.results
+receivedAt
+```
+
 ## Next endpoint order
 
 ```text
@@ -116,8 +143,8 @@ receivedAt
 3. /api/routes - done
 4. /api/routes/data - done
 5. /api/routes/customers/data - done
-6. /api/route-sessions
-7. /api/visits
+6. /api/mcp-day/current - done
+7. /api/mcp-day/data - done
 8. /api/orders
 9. /api/tests
 10. /api/market-checks
