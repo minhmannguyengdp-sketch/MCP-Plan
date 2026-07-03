@@ -12,10 +12,10 @@ type CompactKpiStripProps = {
 };
 
 export function CompactKpiStrip({ items, className }: CompactKpiStripProps) {
-  const classes = ["compact-kpi-strip", className].filter(Boolean).join(" ");
+  const classes = ["dashboard-kpi-strip", className].filter(Boolean).join(" ");
 
   return (
-    <section className={classes} aria-label="Chỉ số nhanh">
+    <section className={classes} aria-label="Chi so nhanh">
       {items.map((item) => (
         <KpiCard key={item.label} label={item.label} value={item.value} hint={item.hint} />
       ))}
