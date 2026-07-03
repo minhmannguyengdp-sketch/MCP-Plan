@@ -1,18 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { KpiCard } from "@/ui/cards/KpiCard";
+import { useState } from "react";
+import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
+import { OperationalListCard } from "@/ui/cards/OperationalListCard";
 import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
-import { DataTable, type DataTableColumn } from "@/ui/table/DataTable";
 import type { RouteItem, RouteKpi, RouteStatus } from "./routes.types";
 
 function getStatusLabel(status: RouteStatus) {
-  if (status === "active") return "Dang chay";
-  if (status === "watch") return "Can theo doi";
-  return "Tam dung";
+  if (status === "active") return "Đang chạy";
+  if (status === "watch") return "Cần theo dõi";
+  return "Tạm dừng";
+}
+
+function getStatusClass(status: RouteStatus) {
+  if (status === "active") return "dashboard-status status-good";
+  if (status === "watch") return "dashboard-status status-watch";
+  return "dashboard-status status-risk";
 }
 
 function getCompletion(row: RouteItem) {
@@ -20,18 +26,21 @@ function getCompletion(row: RouteItem) {
   return `${Math.round((row.visitedCustomers / row.plannedCustomers) * 100)}%`;
 }
 
-function buildColumns(onSelect: (route: RouteItem) => void): DataTableColumn<RouteItem>[] {
-  return [
-    { key: "name", header: "Tuyen", render: (row) => row.name },
-    { key: "area", header: "Khu vuc", render: (row) => row.area },
-    { key: "salesOwner", header: "Phu trach", render: (row) => row.salesOwner },
-    { key: "plannedCustomers", header: "Diem ban", render: (row) => row.plannedCustomers, align: "right" },
-    { key: "visitedCustomers", header: "Da ghe", render: (row) => row.visitedCustomers, align: "right" },
-    { key: "completion", header: "Hoan thanh", render: (row) => getCompletion(row), align: "right" },
-    { key: "orderCount", header: "Don", render: (row) => row.orderCount, align: "right" },
-    { key: "status", header: "Trang thai", render: (row) => <span className="badge">{getStatusLabel(row.status)}</span> },
-    { key: "detail", header: "", render: (row) => <button className="button compact" type="button" onClick={() => onSelect(row)}>Mo</button> }
-  ];
+function RouteCard({ route, onSelect }: { route: RouteItem; onSelect: (route: RouteItem) => void }) {
+  return (
+    <OperationalListCard
+      leading={<span>{getCompletion(route)}</span>}
+      eyebrow={`${route.area} · ${route.salesOwner}`}
+      title={route.name}
+      description={`${route.visitedCustomers}/${route.plannedCustomers} điểm đã ghé · ${route.orderCount} đơn`}
+      badge={<span className={getStatusClass(route.status)}>{getStatusLabel(route.status)}</span>}
+      meta={[`Lần ghé cuối ${route.lastVisitDate}`, `${route.plannedCustomers} điểm bán`]}
+      actions={[
+        { label: "Mở", tone: "primary", onClick: () => onSelect(route) },
+        { label: "Việc" }
+      ]}
+    />
+  );
 }
 
 function RouteSheet({ route, onClose }: { route: RouteItem | null; onClose: () => void }) {
@@ -39,35 +48,35 @@ function RouteSheet({ route, onClose }: { route: RouteItem | null; onClose: () =
     <BottomSheet
       open={Boolean(route)}
       onClose={onClose}
-      title={route ? route.name : "Chi tiet tuyen"}
+      title={route ? route.name : "Chi tiết tuyến"}
       description={route ? `${route.area} · ${route.salesOwner}` : undefined}
       footer={
         <div className="sheet-action-grid">
-          <button className="button primary" type="button">Mo phien MCP ngay</button>
-          <button className="button" type="button">Xem diem ban trong tuyen</button>
-          <button className="button" type="button">Tao viec theo doi</button>
-          <button className="button" type="button" onClick={onClose}>Dong</button>
+          <button className="button primary" type="button">Mở phiên MCP ngày</button>
+          <button className="button" type="button">Xem điểm bán trong tuyến</button>
+          <button className="button" type="button">Tạo việc theo dõi</button>
+          <button className="button" type="button" onClick={onClose}>Đóng</button>
         </div>
       }
     >
       {route ? (
         <div className="route-sheet-content">
           <div className="route-focus-card">
-            <span>Tien do hom nay</span>
+            <span>Tiến độ hôm nay</span>
             <strong>{getCompletion(route)}</strong>
-            <small>{route.visitedCustomers}/{route.plannedCustomers} diem ban · {route.orderCount} don</small>
+            <small>{route.visitedCustomers}/{route.plannedCustomers} điểm bán · {route.orderCount} đơn</small>
           </div>
 
           <div className="grid">
-            <div className="metric-row"><span>Trang thai</span><strong>{getStatusLabel(route.status)}</strong></div>
-            <div className="metric-row"><span>Lan ghe cuoi</span><strong>{route.lastVisitDate}</strong></div>
-            <div className="metric-row"><span>Diem ban</span><strong>{route.plannedCustomers}</strong></div>
-            <div className="metric-row"><span>Don hang</span><strong>{route.orderCount}</strong></div>
+            <div className="metric-row"><span>Trạng thái</span><strong>{getStatusLabel(route.status)}</strong></div>
+            <div className="metric-row"><span>Lần ghé cuối</span><strong>{route.lastVisitDate}</strong></div>
+            <div className="metric-row"><span>Điểm bán</span><strong>{route.plannedCustomers}</strong></div>
+            <div className="metric-row"><span>Đơn hàng</span><strong>{route.orderCount}</strong></div>
           </div>
 
           <div className="sheet-note-card">
-            <h3>Mo phien MCP</h3>
-            <p>Khi noi backend that, nut mo phien se tao Daily Session va snapshot danh sach khach trong tuyen. Sau khi mo phien, thay doi tuyen goc khong tu dong lam doi snapshot.</p>
+            <h3>Mở phiên MCP</h3>
+            <p>Khi nối backend thật, nút mở phiên sẽ tạo Daily Session và snapshot danh sách khách trong tuyến. Sau khi mở phiên, thay đổi tuyến gốc không tự động làm đổi dữ liệu ngày đã mở.</p>
           </div>
         </div>
       ) : null}
@@ -77,59 +86,45 @@ function RouteSheet({ route, onClose }: { route: RouteItem | null; onClose: () =
 
 export function RoutesClientPage({ kpis, routes }: { kpis: RouteKpi[]; routes: RouteItem[] }) {
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
-  const columns = useMemo(() => buildColumns(setSelectedRoute), []);
 
   return (
     <AppShell activeHref="/routes">
       <PageHeader
         eyebrow="Routes"
-        title="Tuyen ban hang"
-        subtitle="Quan ly tuyen va mo phien MCP ngay bang popup mobile-first."
+        title="Tuyến bán hàng"
+        subtitle="Quản lý tuyến và mở phiên MCP ngày bằng popup mobile-first."
       >
-        <span className="badge">Mock data</span>
+        <span className="badge">Dữ liệu mẫu</span>
       </PageHeader>
 
       <FilterBar
         filters={[
-          { label: "Khu vuc", value: "Tat ca" },
-          { label: "Phu trach", value: "Tat ca sale" },
-          { label: "Trang thai", value: "Active + Can theo doi" }
+          { label: "Khu vực", value: "Tất cả" },
+          { label: "Phụ trách", value: "Tất cả sale" },
+          { label: "Trạng thái", value: "Active + Cần theo dõi" }
         ]}
       />
 
-      <section className="grid cards">
-        {kpis.map((item) => (
-          <KpiCard key={item.label} label={item.label} value={item.value} hint={item.hint} />
-        ))}
-      </section>
+      <CompactKpiStrip items={kpis} />
 
-      <section className="hero-panel" style={{ marginTop: 18 }}>
-        <div className="card">
-          <h2 className="panel-title">Danh sach tuyen</h2>
-          <DataTable columns={columns} rows={routes} getRowKey={(row) => row.id} emptyMessage="Chua co tuyen ban hang" />
+      <section className="dashboard-section">
+        <div className="dashboard-section-head">
+          <h2>Danh sách tuyến</h2>
+          <span>{routes.length} tuyến</span>
         </div>
-
-        <div className="card">
-          <h2 className="panel-title">Can xu ly</h2>
-          <div className="grid">
-            <div className="metric-row"><span>Tuyen can theo doi</span><strong>2</strong></div>
-            <div className="metric-row"><span>Diem ban chua ghe</span><strong>9</strong></div>
-            <div className="metric-row"><span>Tuyen chua co don</span><strong>2</strong></div>
-          </div>
+        <div className="mcp-line-list">
+          {routes.map((route) => (
+            <RouteCard key={route.id} route={route} onSelect={setSelectedRoute} />
+          ))}
         </div>
       </section>
 
       <section className="card">
-        <h2 className="panel-title">Nguyen tac module Routes</h2>
+        <h2 className="panel-title">Cần xử lý</h2>
         <div className="grid">
-          <article className="action-card">
-            <div>
-              <span className="badge">MCP logic</span>
-              <h3>Tuyen goc khac phien ngay</h3>
-              <p className="page-subtitle">Tu route master chi mo snapshot cho ngay. Khi phien da mo, sua route master khong duoc lam doi du lieu ngay da mo.</p>
-            </div>
-            <strong>Clean</strong>
-          </article>
+          <div className="metric-row"><span>Tuyến cần theo dõi</span><strong>2</strong></div>
+          <div className="metric-row"><span>Điểm bán chưa ghé</span><strong>9</strong></div>
+          <div className="metric-row"><span>Tuyến chưa có đơn</span><strong>2</strong></div>
         </div>
       </section>
 
