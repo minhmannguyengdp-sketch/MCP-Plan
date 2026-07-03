@@ -7,22 +7,42 @@ import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 
+const MODULE_CARDS = [
+  { href: "/visits", icon: "◇", title: "MCP", description: "Phiên tuyến hôm nay", cta: "Xử lý" },
+  { href: "/orders", icon: "+", title: "Đơn", description: "Đơn hàng và giao", cta: "Xem đơn" },
+  { href: "/field-checks", icon: "◌", title: "Test", description: "Nhập kết quả test", cta: "Nhập" },
+  { href: "/reports", icon: "□", title: "Báo cáo", description: "Giá, đối thủ, tồn kho", cta: "Ghi nhận" }
+];
+
 function getStatusLabel(status: "good" | "watch" | "risk") {
-  if (status === "good") return "On";
-  if (status === "watch") return "Theo doi";
-  return "Rui ro";
+  if (status === "good") return "Ổn";
+  if (status === "watch") return "Theo dõi";
+  return "Rủi ro";
 }
 
 function getPriorityLabel(priority: "high" | "medium" | "low") {
   if (priority === "high") return "Cao";
-  if (priority === "medium") return "Vua";
-  return "Thap";
+  if (priority === "medium") return "Vừa";
+  return "Thấp";
 }
 
 function getStatusClass(status: "good" | "watch" | "risk") {
   if (status === "good") return "status-good";
   if (status === "watch") return "status-watch";
   return "status-risk";
+}
+
+function renderModuleCard(item: (typeof MODULE_CARDS)[number]) {
+  return (
+    <a className="dashboard-module-card" href={item.href} key={item.href}>
+      <span className="dashboard-module-icon" aria-hidden="true">{item.icon}</span>
+      <div>
+        <h3>{item.title}</h3>
+        <p>{item.description}</p>
+      </div>
+      <strong>{item.cta}</strong>
+    </a>
+  );
 }
 
 function renderRouteCard(route: DashboardRouteHealthDto) {
@@ -37,21 +57,21 @@ function renderRouteCard(route: DashboardRouteHealthDto) {
         </div>
         <span className={`dashboard-status ${getStatusClass(route.status)}`}>{getStatusLabel(route.status)}</span>
       </div>
-      <div className="dashboard-route-progress" aria-label={`Tien do ghe ${visitRate}%`}>
+      <div className="dashboard-route-progress" aria-label={`Tiến độ ghé ${visitRate}%`}>
         <span style={{ width: `${Math.min(visitRate, 100)}%` }} />
       </div>
       <div className="dashboard-route-metrics">
         <span>
           <b>{route.visited}/{route.planned}</b>
-          <small>Da ghe</small>
+          <small>Đã ghé</small>
         </span>
         <span>
           <b>{visitRate}%</b>
-          <small>Tien do</small>
+          <small>Tiến độ</small>
         </span>
         <span>
           <b>{route.orders}</b>
-          <small>Don</small>
+          <small>Đơn</small>
         </span>
       </div>
     </article>
@@ -62,7 +82,7 @@ function renderAction(action: DashboardActionDto) {
   return (
     <article className="action-card dashboard-action-card" key={action.title}>
       <div>
-        <span className={`dashboard-priority priority-${action.priority}`}>Uu tien {getPriorityLabel(action.priority)}</span>
+        <span className={`dashboard-priority priority-${action.priority}`}>Ưu tiên {getPriorityLabel(action.priority)}</span>
         <h3>{action.title}</h3>
         <p>{action.description}</p>
       </div>
@@ -85,29 +105,33 @@ export async function DashboardPage() {
     <AppShell activeHref="/">
       <PageHeader
         eyebrow="Dashboard"
-        title="Hom nay"
-        subtitle="Tuyen, don, diem can xu ly va tinh trang van hanh trong ngay."
+        title="Hôm nay"
+        subtitle="Vào nhanh MCP, đơn hàng, test sản phẩm và báo cáo thị trường."
       >
         <SourceBadge source={dashboardResult.source} />
       </PageHeader>
 
       <TodaySummaryCard
-        eyebrow="Tong quan nhanh"
+        eyebrow="Tổng quan nhanh"
         value={primaryKpi?.value ?? "-"}
-        description={primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Dang cho du lieu"}
+        description={primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
         pills={[
-          { label: "tuyen", value: totalRoutes },
-          { label: "don", value: totalOrders },
-          { label: "can xem", value: riskRoutes + watchRoutes }
+          { label: "tuyến", value: totalRoutes },
+          { label: "đơn", value: totalOrders },
+          { label: "cần xem", value: riskRoutes + watchRoutes }
         ]}
       />
 
+      <section className="dashboard-module-grid" aria-label="Nghiệp vụ nhanh">
+        {MODULE_CARDS.map(renderModuleCard)}
+      </section>
+
       <FilterBar
-        title="Loc nhanh"
+        title="Lọc nhanh"
         filters={[
-          { label: "Ky", value: "Hom nay" },
-          { label: "Tuyen", value: "Tat ca" },
-          { label: "Trang thai", value: "Dang theo doi" }
+          { label: "Kỳ", value: "Hôm nay" },
+          { label: "Tuyến", value: "Tất cả" },
+          { label: "Trạng thái", value: "Đang theo dõi" }
         ]}
       />
 
@@ -115,21 +139,21 @@ export async function DashboardPage() {
 
       <section className="dashboard-section dashboard-actions-section">
         <div className="dashboard-section-head">
-          <h2>Can xu ly</h2>
-          <span>{dashboard.actions.length} viec</span>
+          <h2>Cần xử lý</h2>
+          <span>{dashboard.actions.length} việc</span>
         </div>
         <div className="dashboard-action-list">{dashboard.actions.map(renderAction)}</div>
       </section>
 
       <section className="dashboard-section">
         <div className="dashboard-section-head">
-          <h2>Suc khoe tuyen</h2>
-          <span>{riskRoutes} rui ro · {watchRoutes} theo doi</span>
+          <h2>Sức khỏe tuyến</h2>
+          <span>{riskRoutes} rủi ro · {watchRoutes} theo dõi</span>
         </div>
         <div className="dashboard-route-list">{dashboard.routeHealth.map(renderRouteCard)}</div>
       </section>
 
-      <section className="dashboard-insight-strip" aria-label="Chi so phu">
+      <section className="dashboard-insight-strip" aria-label="Chỉ số phụ">
         {dashboard.insights.map((item) => (
           <div className="metric-row" key={item.label}>
             <span>{item.label}</span>
