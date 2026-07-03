@@ -1,5 +1,5 @@
-import { RoutesPage } from "@/features/routes/RoutesPage";
+import { MCPPage } from "@/features/mcp/MCPPage";
 
 export default function Page() {
-  return <RoutesPage />;
+  return <MCPPage activeHref="/routes" />;
 }
