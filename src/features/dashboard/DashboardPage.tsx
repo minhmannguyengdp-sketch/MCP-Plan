@@ -1,7 +1,10 @@
 import { KpiCard } from "@/ui/cards/KpiCard";
+import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
+import { DataTable, type DataTableColumn } from "@/ui/table/DataTable";
 import { dashboardMock } from "./dashboard.mock";
+import type { DashboardRouteHealth } from "./dashboard.types";
 
 function getStatusLabel(status: "good" | "watch" | "risk") {
   if (status === "good") return "Tot";
@@ -15,6 +18,19 @@ function getPriorityLabel(priority: "high" | "medium" | "low") {
   return "Thap";
 }
 
+const routeColumns: DataTableColumn<DashboardRouteHealth>[] = [
+  { key: "routeName", header: "Tuyen", render: (row) => row.routeName },
+  { key: "area", header: "Khu vuc", render: (row) => row.area },
+  { key: "planned", header: "Ke hoach", render: (row) => row.planned, align: "right" },
+  { key: "visited", header: "Da ghe", render: (row) => row.visited, align: "right" },
+  { key: "orders", header: "Don", render: (row) => row.orders, align: "right" },
+  {
+    key: "status",
+    header: "Trang thai",
+    render: (row) => <span className="badge">{getStatusLabel(row.status)}</span>
+  }
+];
+
 export function DashboardPage() {
   return (
     <AppShell activeHref="/">
@@ -26,6 +42,14 @@ export function DashboardPage() {
         <span className="badge">Mock data mode</span>
       </PageHeader>
 
+      <FilterBar
+        filters={[
+          { label: "Nguon du lieu", value: "Mock" },
+          { label: "Ky bao cao", value: "Hom nay" },
+          { label: "Backend", value: "VPS-ready contract" }
+        ]}
+      />
+
       <section className="grid cards">
         {dashboardMock.kpis.map((item) => (
           <KpiCard key={item.label} label={item.label} value={item.value} hint={`${item.hint} · ${item.trend}`} />
@@ -35,32 +59,12 @@ export function DashboardPage() {
       <section className="hero-panel" style={{ marginTop: 18 }}>
         <div className="card">
           <h2 className="panel-title">Suc khoe tuyen ban hang</h2>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tuyen</th>
-                  <th>Khu vuc</th>
-                  <th>Ke hoach</th>
-                  <th>Da ghe</th>
-                  <th>Don</th>
-                  <th>Trang thai</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboardMock.routeHealth.map((route) => (
-                  <tr key={route.routeName}>
-                    <td>{route.routeName}</td>
-                    <td>{route.area}</td>
-                    <td>{route.planned}</td>
-                    <td>{route.visited}</td>
-                    <td>{route.orders}</td>
-                    <td><span className="badge">{getStatusLabel(route.status)}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={routeColumns}
+            rows={dashboardMock.routeHealth}
+            getRowKey={(row) => row.routeName}
+            emptyMessage="Chua co du lieu tuyen"
+          />
         </div>
 
         <div className="card">
