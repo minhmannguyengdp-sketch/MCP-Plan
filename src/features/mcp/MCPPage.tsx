@@ -8,6 +8,8 @@ import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
 import { DataTable, type DataTableColumn } from "@/ui/table/DataTable";
 import type { DayLineSource, DayLineStatus, McpDayData, McpDayLine, McpDayResult } from "@/features/mcp-day/mcp-day.types";
+import type { RouteCustomersData, RouteCustomerItem, RouteCustomerStatus } from "@/features/mcp/route-customers.types";
+import { buildGoogleMapsUrl } from "@/features/mcp/route-customers.types";
 import type { RoutesData, RouteItem, RouteStatus } from "@/features/routes/routes.types";
 import { MCP_SESSION_SNAPSHOT_RULES } from "./mcp-session-contract";
 
@@ -15,6 +17,12 @@ function routeStatusLabel(status: RouteStatus) {
   if (status === "active") return "Dang chay";
   if (status === "watch") return "Can theo doi";
   return "Tam dung";
+}
+
+function routeCustomerStatusLabel(status: RouteCustomerStatus) {
+  if (status === "active") return "Dang trong tuyen";
+  if (status === "needs_gps") return "Can GPS";
+  return "Dang an";
 }
 
 function sourceLabel(source: DayLineSource) {
@@ -33,6 +41,11 @@ function lineStatusLabel(status: DayLineStatus) {
 function routeCompletion(route: RouteItem) {
   if (route.plannedCustomers === 0) return "-";
   return `${Math.round((route.visitedCustomers / route.plannedCustomers) * 100)}%`;
+}
+
+function gpsLabel(customer: RouteCustomerItem) {
+  if (!customer.gps) return "Chua co GPS";
+  return `${customer.gps.lat.toFixed(5)}, ${customer.gps.lng.toFixed(5)}`;
 }
 
 const resultColumns: DataTableColumn<McpDayResult>[] = [
@@ -81,6 +94,49 @@ function StartSessionSheet({ route, onClose, onStart }: { route: RouteItem | nul
   );
 }
 
+function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem | null; onClose: () => void }) {
+  const mapsUrl = customer ? buildGoogleMapsUrl(customer) : undefined;
+
+  return (
+    <BottomSheet
+      open={Boolean(customer)}
+      onClose={onClose}
+      title={customer ? customer.accountName : "Khach trong tuyen"}
+      description={customer ? `${customer.routeName} · STT ${customer.sortOrder}` : undefined}
+      footer={
+        <div className="sheet-action-grid">
+          {mapsUrl ? <a className="button primary" href={mapsUrl} target="_blank" rel="noreferrer">Mo Google Maps</a> : null}
+          <button className="button primary" type="button">Luu GPS hien tai</button>
+          <button className="button" type="button">Doi thu tu ghe</button>
+          <button className="button" type="button">Sua thong tin khach</button>
+          <button className="button" type="button">An khoi tuyen</button>
+          <button className="button" type="button" onClick={onClose}>Dong</button>
+        </div>
+      }
+    >
+      {customer ? (
+        <div className="outlet-sheet-content">
+          <div className="outlet-focus-card">
+            <span>Route Customer Master</span>
+            <strong>{routeCustomerStatusLabel(customer.status)}</strong>
+            <small>{gpsLabel(customer)}</small>
+          </div>
+          <div className="grid">
+            <div className="metric-row"><span>Lien he</span><strong>{customer.contactName}</strong></div>
+            <div className="metric-row"><span>Khu vuc</span><strong>{customer.area}</strong></div>
+            <div className="metric-row"><span>Thu tu ghe</span><strong>{customer.sortOrder}</strong></div>
+            <div className="metric-row"><span>Cap nhat GPS</span><strong>{customer.gps?.updatedAt ?? "Chua co"}</strong></div>
+          </div>
+          <div className="sheet-note-card">
+            <h3>Quy tac khach trong tuyen</h3>
+            <p>Day la danh sach mac dinh cua tuyen. An khoi tuyen khong xoa du lieu goc. Khi mo phien ngay, danh sach nay duoc copy thanh session customer snapshot.</p>
+          </div>
+        </div>
+      ) : null}
+    </BottomSheet>
+  );
+}
+
 function CustomerSheet({ line, onClose }: { line: McpDayLine | null; onClose: () => void }) {
   return (
     <BottomSheet
@@ -122,9 +178,20 @@ function CustomerSheet({ line, onClose }: { line: McpDayLine | null; onClose: ()
   );
 }
 
-export function MCPPage({ activeHref = "/visits", routesData, mcpDayData }: { activeHref?: string; routesData: RoutesData; mcpDayData: McpDayData }) {
+export function MCPPage({
+  activeHref = "/visits",
+  routesData,
+  mcpDayData,
+  routeCustomersData
+}: {
+  activeHref?: string;
+  routesData: RoutesData;
+  mcpDayData: McpDayData;
+  routeCustomersData: RouteCustomersData;
+}) {
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
   const [selectedLine, setSelectedLine] = useState<McpDayLine | null>(null);
+  const [selectedRouteCustomer, setSelectedRouteCustomer] = useState<RouteCustomerItem | null>(null);
   const [sessionStatus, setSessionStatus] = useState("opened");
   const run = mcpDayData.run;
 
@@ -136,6 +203,23 @@ export function MCPPage({ activeHref = "/visits", routesData, mcpDayData }: { ac
     { key: "completion", header: "Tien do", render: (row) => routeCompletion(row), align: "right" },
     { key: "status", header: "Trang thai", render: (row) => <span className="badge">{routeStatusLabel(row.status)}</span> },
     { key: "open", header: "", render: (row) => <button className="button compact" type="button" onClick={() => setSelectedRoute(row)}>Mo phien</button> }
+  ], []);
+
+  const routeCustomerColumns = useMemo<DataTableColumn<RouteCustomerItem>[]>(() => [
+    { key: "sortOrder", header: "STT", render: (row) => row.sortOrder, align: "right" },
+    { key: "accountName", header: "Diem ban", render: (row) => row.accountName },
+    { key: "routeName", header: "Tuyen", render: (row) => row.routeName },
+    { key: "status", header: "Trang thai", render: (row) => <span className="badge">{routeCustomerStatusLabel(row.status)}</span> },
+    { key: "gps", header: "GPS", render: (row) => gpsLabel(row) },
+    {
+      key: "map",
+      header: "Ban do",
+      render: (row) => {
+        const mapsUrl = buildGoogleMapsUrl(row);
+        return mapsUrl ? <a className="button compact" href={mapsUrl} target="_blank" rel="noreferrer">Maps</a> : "Can GPS";
+      }
+    },
+    { key: "detail", header: "", render: (row) => <button className="button compact" type="button" onClick={() => setSelectedRouteCustomer(row)}>Sua</button> }
   ], []);
 
   const customerColumns = useMemo<DataTableColumn<McpDayLine>[]>(() => [
@@ -177,28 +261,30 @@ export function MCPPage({ activeHref = "/visits", routesData, mcpDayData }: { ac
           <DataTable columns={routeColumns} rows={routesData.routes} getRowKey={(row) => row.id} emptyMessage="Chua co tuyen" />
         </div>
         <div className="card">
-          <h2 className="panel-title">Flow MCP chuan</h2>
+          <h2 className="panel-title">GPS & route master</h2>
           <div className="grid">
-            <div className="metric-row"><span>1</span><strong>Chon ngay</strong></div>
-            <div className="metric-row"><span>2</span><strong>Chon tuyen</strong></div>
-            <div className="metric-row"><span>3</span><strong>Tao snapshot</strong></div>
-            <div className="metric-row"><span>4</span><strong>Xu ly khach</strong></div>
+            {routeCustomersData.kpis.map((item) => <KpiCard key={item.label} label={item.label} value={item.value} hint={item.hint} />)}
           </div>
         </div>
       </section>
 
       <section className="card">
-        <h2 className="panel-title">2. Khach trong phien MCP ngay</h2>
+        <h2 className="panel-title">2. Khach trong tuyen + GPS</h2>
+        <DataTable columns={routeCustomerColumns} rows={routeCustomersData.customers} getRowKey={(row) => row.id} emptyMessage="Chua co khach trong tuyen" />
+      </section>
+
+      <section className="card">
+        <h2 className="panel-title">3. Khach trong phien MCP ngay</h2>
         <DataTable columns={customerColumns} rows={mcpDayData.lines} getRowKey={(row) => row.id} />
       </section>
 
       <section className="card">
-        <h2 className="panel-title">3. Ket qua da ghe</h2>
+        <h2 className="panel-title">4. Ket qua da ghe</h2>
         <DataTable columns={resultColumns} rows={mcpDayData.results} getRowKey={(row) => row.id} />
       </section>
 
       <section className="card">
-        <h2 className="panel-title">4. Session snapshot contract</h2>
+        <h2 className="panel-title">5. Session snapshot contract</h2>
         <div className="grid">
           {MCP_SESSION_SNAPSHOT_RULES.map((rule) => (
             <article className="action-card" key={rule}>
@@ -219,6 +305,7 @@ export function MCPPage({ activeHref = "/visits", routesData, mcpDayData }: { ac
           setSelectedRoute(null);
         }}
       />
+      <RouteCustomerSheet customer={selectedRouteCustomer} onClose={() => setSelectedRouteCustomer(null)} />
       <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} />
     </AppShell>
   );
