@@ -37,6 +37,7 @@ src/ui/shell/AppShell.tsx
 src/ui/shell/navigation.ts
 src/ui/table/DataTable.tsx
 src/features/orders/OrdersClientPage.tsx
+src/features/market-checks/MarketChecksClientPage.tsx
 ```
 
 Thay doi:
@@ -51,13 +52,14 @@ Thay doi:
 - them theme color va apple web app metadata
 - them bottom sheet primitive
 - /orders co popup chi tiet don mau
+- /field-checks co popup chi tiet kiem tra mau
 ```
 
 ## Popup pattern theo tab
 
 ```text
 /orders       -> chi tiet don, trang thai, tao viec theo doi
-/field-checks -> ghi nhan san pham/gia/doi thu
+/field-checks -> ghi nhan san pham/gia/doi thu, tao viec xu ly
 /visits       -> check-in, bo qua khach, ket qua ghe
 /plans        -> cap nhat viec, doi owner, doi han
 /routes       -> xem tuyen, mo phien MCP
@@ -79,9 +81,9 @@ Thay doi:
 ## Buoc tiep theo
 
 ```text
-1. Test /orders popup tren mobile viewport
+1. Test /orders va /field-checks popup tren mobile viewport
 2. Chinh lai card neu qua dai
-3. Lam popup mau cho /field-checks
+3. Lam popup mau cho /plans hoac /visits
 4. Them app icon PNG day du kich thuoc
 5. Them offline shell sau
 ```
