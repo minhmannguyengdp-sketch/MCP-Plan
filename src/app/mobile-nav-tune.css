@@ -4,11 +4,14 @@
   }
 
   .bottom-nav {
-    right: 6px;
-    bottom: max(0px, calc(env(safe-area-inset-bottom) - 34px));
-    left: 6px;
-    border-radius: 20px;
-    padding: 4px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    padding: 5px 8px max(5px, env(safe-area-inset-bottom));
   }
 
   .bottom-nav-link {
@@ -29,11 +32,11 @@
   }
 
   .bottom-nav {
-    right: 4px;
-    bottom: max(0px, calc(env(safe-area-inset-bottom) - 38px));
-    left: 4px;
-    border-radius: 18px;
-    padding: 4px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 20px 20px 0 0;
+    padding: 4px 6px max(4px, env(safe-area-inset-bottom));
   }
 
   .bottom-nav-link {
