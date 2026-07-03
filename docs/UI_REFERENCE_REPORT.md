@@ -4,6 +4,21 @@ Source reviewed: `gustavjung01/report`.
 
 Purpose: learn presentation patterns only. Do not copy old business logic, data flow, or legacy runtime patches.
 
+## Positioning
+
+The old report app is not a design target. It is a reference mine.
+
+Use it like this:
+
+```text
+Observe live behavior.
+Extract useful interaction patterns.
+Reject fragile implementation and messy visuals.
+Rebuild the pattern as clean MCP-Plan React UI.
+```
+
+Do not treat any old screen as final design.
+
 ## What to keep from old report UI
 
 ### 1. Mobile-first density
@@ -41,7 +56,7 @@ one-line description
 small CTA pill
 ```
 
-MCP-Plan should keep this idea, but with cleaner spacing and real module names.
+MCP-Plan should keep this idea, but with cleaner spacing, better grouping, and real module names.
 
 ### 3. Today dashboard
 
@@ -111,9 +126,9 @@ Cần quay lại
 
 Filters should be scrollable horizontally and not consume vertical space.
 
-## What not to copy
+## What is bad in the old report UI
 
-Do not copy:
+Do not copy these parts:
 
 ```text
 inline CSS blob in index.html
@@ -125,74 +140,239 @@ old Supabase direct-write logic
 old AI bridge code
 ```
 
+Also reject these UI problems:
+
+```text
+too many !important overrides
+hard-to-maintain one-line CSS
+mixed responsibilities between HTML, CSS, and JS
+unclear visual hierarchy in some cards
+icons used as decoration without status meaning
+small typography that can become cramped
+inconsistent module colors
+actions packed too tightly without priority
+screens that rely on height hacks instead of clear layout regions
+```
+
 The old repo itself says many legacy files should be cleaned. Treat it as visual reference only.
 
-## MCP-Plan UI direction
+## Recycle strategy
 
-### Dashboard
+### Recycle, do not copy
 
-Current MCP-Plan dashboard is too busy because it stacks:
+For each old pattern, MCP-Plan should decide:
 
 ```text
-long page header
-filter bar
-4 KPI cards
-table card
-insight card
-action card list
+Keep: the user workflow idea.
+Improve: spacing, hierarchy, accessibility, state clarity.
+Replace: implementation, data flow, and styling system.
 ```
 
-New dashboard should become:
+### Pattern evaluation checklist
+
+Before reusing any old UI pattern, check:
 
 ```text
-1. Today summary card
-2. Compact KPI strip
-3. Priority action list
-4. Route health cards, not desktop table on mobile
+1. Does it reduce decision time for sales/user in the field?
+2. Can the user understand status in under 2 seconds?
+3. Does each card have one main decision?
+4. Is the primary action obvious?
+5. Does it still work on small iPhone width?
+6. Can it be implemented as reusable React components?
+7. Does it depend on legacy data shape or DOM mutation? If yes, reject.
 ```
 
-### MCP daily route screen
+## MCP-Plan upgraded design rules
 
-Use the old report MCP presentation pattern:
+### 1. Clear hierarchy
+
+Use this order on operational screens:
 
 ```text
-route/session hero
+Screen purpose
+Today/session status
+KPI strip
+Filter chips
+Primary list
+Action buttons
+```
+
+### 2. One card = one decision
+
+Each card should answer:
+
+```text
+What is this item?
+What is the current status?
+What should I do next?
+```
+
+### 3. Status before decoration
+
+Badges and colors must explain state:
+
+```text
+good / watch / risk
+todo / visited / skipped / ordered / follow-up
+synced / pending / failed
+```
+
+Do not use color only for decoration.
+
+### 4. Compact but not cramped
+
+Old report app is dense, but MCP-Plan should improve readability:
+
+```text
+larger touch targets
+consistent border radius
+short labels
+no paragraph-heavy cards
+no more than 3 metadata rows visible by default
+```
+
+### 5. Stable mobile app shell
+
+Keep MCP-Plan app-like behavior:
+
+```text
+fixed bottom navigation
+controlled scroll region
+safe-area handled deliberately
+no web-like page jump if avoidable
+```
+
+But avoid old report's CSS hacks.
+
+## Module-by-module recycle plan
+
+### Phase 1 - Dashboard
+
+Reference from old report:
+
+```text
+Today summary
+compact KPI block
+action list
+module entry cards
+```
+
+MCP-Plan improvement:
+
+```text
+stronger today summary card
+2-column KPI strip on mobile
+route health as cards instead of table
+show API source state cleanly
+```
+
+Status: started.
+
+### Phase 2 - MCP daily/session screen
+
+Reference from old report:
+
+```text
+route hero
 score pills
-status filters
+status chip filters
 customer cards
-action buttons
+action row per customer
 ```
 
-But business logic must use the new backend contract:
+MCP-Plan improvement:
 
 ```text
-mcp_route_sessions
-mcp_session_customers
-mcp_visits
-orders
-test results
-market reports
-follow-up tasks
+session snapshot source clearly shown
+customer status badge standardized
+actions grouped by real workflow: visit, order, test, follow-up
+skip/cancel requires reason
+no hard delete from opened session
 ```
 
-### Card rules
+### Phase 3 - Orders screen
+
+Reference from old report:
 
 ```text
-One card = one decision.
-One card should answer: What is this? What status? What next action?
-Max 3 visible metadata lines.
-Badges must be short.
-Actions must be predictable and fixed position.
+compact order card
+short status badge
+quick actions
 ```
 
-### Mobile rules
+MCP-Plan improvement:
 
 ```text
-No dense desktop table as the primary mobile view.
-No large empty hero blocks.
-No filter panel that pushes content down.
-No card with too many unrelated metrics.
-Prefer chip filters and compact KPI strips.
+show order source: MCP / visit / phone
+show customer + route context first
+show amount and item count compactly
+separate draft/confirmed/delivered states
+```
+
+### Phase 4 - Test product screen
+
+Reference from old report:
+
+```text
+test file card
+customer result list
+small result action buttons
+```
+
+MCP-Plan improvement:
+
+```text
+separate file setup from result entry
+show product count and customer count
+show pending/completed result count
+avoid tiny action buttons if workflow is complex
+```
+
+### Phase 5 - Market report / field check
+
+Reference from old report:
+
+```text
+report module entry
+basic report cards
+```
+
+MCP-Plan improvement:
+
+```text
+field check templates
+competitor / price / display / stock status
+photo evidence slot later
+clear follow-up task creation
+```
+
+## Component targets
+
+Create or improve these reusable pieces:
+
+```text
+TodaySummaryCard
+CompactKpiStrip
+StatusChipBar
+OperationalListCard
+CustomerVisitCard
+RouteSessionHero
+ActionButtonRow
+SourceBadge
+SyncStatePill
+```
+
+These components should be data-shape agnostic and receive clean DTO props from API client/backend.
+
+## What not to do
+
+```text
+Do not port old report CSS.
+Do not use inline CSS blobs.
+Do not add more emergency override files.
+Do not let frontend calculate complex business logic.
+Do not copy old IndexedDB/Supabase write flow.
+Do not make every screen visually dense just because old report is dense.
 ```
 
 ## First UI refactor target
