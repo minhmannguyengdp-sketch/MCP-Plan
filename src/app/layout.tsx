@@ -4,11 +4,17 @@ import "./mobile.css";
 import "./order-popups.css";
 import "./outlet-profile.css";
 import "./mobile-nav-tune.css";
+import "./polish.css";
 
 export const metadata: Metadata = {
   title: "MCP-Plan",
   description: "Quan ly NPP, tuyen ban hang, don hang va ke hoach hanh dong.",
   applicationName: "MCP-Plan",
+  icons: {
+    icon: "/pwa-icon.svg",
+    shortcut: "/pwa-icon.svg",
+    apple: "/pwa-icon.svg"
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
