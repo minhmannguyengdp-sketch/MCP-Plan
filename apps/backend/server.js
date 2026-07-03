@@ -1,4 +1,11 @@
 import http from "node:http";
+import { loadEnvFile } from "node:process";
+
+try {
+  loadEnvFile(".env");
+} catch {
+  // Production can also provide env vars through PM2/systemd.
+}
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 3001);
