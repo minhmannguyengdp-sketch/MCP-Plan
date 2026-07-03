@@ -65,8 +65,8 @@ function FieldCheckSheet({ check, onClose }: { check: MarketCheckItem | null; on
           </div>
 
           <div className="sheet-note-card">
-            <h3>Popup field check</h3>
-            <p>Sau nay popup nay se them chup anh ke hang, cap nhat gia, danh dau doi thu va tao plan cho giam sat.</p>
+            <h3>Huong xu ly</h3>
+            <p>Kiem tra lai gia, ton kho, doi thu va tao viec cho sale/giam sat neu phat hien co hoi hoac rui ro.</p>
           </div>
         </div>
       ) : null}
@@ -83,9 +83,9 @@ export function MarketChecksClientPage({ kpis, checks }: { kpis: MarketCheckKpi[
       <PageHeader
         eyebrow="Field Checks"
         title="Kiem tra thi truong"
-        subtitle="Field check dung card va popup de ghi nhan nhanh nhung gi sale thay tai diem ban."
+        subtitle="Ghi nhan gia ke, doi thu, ton kho va co hoi xu ly tai tung diem ban."
       >
-        <span className="badge">Mock data</span>
+        <span className="badge">Dang theo doi</span>
       </PageHeader>
 
       <FilterBar
@@ -109,11 +109,11 @@ export function MarketChecksClientPage({ kpis, checks }: { kpis: MarketCheckKpi[
         </div>
 
         <div className="card">
-          <h2 className="panel-title">Popup dung de lam gi</h2>
+          <h2 className="panel-title">Diem can theo doi</h2>
           <div className="grid">
             <div className="metric-row"><span>Gia</span><strong>Cap nhat</strong></div>
             <div className="metric-row"><span>Doi thu</span><strong>Theo doi</strong></div>
-            <div className="metric-row"><span>Plan</span><strong>Xu ly</strong></div>
+            <div className="metric-row"><span>Viec can lam</span><strong>Xu ly</strong></div>
           </div>
         </div>
       </section>
