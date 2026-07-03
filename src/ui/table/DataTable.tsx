@@ -20,29 +20,44 @@ export function DataTable<T>({ columns, rows, getRowKey, emptyMessage = "Chua co
   }
 
   return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th className={column.align ? `align-${column.align}` : undefined} key={column.key}>
-                {column.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={getRowKey(row)}>
+    <>
+      <div className="table-wrap desktop-table">
+        <table>
+          <thead>
+            <tr>
               {columns.map((column) => (
-                <td className={column.align ? `align-${column.align}` : undefined} key={column.key}>
-                  {column.render(row)}
-                </td>
+                <th className={column.align ? `align-${column.align}` : undefined} key={column.key}>
+                  {column.header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={getRowKey(row)}>
+                {columns.map((column) => (
+                  <td className={column.align ? `align-${column.align}` : undefined} key={column.key}>
+                    {column.render(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mobile-table-cards">
+        {rows.map((row) => (
+          <article className="mobile-row-card" key={getRowKey(row)}>
+            {columns.map((column, index) => (
+              <div className={index === 0 ? "mobile-row-field primary" : "mobile-row-field"} key={column.key}>
+                <span>{column.header}</span>
+                <strong>{column.render(row)}</strong>
+              </div>
+            ))}
+          </article>
+        ))}
+      </div>
+    </>
   );
 }
