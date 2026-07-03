@@ -1,16 +1,18 @@
 @media (max-width: 820px) {
   .main {
-    padding-bottom: 88px;
+    padding-bottom: 94px;
   }
 
   .bottom-nav {
-    right: 8px;
-    bottom: 8px;
-    left: 8px;
-    border: 1px solid rgba(228, 231, 236, 0.96);
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 5px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    background: rgba(255, 255, 255, 0.97);
+    padding: 5px 8px 18px;
   }
 
   .bottom-nav::after {
@@ -31,15 +33,15 @@
 
 @media (max-width: 420px) {
   .main {
-    padding-bottom: 86px;
+    padding-bottom: 92px;
   }
 
   .bottom-nav {
-    right: 6px;
-    bottom: 8px;
-    left: 6px;
-    border-radius: 20px;
-    padding: 5px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 20px 20px 0 0;
+    padding: 4px 6px 17px;
   }
 
   .bottom-nav-link {
