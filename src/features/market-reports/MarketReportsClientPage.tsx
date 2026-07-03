@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
+import { OperationalListCard } from "@/ui/cards/OperationalListCard";
 import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
@@ -12,16 +13,16 @@ import styles from "./MarketReportsClientPage.module.css";
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
 function getStatusLabel(status: MarketReportStatus) {
-  if (status === "opportunity") return "Co hoi";
-  if (status === "risk") return "Rui ro";
-  return "Binh thuong";
+  if (status === "opportunity") return "Cơ hội";
+  if (status === "risk") return "Rủi ro";
+  return "Bình thường";
 }
 
 function getTypeLabel(type: MarketReportType) {
-  if (type === "price") return "Gia";
-  if (type === "competitor") return "Doi thu";
-  if (type === "display") return "Trung bay";
-  return "Ton kho";
+  if (type === "price") return "Giá";
+  if (type === "competitor") return "Đối thủ";
+  if (type === "display") return "Trưng bày";
+  return "Tồn kho";
 }
 
 function getStatusClass(status: MarketReportStatus) {
@@ -32,32 +33,18 @@ function getStatusClass(status: MarketReportStatus) {
 
 function ReportCard({ report, onSelect }: { report: MarketReportItem; onSelect: (report: MarketReportItem) => void }) {
   return (
-    <article className={styles.card}>
-      <div className={styles.head}>
-        <div>
-          <span>{getTypeLabel(report.reportType)} - {report.date}</span>
-          <h3>{report.subject}</h3>
-        </div>
-        <strong className={getStatusClass(report.status)}>{getStatusLabel(report.status)}</strong>
-      </div>
-
-      <div className={styles.context}>
-        <b>{report.accountName}</b>
-        <small>{report.routeName} - {report.note}</small>
-      </div>
-
-      <div className={styles.metrics}>
-        <span><b>{report.price ? money.format(report.price) : "-"}</b><small>Gia</small></span>
-        <span><b>{report.competitorName || "-"}</b><small>Doi thu</small></span>
-        <span><b>{report.nextAction}</b><small>Viec tiep</small></span>
-      </div>
-
-      <div className={styles.actions}>
-        <button className="button primary" type="button" onClick={() => onSelect(report)}>Xem</button>
-        <button className="button" type="button">Anh</button>
-        <button className="button" type="button">Viec</button>
-      </div>
-    </article>
+    <OperationalListCard
+      leading={<span>{getTypeLabel(report.reportType).slice(0, 2)}</span>}
+      eyebrow={`${getTypeLabel(report.reportType)} · ${report.date}`}
+      title={report.subject}
+      description={report.accountName}
+      badge={<strong className={getStatusClass(report.status)}>{getStatusLabel(report.status)}</strong>}
+      meta={[report.routeName, report.price ? money.format(report.price) : "Chưa có giá", report.nextAction]}
+      actions={[
+        { label: "Xem", tone: "primary", onClick: () => onSelect(report) },
+        { label: "Việc" }
+      ]}
+    />
   );
 }
 
@@ -66,20 +53,20 @@ function ReportSheet({ report, onClose }: { report: MarketReportItem | null; onC
     <BottomSheet
       open={Boolean(report)}
       onClose={onClose}
-      title={report ? report.subject : "Chi tiet bao cao"}
-      description={report ? `${report.accountName} - ${report.routeName}` : undefined}
-      footer={<div className="sheet-action-grid"><button className="button primary" type="button">Tao viec xu ly</button><button className="button" type="button" onClick={onClose}>Dong</button></div>}
+      title={report ? report.subject : "Chi tiết báo cáo"}
+      description={report ? `${report.accountName} · ${report.routeName}` : undefined}
+      footer={<div className="sheet-action-grid"><button className="button primary" type="button">Tạo việc xử lý</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {report ? (
         <div className="field-sheet-content">
-          <div className="field-focus-card"><span>Danh gia</span><strong>{getStatusLabel(report.status)}</strong><small>{report.note}</small></div>
+          <div className="field-focus-card"><span>Đánh giá</span><strong>{getStatusLabel(report.status)}</strong><small>{report.note}</small></div>
           <div className="grid">
-            <div className="metric-row"><span>Loai</span><strong>{getTypeLabel(report.reportType)}</strong></div>
-            <div className="metric-row"><span>Doi thu</span><strong>{report.competitorName || "-"}</strong></div>
-            <div className="metric-row"><span>Gia</span><strong>{report.price ? money.format(report.price) : "-"}</strong></div>
-            <div className="metric-row"><span>Ngay</span><strong>{report.date}</strong></div>
+            <div className="metric-row"><span>Loại</span><strong>{getTypeLabel(report.reportType)}</strong></div>
+            <div className="metric-row"><span>Đối thủ</span><strong>{report.competitorName || "-"}</strong></div>
+            <div className="metric-row"><span>Giá</span><strong>{report.price ? money.format(report.price) : "-"}</strong></div>
+            <div className="metric-row"><span>Ngày</span><strong>{report.date}</strong></div>
           </div>
-          <div className="sheet-note-card"><h3>Huong xu ly</h3><p>{report.nextAction}</p></div>
+          <div className="sheet-note-card"><h3>Hướng xử lý</h3><p>{report.nextAction}</p></div>
         </div>
       ) : null}
     </BottomSheet>
@@ -92,19 +79,19 @@ export function MarketReportsClientPage({ kpis, reports }: { kpis: MarketReportK
 
   return (
     <AppShell activeHref="/reports">
-      <PageHeader eyebrow="Market Reports" title="Bao cao thi truong" subtitle="Ghi nhan gia, doi thu, trung bay, ton kho va viec can xu ly ngoai thi truong."><span className="badge">{needAction} can xu ly</span></PageHeader>
-      <FilterBar filters={[{ label: "Ngay", value: "Gan nhat" }, { label: "Tuyen", value: "Tat ca" }, { label: "Loai", value: "Tat ca" }]} />
+      <PageHeader eyebrow="Market Reports" title="Báo cáo thị trường" subtitle="Ghi nhận giá, đối thủ, trưng bày, tồn kho và việc cần xử lý ngoài thị trường."><span className="badge">{needAction} cần xử lý</span></PageHeader>
+      <FilterBar filters={[{ label: "Ngày", value: "Gần nhất" }, { label: "Tuyến", value: "Tất cả" }, { label: "Loại", value: "Tất cả" }]} />
       <CompactKpiStrip items={kpis} />
 
       <div className={styles.templateGrid}>
-        <span>Gia</span>
-        <span>Doi thu</span>
-        <span>Trung bay</span>
-        <span>Ton kho</span>
+        <span>Giá</span>
+        <span>Đối thủ</span>
+        <span>Trưng bày</span>
+        <span>Tồn kho</span>
       </div>
 
       <section className={styles.section}>
-        <div className="dashboard-section-head"><h2>Bao cao moi</h2><span>{reports.length} dong</span></div>
+        <div className="dashboard-section-head"><h2>Báo cáo mới</h2><span>{reports.length} dòng</span></div>
         <div className={styles.list}>{reports.map((report) => <ReportCard key={report.id} report={report} onSelect={setSelectedReport} />)}</div>
       </section>
 
