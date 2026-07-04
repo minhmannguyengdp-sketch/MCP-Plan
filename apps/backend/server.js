@@ -135,6 +135,39 @@ async function supabasePatch(table, values, params = {}) {
   return response.json();
 }
 
+async function proxySupabaseFunction(functionName, body, extraBody = {}) {
+  assertSupabaseConfig();
+
+  const response = await fetch(new URL(`/functions/v1/${functionName}`, SUPABASE_URL), {
+    method: "POST",
+    headers: supabaseHeaders({
+      "Content-Type": "application/json"
+    }),
+    body: JSON.stringify({ ...body, ...extraBody })
+  });
+
+  const text = await response.text();
+  let payload = {};
+
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = { raw: text };
+    }
+  }
+
+  if (!response.ok) {
+    const error = new Error(payload.error || "edge_function_failed");
+    error.statusCode = response.status || 502;
+    error.detail = payload.detail || payload.raw || text;
+    error.table = payload.table;
+    throw error;
+  }
+
+  return payload.data ?? payload;
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -1044,6 +1077,21 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/session-customer/status") {
     const body = await readJsonBody(req);
     return wrap(await updateMcpSessionCustomerStatus(body));
+  }
+
+  if (url.pathname === "/api/mcp-day/session-customer/result") {
+    const body = await readJsonBody(req);
+    return wrap(await proxySupabaseFunction("mcp-day-8b3", body));
+  }
+
+  if (url.pathname === "/api/mcp-day/session-customer/add") {
+    const body = await readJsonBody(req);
+    return wrap(await proxySupabaseFunction("mcp-day-8b3", body, { action: "add" }));
+  }
+
+  if (url.pathname === "/api/mcp-day/session-customer/followup") {
+    const body = await readJsonBody(req);
+    return wrap(await proxySupabaseFunction("mcp-day-followup", body));
   }
 
   const error = new Error("not_found");
