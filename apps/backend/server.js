@@ -478,9 +478,18 @@ async function openMcpDaySession(body) {
     createdSession = true;
   }
 
+  const existingSnapshots = await supabaseGet("mcp_session_customers", {
+    select: "id,route_customer_id",
+    session_id: `eq.${session.id}`,
+    order: "created_at.asc",
+    limit: 2000
+  });
+  const existingRouteCustomerIds = new Set(existingSnapshots.map((snapshot) => snapshot.route_customer_id).filter(Boolean));
+  const missingCustomers = activeCustomers.filter((customer) => !existingRouteCustomerIds.has(customer.id));
+
   let insertedSnapshots = [];
-  if (createdSession) {
-    const snapshotRows = activeCustomers.map((customer) => ({
+  if (missingCustomers.length > 0) {
+    const snapshotRows = missingCustomers.map((customer) => ({
       id: randomId("msc"), session_id: session.id, route_id: route.id, route_customer_id: customer.id, customer_id: customer.customer_id,
       customer_name: customer.customer_name || "Khách chưa tên", phone: customer.phone, area: customer.area, address: customer.address,
       sort_order: customer.sort_order || 0, source: "master", planned_status: "planned", visit_status: "pending", note: customer.note,
@@ -488,7 +497,14 @@ async function openMcpDaySession(body) {
     }));
     insertedSnapshots = await supabaseInsert("mcp_session_customers", snapshotRows);
   }
-  const snapshotCount = await supabaseCount("mcp_session_customers", { session_id: `eq.${session.id}` });
+
+  if (Number(session.planned_customers || 0) !== activeCustomers.length) {
+    const now = new Date().toISOString();
+    const updatedSessions = await supabasePatch("mcp_route_sessions", { planned_customers: activeCustomers.length, updated_at: now }, { id: `eq.${session.id}` });
+    session = updatedSessions[0] || { ...session, planned_customers: activeCustomers.length, updated_at: now };
+  }
+
+  const snapshotCount = existingSnapshots.length + insertedSnapshots.length;
   return { session, createdSession, insertedSnapshotCount: insertedSnapshots.length, snapshotCount };
 }
 
@@ -678,3 +694,4 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`${SERVICE} listening on http://${HOST}:${PORT}`);
 });
+
