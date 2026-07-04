@@ -136,6 +136,11 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
         <span className="badge">{routesData.routes.length} tuyến</span>
       </PageHeader>
 
+      <section className="mcp-gate-banner">
+        <strong>ĐANG TEST C1 · /routes tuyến master</strong>
+        <span>Chỉ kiểm tra tuyến gốc, khách tuyến, GPS. Không test phiên ngày ở màn này.</span>
+      </section>
+
       <FilterBar filters={[{ label: "Tuyến", value: String(routesData.routes.length) }, { label: "Khách tuyến", value: String(routeCustomersData.customers.length) }, { label: "Cần GPS", value: String(needsGpsCustomers.length) }, { label: "Đang chạy", value: String(activeRoutes.length) }]} />
 
       <section className="dashboard-section">
