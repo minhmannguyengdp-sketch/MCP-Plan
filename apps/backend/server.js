@@ -243,6 +243,14 @@ function sessionCustomerStatusNeedsReason(status) {
   return status === "skipped" || status === "cancelled";
 }
 
+function getMcpNextAction({ hasOrder, hasTest, hasReport, followupCount }) {
+  if (hasOrder) return "Theo đơn";
+  if (Number(followupCount || 0) > 0) return "Follow-up";
+  if (hasReport) return "Theo báo cáo";
+  if (hasTest) return "Theo test";
+  return "Chăm sóc";
+}
+
 function healthPayload() {
   return {
     ok: true,
@@ -577,13 +585,13 @@ async function loadMcpDayData() {
 
   const [snapshots, visits] = await Promise.all([
     supabaseGet("mcp_session_customers", {
-      select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,address,sort_order,source,planned_status,visit_status,status_reason,visit_id,order_id,note,created_at,updated_at",
+      select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,address,sort_order,source,planned_status,visit_status,status_reason,visit_id,order_id,test_id,report_id,followup_count,note,created_at,updated_at",
       session_id: `eq.${session.id}`,
       order: "sort_order.asc,created_at.asc",
       limit: 2000
     }),
     supabaseGet("mcp_visits", {
-      select: "id,session_id,route_id,route_customer_id,visit_date,status,has_order,has_test,has_report,checkin_at,note,created_at",
+      select: "id,session_id,route_id,route_customer_id,visit_date,status,has_order,has_test,has_report,order_id,test_id,report_id,checkin_at,note,created_at",
       session_id: `eq.${session.id}`,
       order: "checkin_at.asc,created_at.asc",
       limit: 1000
@@ -624,6 +632,13 @@ async function loadMcpDayData() {
   const lines = sourceRows.map((snapshot) => {
     const visit = visitById.get(snapshot.visit_id) || visitByRouteCustomer.get(snapshot.route_customer_id);
     const status = snapshot.visit_status || normalizeLineStatus(visit);
+    const orderId = snapshot.order_id || visit?.order_id || null;
+    const testId = snapshot.test_id || visit?.test_id || null;
+    const reportId = snapshot.report_id || visit?.report_id || null;
+    const hasOrder = Boolean(visit?.has_order || orderId);
+    const hasTest = Boolean(visit?.has_test || testId);
+    const hasReport = Boolean(visit?.has_report || reportId);
+    const followupCount = numberValue(snapshot.followup_count);
 
     if (visit?.id) snapshotByVisitId.set(visit.id, snapshot);
     if (snapshot.route_customer_id) snapshotByRouteCustomerId.set(snapshot.route_customer_id, snapshot);
@@ -640,7 +655,13 @@ async function loadMcpDayData() {
       statusReason: snapshot.status_reason || undefined,
       note: snapshot.note || snapshot.address || "Từ snapshot ngày",
       result: visit?.note || snapshot.status_reason || undefined,
-      hasOrder: Boolean(visit?.has_order || snapshot.order_id),
+      orderId: orderId || undefined,
+      testId: testId || undefined,
+      reportId: reportId || undefined,
+      hasOrder,
+      hasTest,
+      hasReport,
+      followupCount,
       visitId: visit?.id || snapshot.visit_id || undefined
     };
   });
@@ -648,6 +669,13 @@ async function loadMcpDayData() {
   const results = visits.map((visit) => {
     const snapshot = snapshotByVisitId.get(visit.id) || snapshotByRouteCustomerId.get(visit.route_customer_id);
     const checkin = visit.checkin_at || visit.created_at;
+    const orderId = snapshot?.order_id || visit.order_id || null;
+    const testId = snapshot?.test_id || visit.test_id || null;
+    const reportId = snapshot?.report_id || visit.report_id || null;
+    const hasOrder = Boolean(visit.has_order || orderId);
+    const hasTest = Boolean(visit.has_test || testId);
+    const hasReport = Boolean(visit.has_report || reportId);
+    const followupCount = numberValue(snapshot?.followup_count);
 
     return {
       id: visit.id,
@@ -658,10 +686,17 @@ async function loadMcpDayData() {
       startTime: timeOnly(checkin),
       endTime: timeOnly(checkin),
       result: visit.note || visit.status || "Đã ghé",
-      hasOrder: Boolean(visit.has_order),
-      nextAction: visit.has_order ? "Theo đơn" : visit.has_test ? "Theo test" : visit.has_report ? "Theo báo cáo" : "Chăm sóc"
+      orderId: orderId || undefined,
+      testId: testId || undefined,
+      reportId: reportId || undefined,
+      hasOrder,
+      hasTest,
+      hasReport,
+      followupCount,
+      nextAction: getMcpNextAction({ hasOrder, hasTest, hasReport, followupCount })
     };
   });
+
 
   const visited = lines.filter((line) => line.status === "visited").length;
   const pending = lines.filter((line) => line.status === "pending").length;
