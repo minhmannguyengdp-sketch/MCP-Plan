@@ -136,7 +136,7 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
         <span className="badge">{routesData.routes.length} tuyến</span>
       </PageHeader>
 
-      <FilterBar filters={[{ label: "Tuyến", value: routesData.routes.length }, { label: "Khách tuyến", value: routeCustomersData.customers.length }, { label: "Cần GPS", value: needsGpsCustomers.length }, { label: "Đang chạy", value: activeRoutes.length }]} />
+      <FilterBar filters={[{ label: "Tuyến", value: String(routesData.routes.length) }, { label: "Khách tuyến", value: String(routeCustomersData.customers.length) }, { label: "Cần GPS", value: String(needsGpsCustomers.length) }, { label: "Đang chạy", value: String(activeRoutes.length) }]} />
 
       <section className="dashboard-section">
         <div className="dashboard-section-head"><h2>Không gian tuyến master</h2><span>Không trộn dữ liệu phiên ngày</span></div>
