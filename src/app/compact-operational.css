@@ -1,3 +1,26 @@
+.mcp-gate-banner {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(14, 116, 144, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(16, 24, 40, 0.92), rgba(14, 116, 144, 0.9));
+  color: #ffffff;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+}
+
+.mcp-gate-banner strong {
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+
+.mcp-gate-banner span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .operational-list-card {
   grid-template-columns: 34px minmax(0, 1fr);
   align-items: start;
@@ -81,6 +104,20 @@
 }
 
 @media (max-width: 820px) {
+  .mcp-gate-banner {
+    border-radius: 16px;
+    margin-bottom: 8px;
+    padding: 11px 12px;
+  }
+
+  .mcp-gate-banner strong {
+    font-size: 13px;
+  }
+
+  .mcp-gate-banner span {
+    font-size: 11px;
+  }
+
   .operational-list-card {
     grid-template-columns: 32px minmax(0, 1fr);
     gap: 6px 8px;
