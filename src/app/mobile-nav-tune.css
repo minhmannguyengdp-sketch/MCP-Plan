@@ -20,7 +20,7 @@
     left: 0;
     z-index: 1;
     height: 96px;
-    background: #eaf2ff;
+    background: #1e3a8a;
     pointer-events: none;
   }
 
@@ -57,6 +57,7 @@
 @media (max-width: 420px) {
   .app-shell::after {
     height: 88px;
+    background: #1e3a8a;
   }
 
   .main {
