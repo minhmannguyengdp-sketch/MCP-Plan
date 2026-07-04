@@ -3,8 +3,8 @@ import { OperationalListCard } from "@/ui/cards/OperationalListCard";
 import { type McpCustomerAction } from "./mcp-customer-actions";
 
 function sourceLabel(source: McpDayLine["source"]) {
-  if (source === "planned") return "Tuyến gốc";
-  if (source === "added") return "Phát sinh";
+  if (source === "planned") return "Khách theo tuyến";
+  if (source === "added") return "Khách phát sinh";
   return "Đồng bộ";
 }
 
@@ -24,17 +24,13 @@ function statusClass(status: McpDayLine["status"]) {
 
 function resultSummary(line: McpDayLine) {
   const done = [
-    line.hasOrder ? "Đơn" : null,
-    line.hasTest ? "Test" : null,
-    line.hasReport ? "Báo cáo" : null,
+    line.hasOrder ? "Có đơn" : null,
+    line.hasTest ? "Có test" : null,
+    line.hasReport ? "Có báo cáo" : null,
     Number(line.followupCount || 0) > 0 ? `${line.followupCount} việc` : null
   ].filter(Boolean);
 
-  return done.length > 0 ? done.join(" · ") : "Chưa phát sinh kết quả";
-}
-
-function sessionCustomerLabel(line: McpDayLine) {
-  return line.sessionCustomerId ? `SC ${line.sessionCustomerId}` : `Line ${line.id}`;
+  return done.length > 0 ? done.join(" · ") : "Chưa ghi kết quả";
 }
 
 export function McpLineCard({
@@ -51,9 +47,9 @@ export function McpLineCard({
       leading={<span>#{line.sortOrder}</span>}
       eyebrow={`${line.area} · ${sourceLabel(line.source)}`}
       title={line.accountName}
-      description={line.result || line.note || "Khách trong phiên MCP ngày"}
+      description={line.result || line.note || "Chưa ghi chú ghé"}
       badge={<span className={statusClass(line.status)}>{statusLabel(line.status)}</span>}
-      meta={[sessionCustomerLabel(line), resultSummary(line)]}
+      meta={[statusLabel(line.status), resultSummary(line)]}
       actions={[
         { label: "Mở xử lý", tone: "primary", onClick: () => onOpen(line) },
         { label: line.hasOrder ? "Ghi tiếp" : "Ghi đơn", onClick: () => onAction(line, "order") }
