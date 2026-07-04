@@ -5,44 +5,13 @@ import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 
-const MCP_CARDS = [
-  {
-    href: "/routes",
-    icon: "◎",
-    title: "Tuyến",
-    description: "Xem tuyến gốc, khách tuyến và chuẩn bị phiên.",
-    cta: "Chọn tuyến"
-  },
-  {
-    href: "/visits",
-    icon: "◇",
-    title: "MCP hôm nay",
-    description: "Đi tuyến, xử lý khách trong phiên ngày.",
-    cta: "Đi tuyến"
-  },
-  {
-    href: "/mcp/settings",
-    icon: "⚙",
-    title: "Cài đặt MCP",
-    description: "Luật thêm khách, GPS, trạng thái và mẫu ghi nhận.",
-    cta: "Cài đặt"
-  }
+const MCP_TABS = [
+  { href: "/routes", label: "Tuyến", hint: "Tuyến gốc và khách tuyến" },
+  { href: "/visits", label: "MCP hôm nay", hint: "Phiên đang đi" },
+  { href: "/mcp/settings", label: "Cài đặt MCP", hint: "Luật thêm khách, GPS, trạng thái" }
 ];
 
-function renderMcpCard(item: (typeof MCP_CARDS)[number]) {
-  return (
-    <Link className="dashboard-module-card" href={item.href} key={item.href}>
-      <span className="dashboard-module-icon" aria-hidden="true">{item.icon}</span>
-      <div>
-        <h3>{item.title}</h3>
-        <p>{item.description}</p>
-      </div>
-      <strong>{item.cta}</strong>
-    </Link>
-  );
-}
-
-export default async function McpHomePage() {
+export default async function McpPage() {
   const api = createApiClient();
   const [routesResult, dayResult] = await Promise.all([
     api.getRoutesData(),
@@ -50,36 +19,44 @@ export default async function McpHomePage() {
   ]);
 
   const routes = routesResult.data.routes;
+  const run = dayResult.data.run;
   const activeRoutes = routes.filter((route) => route.status === "active" || route.status === "watch").length;
-  const currentRun = dayResult.data.run;
 
   return (
     <AppShell activeHref="/mcp">
       <PageHeader
         eyebrow="MCP"
         title="MCP"
-        subtitle="Chọn tuyến, đi tuyến hôm nay hoặc chỉnh cài đặt MCP."
+        subtitle="Tuyến, phiên hôm nay và cài đặt nằm chung một chỗ."
       >
         <SourceBadge source={routesResult.source} />
       </PageHeader>
 
-      <section className="dashboard-module-grid" aria-label="MCP modules">
-        {MCP_CARDS.map(renderMcpCard)}
+      <section className="dashboard-section">
+        <div className="mcp-status-chips" role="tablist" aria-label="MCP">
+          {MCP_TABS.map((item) => (
+            <Link className="button" href={item.href} key={item.href}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
       </section>
 
       <FilterBar
-        title="Tóm tắt MCP"
+        title="Tóm tắt"
         filters={[
           { label: "Tuyến", value: String(routes.length) },
           { label: "Có thể đi", value: String(activeRoutes) },
-          { label: "Phiên hiện tại", value: currentRun.routeName },
-          { label: "Ngày", value: currentRun.date }
+          { label: "Phiên", value: run.routeName },
+          { label: "Ngày", value: run.date }
         ]}
       />
 
-      <section className="mcp-gate-banner">
-        <strong>Luồng chuẩn</strong>
-        <span>Vào Tuyến để chọn tuyến gốc. Vào MCP hôm nay để xử lý phiên đang đi.</span>
+      <section className="card">
+        <h2 className="panel-title">Luồng MCP</h2>
+        <p className="page-subtitle">
+          Vào Tuyến để quản lý tuyến gốc. Vào MCP hôm nay để xử lý phiên đang chạy.
+        </p>
       </section>
     </AppShell>
   );
