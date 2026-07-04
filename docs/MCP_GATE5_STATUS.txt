@@ -5,6 +5,7 @@ Done:
 - A2: mcp_visits.visit_date is now derived from mcp_route_sessions.session_date by DB trigger.
 - A2: existing mismatched mcp_visits rows were backfilled; mismatch count is 0 after migration.
 - A3: DB now requires session context on MCP write tables.
+- A4: DB now fails closed for added session customers unless raw_payload carries the explicit selected session id.
 
 A3 DB enforcement:
 - mcp_session_customers.session_id is not null.
@@ -12,11 +13,16 @@ A3 DB enforcement:
 - mcp_followups.session_id is not null.
 - mcp_followups.session_customer_id is not null.
 
+A4 DB enforcement:
+- mcp_session_customers rows with source = added must include explicit session context in raw_payload.
+- Accepted raw_payload keys: session_id, sessionId, explicit_session_id, received_session_id.
+- This blocks malformed add-customer write flows from silently using latest session fallback.
+
 Migrations:
 - supabase/migrations/20260704_mcp_phase_a_note.sql
 - supabase/migrations/20260704_mcp_visits_visit_date_from_session.sql
 - supabase/migrations/20260704_mcp_require_session_context.sql
+- supabase/migrations/20260704_mcp_fail_closed_added_session_context.sql
 
 Pending:
-- A4: remove latest-session fallback from write flows.
 - A5: standardize counters for planned/visited/order/test/report/followup.
