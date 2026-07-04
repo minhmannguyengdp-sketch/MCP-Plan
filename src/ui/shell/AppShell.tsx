@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { PRIMARY_NAV_ITEMS, SIDEBAR_NAV_ITEMS, type NavItem } from "./navigation";
 
@@ -16,10 +17,10 @@ function NavLinks({ activeHref, items, mode }: { activeHref: string; items: NavI
         const className = mode === "sidebar" ? (isActive ? "sidebar-link active" : "sidebar-link") : isActive ? "bottom-nav-link active" : "bottom-nav-link";
 
         return (
-          <a className={className} href={item.href} key={item.href}>
+          <Link className={className} href={item.href} key={item.href} prefetch>
             <span className="nav-icon" aria-hidden="true">{item.icon}</span>
             <span className="nav-label">{mode === "sidebar" ? item.label : item.shortLabel}</span>
-          </a>
+          </Link>
         );
       })}
     </nav>
@@ -37,17 +38,17 @@ export function AppShell({ children, activeHref = "/" }: AppShellProps) {
 
         <NavLinks activeHref={activeHref} items={SIDEBAR_NAV_ITEMS} mode="sidebar" />
 
-        <a className={activeHref === "/settings" ? "sidebar-link active utility-link" : "sidebar-link utility-link"} href="/settings">
-          <span className="nav-icon" aria-hidden="true">⚙</span>
+        <Link className={activeHref === "/settings" ? "sidebar-link active utility-link" : "sidebar-link utility-link"} href="/settings" prefetch>
+          <span className="nav-icon" aria-hidden="true">{"\u2699"}</span>
           <span>Cài đặt</span>
-        </a>
+        </Link>
 
         <div className="sidebar-footer">Frontend sạch trước. Backend/VPS và Supabase nối sau theo API contract.</div>
       </aside>
 
-      <a className={activeHref === "/settings" ? "mobile-settings-link active" : "mobile-settings-link"} href="/settings" aria-label="Cài đặt">
-        ⚙
-      </a>
+      <Link className={activeHref === "/settings" ? "mobile-settings-link active" : "mobile-settings-link"} href="/settings" aria-label="Cài đặt" prefetch>
+        {"\u2699"}
+      </Link>
 
       <main className="main">{children}</main>
       <NavLinks activeHref={activeHref} items={PRIMARY_NAV_ITEMS} mode="bottom" />
