@@ -9,7 +9,6 @@ import { AppShell } from "@/ui/shell/AppShell";
 import type { McpDayData, McpDayLine, McpDayResult } from "@/features/mcp-day/mcp-day.types";
 import type { RouteCustomersData } from "@/features/mcp/route-customers.types";
 import type { RoutesData } from "@/features/routes/routes.types";
-import { createApiClient } from "@/lib/api/api-client";
 import { McpLineCard } from "./McpLineCard";
 import { mcpCustomerActionDescription, type McpCustomerAction } from "./mcp-customer-actions";
 
@@ -37,6 +36,21 @@ function actionTitle(action: McpCustomerAction) {
 
 function hasLineResult(line: McpDayLine) {
   return Boolean(line.visitId || line.result || line.hasOrder || line.hasTest || line.hasReport || Number(line.followupCount || 0) > 0 || line.status === "visited");
+}
+
+async function postMcpBackend(path: string, body: unknown) {
+  const response = await fetch(path, {
+    method: "POST",
+    cache: "no-store",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errorPayload = payload as { error?: string; detail?: string };
+    throw new Error(errorPayload.error || errorPayload.detail || "Không lưu được hành động MCP");
+  }
+  return payload;
 }
 
 function EmptyPanel({ title, hint }: { title: string; hint: string }) {
@@ -84,16 +98,15 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
 
   function submitAction() {
     if (!selectedAction) return;
-    const api = createApiClient();
     const sessionCustomerId = selectedAction.line.sessionCustomerId || selectedAction.line.id;
     startSaving(async () => {
       try {
         setMessage(null);
         if (selectedAction.action === "follow_up") {
-          await api.createMcpDayFollowup({ sessionCustomerId, title: `Theo dõi ${selectedAction.line.accountName}`, followupType: "general", priority: "medium", owner: run.owner, note: `Tạo việc từ MCP Day cho ${selectedAction.line.accountName}` });
+          await postMcpBackend("/api/backend/mcp-day/session-customer/followup", { sessionCustomerId, title: `Theo dõi ${selectedAction.line.accountName}`, followupType: "general", priority: "medium", owner: run.owner, note: `Tạo việc từ MCP Day cho ${selectedAction.line.accountName}` });
         } else {
           const resultType = selectedAction.action === "market_report" ? "report" : selectedAction.action;
-          await api.createMcpDayResult({ sessionCustomerId, resultType, note: mcpCustomerActionDescription(selectedAction.action), hasOrder: resultType === "order" ? true : undefined, hasTest: resultType === "test" ? true : undefined, hasReport: resultType === "report" ? true : undefined });
+          await postMcpBackend("/api/backend/mcp-day/session-customer/result", { sessionCustomerId, resultType, note: mcpCustomerActionDescription(selectedAction.action), hasOrder: resultType === "order" ? true : undefined, hasTest: resultType === "test" ? true : undefined, hasReport: resultType === "report" ? true : undefined });
         }
         setSelectedAction(null);
         setSelectedLine(null);
