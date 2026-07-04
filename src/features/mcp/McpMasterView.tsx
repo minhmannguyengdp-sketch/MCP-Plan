@@ -14,7 +14,7 @@ type MasterTab = "routes" | "customers" | "gps" | "open";
 
 function routeStatusLabel(status: RouteStatus) {
   if (status === "active") return "Đang chạy";
-  if (status === "watch") return "Cần theo dõi";
+  if (status === "watch") return "Theo dõi";
   return "Tạm dừng";
 }
 
@@ -26,7 +26,7 @@ function routeStatusClass(status: RouteStatus) {
 
 function routeCustomerStatusLabel(status: RouteCustomerStatus) {
   if (status === "active") return "Đang trong tuyến";
-  if (status === "needs_gps") return "Cần bổ sung GPS";
+  if (status === "needs_gps") return "Cần GPS";
   return "Đang ẩn";
 }
 
@@ -69,7 +69,7 @@ function RouteInfoSheet({ route, onClose, onShowCustomers }: { route: RouteItem 
           <div className="route-focus-card">
             <span>Tuyến master</span>
             <strong>{routeCompletion(route)}</strong>
-            <small>{route.visitedCustomers}/{route.plannedCustomers} điểm bán · {route.orderCount} đơn</small>
+            <small>{route.visitedCustomers}/{route.plannedCustomers} điểm đã ghé · {route.orderCount} đơn</small>
           </div>
           <div className="grid">
             <div className="metric-row"><span>Trạng thái tuyến</span><strong>{routeStatusLabel(route.status)}</strong></div>
@@ -77,8 +77,8 @@ function RouteInfoSheet({ route, onClose, onShowCustomers }: { route: RouteItem 
             <div className="metric-row"><span>Nhân viên phụ trách</span><strong>{route.salesOwner}</strong></div>
           </div>
           <div className="sheet-note-card">
-            <h3>Dữ liệu tuyến gốc</h3>
-            <p>Màn này chỉ quản lý tuyến master. Phiên đi tuyến trong ngày nằm riêng ở /visits.</p>
+            <h3>Đúng phạm vi Gate C1</h3>
+            <p>Màn này chỉ xem tuyến gốc, khách tuyến và GPS. Phiên MCP ngày nằm riêng ở /visits.</p>
           </div>
         </div>
       ) : null}
@@ -115,8 +115,8 @@ function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem
   );
 }
 
-function RouteCard({ route, onSelect }: { route: RouteItem; onSelect: (route: RouteItem) => void }) {
-  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} · ${route.salesOwner}`} title={route.name} description={`${route.visitedCustomers}/${route.plannedCustomers} điểm đã ghé · ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{routeStatusLabel(route.status)}</span>} meta={[`Lần ghé cuối ${route.lastVisitDate}`, `${route.plannedCustomers} điểm bán`]} actions={[{ label: "Xem tuyến", tone: "primary", onClick: () => onSelect(route) }]} />;
+function RouteCard({ route, onSelect, actionLabel = "Xem tuyến" }: { route: RouteItem; onSelect: (route: RouteItem) => void; actionLabel?: string }) {
+  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} · ${route.salesOwner}`} title={route.name} description={`${route.plannedCustomers} điểm bán · ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{routeStatusLabel(route.status)}</span>} meta={[`Đã ghé ${route.visitedCustomers}/${route.plannedCustomers}`, `Lần cuối ${route.lastVisitDate}`]} actions={[{ label: actionLabel, tone: "primary", onClick: () => onSelect(route) }]} />;
 }
 
 function RouteCustomerCard({ customer, onSelect }: { customer: RouteCustomerItem; onSelect: (customer: RouteCustomerItem) => void }) {
@@ -132,14 +132,14 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
 
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader eyebrow="MCP Master" title="MCP tuyến master" subtitle="Quản lý tuyến gốc, khách tuyến và GPS. Phiên đi tuyến trong ngày nằm riêng ở /visits.">
+      <PageHeader eyebrow="Gate C1" title="MCP tuyến master" subtitle="Nguồn tuyến gốc: tuyến, khách tuyến, GPS và danh sách tuyến có thể chuẩn bị phiên. Không trộn phiên MCP ngày.">
         <span className="badge">{routesData.routes.length} tuyến</span>
       </PageHeader>
 
       <FilterBar filters={[{ label: "Tuyến", value: String(routesData.routes.length) }, { label: "Khách tuyến", value: String(routeCustomersData.customers.length) }, { label: "Cần GPS", value: String(needsGpsCustomers.length) }, { label: "Đang chạy", value: String(activeRoutes.length) }]} />
 
       <section className="dashboard-section">
-        <div className="dashboard-section-head"><h2>Không gian tuyến master</h2><span>Không trộn dữ liệu phiên ngày</span></div>
+        <div className="dashboard-section-head"><h2>Tuyến master</h2><span>Chỉ dữ liệu gốc, chưa tạo/sửa ở gate này</span></div>
         <div className="mcp-status-chips" role="tablist" aria-label="MCP tuyến master">
           <button className={tab === "routes" ? "active" : ""} type="button" onClick={() => setTab("routes")}>Tuyến <b>{routesData.routes.length}</b></button>
           <button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách tuyến <b>{routeCustomersData.customers.length}</b></button>
@@ -148,10 +148,10 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
         </div>
       </section>
 
-      {tab === "routes" ? <div className="mcp-line-list">{routesData.routes.map((route) => <RouteCard key={route.id} route={route} onSelect={setSelectedRoute} />)}</div> : null}
-      {tab === "customers" ? <div className="mcp-line-list">{routeCustomersData.customers.map((customer) => <RouteCustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : null}
+      {tab === "routes" ? routesData.routes.length > 0 ? <div className="mcp-line-list">{routesData.routes.map((route) => <RouteCard key={route.id} route={route} onSelect={setSelectedRoute} />)}</div> : <EmptyPanel title="Chưa có tuyến" hint="API /api/routes/data chưa trả tuyến master." /> : null}
+      {tab === "customers" ? routeCustomersData.customers.length > 0 ? <div className="mcp-line-list">{routeCustomersData.customers.map((customer) => <RouteCustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : <EmptyPanel title="Chưa có khách tuyến" hint="API /api/routes/customers/data chưa trả khách tuyến master." /> : null}
       {tab === "gps" ? needsGpsCustomers.length > 0 ? <div className="mcp-line-list">{needsGpsCustomers.map((customer) => <RouteCustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : <EmptyPanel title="GPS đã ổn" hint="Không có khách tuyến cần bổ sung GPS trong dữ liệu hiện tại." /> : null}
-      {tab === "open" ? <div className="mcp-line-list">{activeRoutes.map((route) => <RouteCard key={route.id} route={route} onSelect={setSelectedRoute} />)}</div> : null}
+      {tab === "open" ? activeRoutes.length > 0 ? <div className="mcp-line-list">{activeRoutes.map((route) => <RouteCard key={route.id} route={route} onSelect={setSelectedRoute} actionLabel="Xem trước" />)}</div> : <EmptyPanel title="Không có tuyến đang chạy" hint="Chỉ tuyến active mới được dùng để chuẩn bị phiên MCP ngày." /> : null}
 
       <RouteInfoSheet route={selectedRoute} onClose={() => setSelectedRoute(null)} onShowCustomers={() => { setSelectedRoute(null); setTab("customers"); }} />
       <RouteCustomerSheet customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />
