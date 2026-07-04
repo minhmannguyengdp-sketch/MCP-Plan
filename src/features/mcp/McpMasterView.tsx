@@ -58,18 +58,18 @@ function EmptyPanel({ title, hint }: { title: string; hint: string }) {
 function CustomerSheet({ customer, onClose }: { customer: RouteCustomerItem | null; onClose: () => void }) {
   const mapsUrl = customer ? buildGoogleMapsUrl(customer) : undefined;
   return (
-    <BottomSheet open={Boolean(customer)} onClose={onClose} title={customer ? customer.accountName : "Khách tuyến"} description={customer ? `${customer.routeName} · STT ${customer.sortOrder}` : undefined} footer={<div className="sheet-action-grid">{mapsUrl ? <a className="button primary" href={mapsUrl} target="_blank" rel="noreferrer">Mở Google Maps</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
+    <BottomSheet open={Boolean(customer)} onClose={onClose} title={customer ? customer.accountName : "Khách tuyến"} description={customer ? `${customer.routeName} - STT ${customer.sortOrder}` : undefined} footer={<div className="sheet-action-grid">{mapsUrl ? <a className="button primary" href={mapsUrl} target="_blank" rel="noreferrer">Mở Google Maps</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
       {customer ? <div className="outlet-sheet-content"><div className="outlet-focus-card"><span>Trạng thái khách</span><strong>{routeCustomerStatusLabel(customer.status)}</strong><small>{gpsLabel(customer)}</small></div><div className="grid"><div className="metric-row"><span>Liên hệ</span><strong>{customer.contactName}</strong></div><div className="metric-row"><span>Khu vực</span><strong>{customer.area}</strong></div><div className="metric-row"><span>Thứ tự ghé</span><strong>{customer.sortOrder}</strong></div><div className="metric-row"><span>Cập nhật GPS</span><strong>{customer.gps?.updatedAt ?? "Chưa có"}</strong></div></div></div> : null}
     </BottomSheet>
   );
 }
 
 function RouteCard({ route, selected, saving, onSelect, onOpenSession }: { route: RouteItem; selected: boolean; saving: boolean; onSelect: (route: RouteItem) => void; onOpenSession: (route: RouteItem) => void }) {
-  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} · ${route.salesOwner}`} title={route.name} description={`${route.plannedCustomers} điểm bán · ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{selected ? "Đã chọn" : routeStatusLabel(route.status)}</span>} meta={[`Đã ghé ${route.visitedCustomers}/${route.plannedCustomers}`, `Lần cuối ${route.lastVisitDate}`]} actions={[{ label: selected ? "Xem khách" : "Chọn tuyến", tone: "primary", onClick: () => onSelect(route) }, { label: saving && selected ? "Đang mở..." : "Mở phiên hôm nay", tone: "primary", onClick: () => onOpenSession(route) }]} />;
+  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} - ${route.salesOwner}`} title={route.name} description={`${route.plannedCustomers} điểm bán - ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{selected ? "Đã chọn" : routeStatusLabel(route.status)}</span>} meta={[`Đã ghé ${route.visitedCustomers}/${route.plannedCustomers}`, `Lần cuối ${route.lastVisitDate}`]} actions={[{ label: selected ? "Xem khách" : "Chọn tuyến", tone: "primary", onClick: () => onSelect(route) }, { label: saving && selected ? "Đang mở..." : "Mở phiên hôm nay", tone: "primary", onClick: () => onOpenSession(route) }]} />;
 }
 
 function CustomerCard({ customer, onSelect }: { customer: RouteCustomerItem; onSelect: (customer: RouteCustomerItem) => void }) {
-  return <OperationalListCard leading={<span>#{customer.sortOrder}</span>} eyebrow={`${customer.area} · ${customer.contactName}`} title={customer.accountName} description={customer.note || gpsLabel(customer)} badge={<span className={routeCustomerStatusClass(customer.status)}>{routeCustomerStatusLabel(customer.status)}</span>} meta={[gpsLabel(customer)]} actions={[{ label: "Xem khách", tone: "primary", onClick: () => onSelect(customer) }]} />;
+  return <OperationalListCard leading={<span>#{customer.sortOrder}</span>} eyebrow={`${customer.area} - ${customer.contactName}`} title={customer.accountName} description={customer.note || gpsLabel(customer)} badge={<span className={routeCustomerStatusClass(customer.status)}>{routeCustomerStatusLabel(customer.status)}</span>} meta={[gpsLabel(customer)]} actions={[{ label: "Xem khách", tone: "primary", onClick: () => onSelect(customer) }]} />;
 }
 
 export function McpMasterView({ activeHref, routesData, routeCustomersData }: { activeHref: string; routesData: RoutesData; routeCustomersData: RouteCustomersData }) {
@@ -80,11 +80,7 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
 
-  const selectedCustomers = useMemo(() => {
-    if (!selectedRoute) return [];
-    return routeCustomersData.customers.filter((customer) => customer.routeId === selectedRoute.id);
-  }, [routeCustomersData.customers, selectedRoute]);
-
+  const selectedCustomers = useMemo(() => selectedRoute ? routeCustomersData.customers.filter((customer) => customer.routeId === selectedRoute.id) : [], [routeCustomersData.customers, selectedRoute]);
   const gpsCustomers = useMemo(() => selectedCustomers.filter((customer) => customer.status === "needs_gps" || !customer.gps), [selectedCustomers]);
   const openRoutes = routesData.routes.filter((route) => route.status === "active" || route.status === "watch");
 
@@ -96,17 +92,12 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
   }
 
   function openSession(route: RouteItem) {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, "");
     const sessionDate = todayDateOnly();
     setSelectedRoute(route);
     setMessage(null);
-    if (!baseUrl) {
-      setMessage("Thiếu NEXT_PUBLIC_API_BASE_URL nên chưa mở được phiên thật.");
-      return;
-    }
     startSaving(async () => {
       try {
-        const response = await fetch(`${baseUrl}/api/mcp-day/open-session`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ routeId: route.id, sessionDate, owner: route.salesOwner || "Sale" }) });
+        const response = await fetch("/api/backend/mcp-day/open-session", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ routeId: route.id, sessionDate, owner: route.salesOwner || "Sale" }) });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Không mở được phiên MCP");
         router.push(`/visits?routeId=${encodeURIComponent(route.id)}&date=${encodeURIComponent(sessionDate)}`);
