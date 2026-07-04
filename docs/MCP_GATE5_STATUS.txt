@@ -1,0 +1,4 @@
+MCP Gate 5 status
+
+Done: Supabase unique index for route session route/date was applied and tracked by migration.
+Pending: backend and edge function code changes still need to be applied.
