@@ -7,7 +7,11 @@ export type ApiResult<T> = {
 export type ListQuery = {
   dateFrom?: string;
   dateTo?: string;
+  date?: string;
+  sessionDate?: string;
+  session_date?: string;
   routeId?: string;
+  route_id?: string;
   ownerId?: string;
   status?: string;
   search?: string;
