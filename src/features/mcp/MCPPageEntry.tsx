@@ -6,8 +6,19 @@ import type { RoutesData } from "@/features/routes/routes.types";
 import { McpSessionCompactView } from "./McpSessionCompactView";
 import { McpMasterView } from "./McpMasterView";
 
-export function MCPPage({ activeHref = "/visits", routesData, mcpDayData, routeCustomersData }: { activeHref?: string; routesData: RoutesData; mcpDayData: McpDayData; routeCustomersData: RouteCustomersData }) {
+type MCPPageProps = {
+  activeHref?: string;
+  routesData: RoutesData;
+  routeCustomersData: RouteCustomersData;
+  mcpDayData?: McpDayData;
+};
+
+export function MCPPage({ activeHref = "/visits", routesData, mcpDayData, routeCustomersData }: MCPPageProps) {
   if (activeHref === "/visits") {
+    if (!mcpDayData) {
+      throw new Error("mcpDayData is required for /visits");
+    }
+
     return <McpSessionCompactView activeHref={activeHref} routesData={routesData} mcpDayData={mcpDayData} routeCustomersData={routeCustomersData} />;
   }
 
