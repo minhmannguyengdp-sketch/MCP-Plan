@@ -384,6 +384,64 @@ th {
   font-size: 13px;
 }
 
+.loading-page {
+  display: grid;
+  gap: 18px;
+}
+
+.skeleton-card,
+.skeleton-line,
+.skeleton-pill {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #eef2f7 100%);
+  background-size: 220% 100%;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.skeleton-card {
+  min-height: 108px;
+}
+
+.skeleton-card-tall {
+  min-height: 168px;
+}
+
+.skeleton-line {
+  border-radius: 999px;
+  height: 14px;
+}
+
+.skeleton-eyebrow {
+  width: 76px;
+}
+
+.skeleton-title {
+  width: min(240px, 70vw);
+  height: 32px;
+}
+
+.skeleton-subtitle {
+  width: min(420px, 82vw);
+}
+
+.skeleton-pill {
+  display: inline-flex;
+  width: 112px;
+  height: 40px;
+  border-radius: 999px;
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 @media (max-width: 1100px) {
   .hero-panel {
     grid-template-columns: 1fr;
