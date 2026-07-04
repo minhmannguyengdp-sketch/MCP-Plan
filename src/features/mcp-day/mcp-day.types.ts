@@ -15,6 +15,8 @@ export type McpDayRun = {
 
 export type McpDayLine = {
   id: string;
+  sessionCustomerId?: string;
+  routeCustomerId?: string | null;
   sortOrder: number;
   accountName: string;
   area: string;
@@ -22,17 +24,32 @@ export type McpDayLine = {
   status: DayLineStatus;
   note: string;
   result?: string;
+  orderId?: string;
+  testId?: string;
+  reportId?: string;
   hasOrder: boolean;
+  hasTest?: boolean;
+  hasReport?: boolean;
+  followupCount?: number;
+  visitId?: string;
 };
 
 export type McpDayResult = {
   id: string;
   lineId: string;
+  sessionCustomerId?: string;
+  routeCustomerId?: string | null;
   accountName: string;
   startTime: string;
   endTime: string;
   result: string;
+  orderId?: string;
+  testId?: string;
+  reportId?: string;
   hasOrder: boolean;
+  hasTest?: boolean;
+  hasReport?: boolean;
+  followupCount?: number;
   nextAction: string;
 };
 
@@ -48,3 +65,34 @@ export type McpDayData = {
   lines: McpDayLine[];
   results: McpDayResult[];
 };
+
+
+export type McpDayResultPayload = {
+  sessionCustomerId: string;
+  resultType: "order" | "test" | "report";
+  note?: string;
+  hasOrder?: boolean;
+  hasTest?: boolean;
+  hasReport?: boolean;
+};
+
+export type McpDayAddCustomerPayload = {
+  sessionId?: string;
+  customerName: string;
+  phone?: string;
+  area?: string;
+  address?: string;
+  note?: string;
+};
+
+export type McpDayFollowupPayload = {
+  sessionCustomerId: string;
+  title: string;
+  followupType?: "general" | "order" | "test" | "report" | "debt" | "support";
+  priority?: "low" | "medium" | "high";
+  dueDate?: string;
+  owner?: string;
+  note?: string;
+};
+
+export type McpDayActionResult = Record<string, unknown>;

@@ -5,7 +5,7 @@ import type { ActionsData } from "@/features/actions/actions.types";
 import { marketChecksMock } from "@/features/market-checks/market-checks.mock";
 import type { MarketChecksData } from "@/features/market-checks/market-checks.types";
 import { mcpDayMock } from "@/features/mcp-day/mcp-day.mock";
-import type { McpDayData } from "@/features/mcp-day/mcp-day.types";
+import type { McpDayActionResult, McpDayAddCustomerPayload, McpDayData, McpDayFollowupPayload, McpDayResultPayload } from "@/features/mcp-day/mcp-day.types";
 import { routeCustomersMock } from "@/features/mcp/route-customers.mock";
 import type { RouteCustomersData } from "@/features/mcp/route-customers.types";
 import { routesMock } from "@/features/routes/routes.mock";
@@ -33,6 +33,9 @@ export type McpApiClient = {
   getAccountsData(query?: ListQuery): Promise<ApiResult<AccountsData>>;
   getCurrentDayRun(query?: ListQuery): Promise<ApiResult<DayRunDto>>;
   getMcpDayData(query?: ListQuery): Promise<ApiResult<McpDayData>>;
+  createMcpDayResult(payload: McpDayResultPayload): Promise<ApiResult<McpDayActionResult>>;
+  addMcpDayCustomer(payload: McpDayAddCustomerPayload): Promise<ApiResult<McpDayActionResult>>;
+  createMcpDayFollowup(payload: McpDayFollowupPayload): Promise<ApiResult<McpDayActionResult>>;
   listMarketChecks(query?: ListQuery): Promise<ApiResult<MarketCheckDto[]>>;
   getMarketChecksData(query?: ListQuery): Promise<ApiResult<MarketChecksData>>;
   listOrders(query?: ListQuery): Promise<ApiResult<OrderDto[]>>;
@@ -88,6 +91,36 @@ async function fetchJson<T>(baseUrl: string, path: string, query?: ListQuery): P
   }
 
   const payload = (await response.json()) as T | { data: T; receivedAt?: string };
+
+  if (payload && typeof payload === "object" && "data" in payload) {
+    const wrapped = payload as { data: T; receivedAt?: string };
+    return {
+      data: wrapped.data,
+      source: "api",
+      receivedAt: wrapped.receivedAt ?? new Date().toISOString()
+    };
+  }
+
+  return result(payload as T, "api");
+}
+
+async function postJson<T>(baseUrl: string, path: string, body: unknown): Promise<ApiResult<T>> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as T | { data: T; receivedAt?: string; error?: string; detail?: string };
+
+  if (!response.ok) {
+    const errorPayload = payload as { error?: string; detail?: string };
+    throw new Error(errorPayload.error || `API ${path} failed with ${response.status}`);
+  }
 
   if (payload && typeof payload === "object" && "data" in payload) {
     const wrapped = payload as { data: T; receivedAt?: string };
@@ -165,6 +198,15 @@ export const mockApiClient: McpApiClient = {
   async getMcpDayData() {
     return result(mcpDayMock);
   },
+  async createMcpDayResult(payload) {
+    return result({ payload, mock: true });
+  },
+  async addMcpDayCustomer(payload) {
+    return result({ payload, mock: true });
+  },
+  async createMcpDayFollowup(payload) {
+    return result({ payload, mock: true });
+  },
   async listMarketChecks() {
     return result([
       { id: "check-001", date: "2026-07-03", routeName: "Tuyen Cho Gao", accountName: "Diem ban Minh Chau", productName: "Sua hop 180ml", status: "opportunity" }
@@ -218,6 +260,15 @@ function createHttpApiClient(baseUrl: string): McpApiClient {
     },
     getMcpDayData(query) {
       return withMockFallback(() => fetchJson<McpDayData>(baseUrl, "/api/mcp-day/data", query), () => mockApiClient.getMcpDayData(query));
+    },
+    createMcpDayResult(payload) {
+      return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", payload);
+    },
+    addMcpDayCustomer(payload) {
+      return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", payload);
+    },
+    createMcpDayFollowup(payload) {
+      return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", payload);
     },
     listMarketChecks(query) {
       return withMockFallback(() => fetchJson<MarketCheckDto[]>(baseUrl, "/api/market-checks", query), () => mockApiClient.listMarketChecks(query));

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
 import { OperationalListCard } from "@/ui/cards/OperationalListCard";
 import { FilterBar } from "@/ui/layout/FilterBar";
@@ -14,6 +15,7 @@ import type { RoutesData, RouteItem, RouteStatus } from "@/features/routes/route
 import { McpLineCard } from "./McpLineCard";
 import { mcpCustomerActionDescription, mcpCustomerActionLabel, type McpCustomerAction } from "./mcp-customer-actions";
 import { MCP_SESSION_SNAPSHOT_RULES } from "./mcp-session-contract";
+import { createApiClient } from "@/lib/api/api-client";
 
 function routeStatusLabel(status: RouteStatus) {
   if (status === "active") return "Đang chạy";
@@ -144,10 +146,16 @@ function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem
 
 function CustomerActionSheet({
   selection,
-  onClose
+  saving,
+  message,
+  onClose,
+  onSubmit
 }: {
   selection: { line: McpDayLine; action: McpCustomerAction } | null;
+  saving: boolean;
+  message: string | null;
   onClose: () => void;
+  onSubmit: () => void;
 }) {
   return (
     <BottomSheet
@@ -157,9 +165,11 @@ function CustomerActionSheet({
       description={selection ? selection.line.accountName : undefined}
       footer={
         <div className="sheet-action-grid">
-          <button className="button primary" type="button">Lưu nháp</button>
-          <button className="button" type="button">Chuyển sang form chi tiết</button>
-          <button className="button" type="button" onClick={onClose}>Đóng</button>
+          <button className="button primary" type="button" onClick={onSubmit} disabled={saving}>
+            {saving ? "Đang lưu..." : "Lưu kết quả"}
+          </button>
+          <button className="button" type="button" disabled={saving}>Chuyển sang form chi tiết</button>
+          <button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button>
         </div>
       }
     >
@@ -179,6 +189,7 @@ function CustomerActionSheet({
           <div className="sheet-note-card">
             <h3>Không tách rời MCP</h3>
             <p>Đơn hàng, test sản phẩm, báo cáo thị trường và việc cần làm được tạo từ customer card trong phiên. Sau này form chi tiết sẽ ghi kèm sessionCustomerId.</p>
+            {message ? <p className="page-subtitle">{message}</p> : null}
           </div>
         </div>
       ) : null}
@@ -285,10 +296,54 @@ export function MCPPage({
   const [selectedRouteCustomer, setSelectedRouteCustomer] = useState<RouteCustomerItem | null>(null);
   const [selectedAction, setSelectedAction] = useState<{ line: McpDayLine; action: McpCustomerAction } | null>(null);
   const [sessionStatus, setSessionStatus] = useState("opened");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isSavingAction, startSavingAction] = useTransition();
+  const router = useRouter();
   const run = mcpDayData.run;
 
   function openCustomerAction(line: McpDayLine, action: McpCustomerAction) {
     setSelectedAction({ line, action });
+  }
+
+  function submitCustomerAction() {
+    if (!selectedAction) return;
+
+    const sessionCustomerId = selectedAction.line.sessionCustomerId || selectedAction.line.id;
+    const api = createApiClient();
+
+    startSavingAction(async () => {
+      try {
+        setActionMessage(null);
+
+        if (selectedAction.action === "follow_up") {
+          await api.createMcpDayFollowup({
+            sessionCustomerId,
+            title: `Theo dõi ${selectedAction.line.accountName}`,
+            followupType: "general",
+            priority: "medium",
+            owner: run.owner,
+            note: `Tạo việc từ MCP Day cho ${selectedAction.line.accountName}`
+          });
+        } else {
+          const resultType = selectedAction.action === "market_report" ? "report" : selectedAction.action;
+
+          await api.createMcpDayResult({
+            sessionCustomerId,
+            resultType,
+            note: mcpCustomerActionDescription(selectedAction.action),
+            hasOrder: resultType === "order" ? true : undefined,
+            hasTest: resultType === "test" ? true : undefined,
+            hasReport: resultType === "report" ? true : undefined
+          });
+        }
+
+        setSelectedAction(null);
+        setSelectedLine(null);
+        router.refresh();
+      } catch (error) {
+        setActionMessage(error instanceof Error ? error.message : "Không lưu được hành động MCP");
+      }
+    });
   }
 
   return (
@@ -366,7 +421,18 @@ export function MCPPage({
       />
       <RouteCustomerSheet customer={selectedRouteCustomer} onClose={() => setSelectedRouteCustomer(null)} />
       <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} />
-      <CustomerActionSheet selection={selectedAction} onClose={() => setSelectedAction(null)} />
+      <CustomerActionSheet
+        selection={selectedAction}
+        saving={isSavingAction}
+        message={actionMessage}
+        onClose={() => {
+          if (!isSavingAction) {
+            setActionMessage(null);
+            setSelectedAction(null);
+          }
+        }}
+        onSubmit={submitCustomerAction}
+      />
     </AppShell>
   );
 }
