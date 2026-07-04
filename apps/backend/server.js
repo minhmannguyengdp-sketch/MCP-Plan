@@ -575,8 +575,13 @@ async function loadMcpDayData() {
     };
   }
 
-  const [customers, visits] = await Promise.all([
-    loadRouteCustomers(session.route_id),
+  const [snapshots, visits] = await Promise.all([
+    supabaseGet("mcp_session_customers", {
+      select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,address,sort_order,source,planned_status,visit_status,status_reason,visit_id,order_id,note,created_at,updated_at",
+      session_id: `eq.${session.id}`,
+      order: "sort_order.asc,created_at.asc",
+      limit: 2000
+    }),
     supabaseGet("mcp_visits", {
       select: "id,session_id,route_id,route_customer_id,visit_date,status,has_order,has_test,has_report,checkin_at,note,created_at",
       session_id: `eq.${session.id}`,
@@ -585,35 +590,71 @@ async function loadMcpDayData() {
     })
   ]);
 
+  let sourceRows = snapshots;
+
+  if (sourceRows.length === 0) {
+    const fallbackCustomers = await loadRouteCustomers(session.route_id);
+    sourceRows = fallbackCustomers.map((customer) => ({
+      id: customer.id,
+      route_customer_id: customer.id,
+      customer_id: customer.accountId,
+      customer_name: customer.accountName,
+      area: customer.area,
+      address: customer.note,
+      sort_order: customer.sortOrder,
+      source: "master",
+      visit_status: "pending",
+      note: customer.note
+    }));
+  }
+
+  const visitById = new Map();
   const visitByRouteCustomer = new Map();
+
   visits.forEach((visit) => {
+    if (visit.id) visitById.set(visit.id, visit);
     if (visit.route_customer_id && !visitByRouteCustomer.has(visit.route_customer_id)) {
       visitByRouteCustomer.set(visit.route_customer_id, visit);
     }
   });
 
-  const lines = customers.map((customer) => {
-    const visit = visitByRouteCustomer.get(customer.id);
+  const snapshotByVisitId = new Map();
+  const snapshotByRouteCustomerId = new Map();
+
+  const lines = sourceRows.map((snapshot) => {
+    const visit = visitById.get(snapshot.visit_id) || visitByRouteCustomer.get(snapshot.route_customer_id);
+    const status = snapshot.visit_status || normalizeLineStatus(visit);
+
+    if (visit?.id) snapshotByVisitId.set(visit.id, snapshot);
+    if (snapshot.route_customer_id) snapshotByRouteCustomerId.set(snapshot.route_customer_id, snapshot);
+
     return {
-      id: customer.id,
-      sortOrder: customer.sortOrder,
-      accountName: customer.accountName,
-      area: customer.area,
-      source: "planned",
-      status: normalizeLineStatus(visit),
-      note: customer.note || "Từ tuyến gốc",
-      result: visit?.note || undefined,
-      hasOrder: Boolean(visit?.has_order)
+      id: snapshot.id,
+      sessionCustomerId: snapshots.length > 0 ? snapshot.id : undefined,
+      routeCustomerId: snapshot.route_customer_id,
+      sortOrder: numberValue(snapshot.sort_order),
+      accountName: snapshot.customer_name || "Khách chưa tên",
+      area: snapshot.area || "-",
+      source: snapshot.source === "added" ? "added" : "planned",
+      status,
+      statusReason: snapshot.status_reason || undefined,
+      note: snapshot.note || snapshot.address || "Từ snapshot ngày",
+      result: visit?.note || snapshot.status_reason || undefined,
+      hasOrder: Boolean(visit?.has_order || snapshot.order_id),
+      visitId: visit?.id || snapshot.visit_id || undefined
     };
   });
 
   const results = visits.map((visit) => {
-    const customer = customers.find((item) => item.id === visit.route_customer_id);
+    const snapshot = snapshotByVisitId.get(visit.id) || snapshotByRouteCustomerId.get(visit.route_customer_id);
     const checkin = visit.checkin_at || visit.created_at;
+
     return {
       id: visit.id,
-      lineId: visit.route_customer_id || visit.id,
-      accountName: customer?.accountName || "Điểm bán",
+      lineId: snapshot?.id || visit.route_customer_id || visit.id,
+      sessionCustomerId: snapshot?.id,
+      routeCustomerId: visit.route_customer_id,
+      accountName: snapshot?.customer_name || "Điểm bán",
       startTime: timeOnly(checkin),
       endTime: timeOnly(checkin),
       result: visit.note || visit.status || "Đã ghé",
@@ -624,6 +665,7 @@ async function loadMcpDayData() {
 
   const visited = lines.filter((line) => line.status === "visited").length;
   const pending = lines.filter((line) => line.status === "pending").length;
+  const added = lines.filter((line) => line.source === "added").length;
 
   return {
     run: {
@@ -638,7 +680,7 @@ async function loadMcpDayData() {
       { label: "Trong phiên", value: lines.length, hint: "Snapshot ngày" },
       { label: "Đã ghé", value: visited, hint: "Có kết quả" },
       { label: "Chờ xử lý", value: pending, hint: "Chưa ghé" },
-      { label: "Phát sinh", value: 0, hint: "Thêm trong ngày" }
+      { label: "Phát sinh", value: added, hint: "Thêm trong ngày" }
     ],
     lines,
     results
