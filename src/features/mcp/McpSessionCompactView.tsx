@@ -18,8 +18,8 @@ import { mcpCustomerActionDescription, mcpCustomerActionLabel, type McpCustomerA
 type SessionTab = "customers" | "results" | "added" | "followups";
 
 function sourceLabel(source: McpDayLine["source"]) {
-  if (source === "planned") return "Kế hoạch";
-  if (source === "added") return "Phát sinh";
+  if (source === "planned") return "Khách theo tuyến";
+  if (source === "added") return "Khách phát sinh";
   return "Đồng bộ";
 }
 
@@ -28,6 +28,13 @@ function statusLabel(status: McpDayLine["status"]) {
   if (status === "visited") return "Đã ghé";
   if (status === "skipped") return "Bỏ qua";
   return "Hủy";
+}
+
+function actionTitle(action: McpCustomerAction) {
+  if (action === "order") return "Ghi nhận có đơn";
+  if (action === "test") return "Ghi nhận có test";
+  if (action === "market_report") return "Ghi báo cáo thị trường";
+  return "Tạo việc follow-up";
 }
 
 function hasLineResult(line: McpDayLine) {
@@ -45,15 +52,15 @@ function ResultCard({ result }: { result: McpDayResult }) {
 function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; onClose: () => void; onAction: (line: McpDayLine, action: McpCustomerAction) => void }) {
   return (
     <BottomSheet open={Boolean(line)} onClose={onClose} title={line ? line.accountName : "Xử lý điểm bán"} description={line ? `${line.area} · ${sourceLabel(line.source)}` : undefined} footer={line ? <div className="sheet-action-grid"><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Ghi có đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Ghi có test</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Ghi báo cáo</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Tạo follow-up</button><button className="button" type="button" onClick={onClose}>Đóng</button></div> : undefined}>
-      {line ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Session customer</span><strong>{statusLabel(line.status)}</strong><small>{line.sessionCustomerId || line.id}</small></div><div className="grid"><div className="metric-row"><span>Nguồn</span><strong>{sourceLabel(line.source)}</strong></div><div className="metric-row"><span>Đơn</span><strong>{line.hasOrder ? "Đã có" : "Chưa có"}</strong></div><div className="metric-row"><span>Test</span><strong>{line.hasTest ? "Đã có" : "Chưa có"}</strong></div><div className="metric-row"><span>Báo cáo</span><strong>{line.hasReport ? "Đã có" : "Chưa có"}</strong></div><div className="metric-row"><span>Follow-up</span><strong>{Number(line.followupCount || 0)}</strong></div><div className="metric-row"><span>Kết quả</span><strong>{line.result ?? "Chưa ghi"}</strong></div></div></div> : null}
+      {line ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Trạng thái ghé</span><strong>{statusLabel(line.status)}</strong><small>{line.result ?? "Chưa ghi kết quả chi tiết"}</small></div><div className="grid"><div className="metric-row"><span>Nguồn khách</span><strong>{sourceLabel(line.source)}</strong></div><div className="metric-row"><span>Khu vực</span><strong>{line.area}</strong></div><div className="metric-row"><span>Đơn hàng</span><strong>{line.hasOrder ? "Đã ghi có đơn" : "Chưa ghi đơn"}</strong></div><div className="metric-row"><span>Test sản phẩm</span><strong>{line.hasTest ? "Đã ghi test" : "Chưa ghi test"}</strong></div><div className="metric-row"><span>Báo cáo</span><strong>{line.hasReport ? "Đã ghi báo cáo" : "Chưa ghi báo cáo"}</strong></div><div className="metric-row"><span>Follow-up</span><strong>{Number(line.followupCount || 0)} việc</strong></div></div></div> : null}
     </BottomSheet>
   );
 }
 
 function CustomerActionSheet({ selection, saving, message, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; saving: boolean; message: string | null; onClose: () => void; onSubmit: () => void }) {
   return (
-    <BottomSheet open={Boolean(selection)} onClose={onClose} title={selection ? mcpCustomerActionLabel(selection.action) : "Hành động MCP"} description={selection ? selection.line.accountName : undefined} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : "Ghi vào phiên"}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>
-      {selection ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Ghi vào phiên ngày</span><strong>{mcpCustomerActionLabel(selection.action)}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><div className="grid"><div className="metric-row"><span>Điểm bán</span><strong>{selection.line.accountName}</strong></div><div className="metric-row"><span>Session customer</span><strong>{selection.line.sessionCustomerId || selection.line.id}</strong></div></div>{message ? <p className="page-subtitle">{message}</p> : null}</div> : null}
+    <BottomSheet open={Boolean(selection)} onClose={onClose} title={selection ? actionTitle(selection.action) : "Hành động MCP"} description={selection ? selection.line.accountName : undefined} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : "Lưu kết quả"}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>
+      {selection ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Điểm bán</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><div className="grid"><div className="metric-row"><span>Thao tác</span><strong>{actionTitle(selection.action)}</strong></div><div className="metric-row"><span>Khu vực</span><strong>{selection.line.area}</strong></div><div className="metric-row"><span>Nguồn khách</span><strong>{sourceLabel(selection.line.source)}</strong></div></div>{message ? <p className="page-subtitle">{message}</p> : null}</div> : null}
     </BottomSheet>
   );
 }
@@ -101,7 +108,11 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
 
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader eyebrow="MCP Session" title="Phiên MCP ngày" subtitle={`${run.routeName} · ${run.date} · ${run.owner}`}><span className="badge">{run.status}</span></PageHeader>
+      <PageHeader eyebrow="Phiên MCP ngày" title={run.routeName} subtitle={`${run.date} · ${run.owner} · ${statusLabel(run.status as McpDayLine["status"]) || run.status}`}><span className="badge">{mcpDayData.lines.length} khách</span></PageHeader>
+      <section className="mcp-gate-banner">
+        <strong>Tuyến đang đi: {run.routeName}</strong>
+        <span>Đây là phiên ngày. Tuyến gốc và danh sách khách cố định quản lý ở màn Tuyến MCP.</span>
+      </section>
       <FilterBar filters={[{ label: "Mở lúc", value: run.openedAt }, { label: "Khách phiên", value: String(counters.customers) }, { label: "Kết quả", value: String(counters.results) }, { label: "Follow-up", value: String(counters.followups) }]} />
       <CompactKpiStrip items={mcpDayData.kpis} />
       <div className="mcp-status-chips" role="tablist" aria-label="Phiên MCP ngày"><button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách <b>{counters.customers}</b></button><button className={tab === "results" ? "active" : ""} type="button" onClick={() => setTab("results")}>Kết quả <b>{counters.results}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Follow-up <b>{counters.followups}</b></button></div>
