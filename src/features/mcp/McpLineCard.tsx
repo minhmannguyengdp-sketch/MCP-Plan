@@ -22,6 +22,24 @@ function statusClass(status: McpDayLine["status"]) {
   return "mcp-line-status cancelled";
 }
 
+function resultSummary(line: McpDayLine) {
+  const parts = [
+    line.hasOrder ? "Có đơn" : "Chưa có đơn",
+    line.hasTest ? "Có test" : "Chưa test",
+    line.hasReport ? "Có báo cáo" : "Chưa báo cáo"
+  ];
+
+  if (Number(line.followupCount || 0) > 0) {
+    parts.push(`${line.followupCount} follow-up`);
+  }
+
+  return parts.join(" · ");
+}
+
+function sessionCustomerLabel(line: McpDayLine) {
+  return line.sessionCustomerId ? `Session customer ${line.sessionCustomerId}` : `Line ${line.id}`;
+}
+
 export function McpLineCard({
   line,
   onOpen,
@@ -36,14 +54,15 @@ export function McpLineCard({
       leading={<span>#{line.sortOrder}</span>}
       eyebrow={`${line.area} · ${sourceLabel(line.source)}`}
       title={line.accountName}
-      description={line.note}
+      description={line.note || "Khách trong phiên MCP ngày"}
       badge={<span className={statusClass(line.status)}>{statusLabel(line.status)}</span>}
-      meta={[line.hasOrder ? "Có đơn" : "Chưa có đơn", line.result ?? "Chưa ghi kết quả"]}
+      meta={[sessionCustomerLabel(line), resultSummary(line), line.result ?? "Chưa ghi kết quả ghé"]}
       actions={[
-        { label: "Xử lý", tone: "primary", onClick: () => onOpen(line) },
-        { label: "Đơn", onClick: () => onAction(line, "order") },
-        { label: "Test", onClick: () => onAction(line, "test") },
-        { label: "Việc", onClick: () => onAction(line, "follow_up") }
+        { label: "Mở xử lý", tone: "primary", onClick: () => onOpen(line) },
+        { label: "Ghi có đơn", onClick: () => onAction(line, "order") },
+        { label: "Ghi có test", onClick: () => onAction(line, "test") },
+        { label: "Ghi báo cáo", onClick: () => onAction(line, "market_report") },
+        { label: "Tạo follow-up", onClick: () => onAction(line, "follow_up") }
       ]}
     />
   );
