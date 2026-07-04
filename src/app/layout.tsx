@@ -6,6 +6,7 @@ import "./outlet-profile.css";
 import "./mobile-nav-tune.css";
 import "./polish.css";
 import "./compact-operational.css";
+import "./safe-area.css";
 
 export const metadata: Metadata = {
   title: "MCP-Plan",
