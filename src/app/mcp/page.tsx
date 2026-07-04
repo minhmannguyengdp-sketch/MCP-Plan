@@ -6,81 +6,80 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
+import styles from "./McpHome.module.css";
 
 const MCP_MODULES = [
   {
     href: "/routes",
+    tone: "routes",
     icon: "◎",
     title: "Tuyến",
-    description: "Tuyến gốc, khách tuyến, GPS và chuẩn bị phiên.",
+    description: "Chọn tuyến gốc, xem khách tuyến và GPS trước khi mở phiên.",
     cta: "Chọn tuyến"
   },
   {
-    href: "/visits",
+    href: "/routes",
+    tone: "session",
     icon: "◇",
     title: "MCP hôm nay",
-    description: "Xử lý khách trong phiên đang đi và ghi kết quả.",
-    cta: "Đi tuyến"
+    description: "Mở hoặc tiếp tục phiên từ tuyến đã chọn, không tự lấy phiên gần nhất.",
+    cta: "Mở từ tuyến"
   },
   {
     href: "/mcp/settings",
+    tone: "settings",
     icon: "⚙",
     title: "Cài đặt MCP",
     description: "Luật thêm khách, trạng thái, GPS và mẫu ghi nhận.",
     cta: "Cài đặt"
   }
-];
+] as const;
 
 function renderModuleCard(item: (typeof MCP_MODULES)[number]) {
   return (
-    <Link className="dashboard-module-card" href={item.href} key={item.href} prefetch>
-      <span className="dashboard-module-icon" aria-hidden="true">{item.icon}</span>
-      <div>
-        <h3>{item.title}</h3>
-        <p>{item.description}</p>
-      </div>
-      <strong>{item.cta}</strong>
+    <Link className={`${styles.card} ${styles[item.tone]}`} href={item.href} key={item.href} prefetch>
+      <span className={styles.icon} aria-hidden="true">{item.icon}</span>
+      <span className={styles.content}>
+        <strong>{item.title}</strong>
+        <small>{item.description}</small>
+      </span>
+      <span className={styles.cta}>{item.cta}</span>
     </Link>
   );
 }
 
 export default async function McpPage() {
   const api = createApiClient();
-  const [routesResult, dayResult] = await Promise.all([
-    api.getRoutesData(),
-    api.getMcpDayData()
-  ]);
+  const routesResult = await api.getRoutesData();
 
   const routes = routesResult.data.routes;
-  const day = dayResult.data;
-  const run = day.run;
   const activeRoutes = routes.filter((route) => route.status === "active" || route.status === "watch").length;
-  const pendingLines = day.lines.filter((line) => line.status === "pending").length;
-  const resultCount = day.results.length;
-  const followupCount = day.lines.reduce((sum, line) => sum + Number(line.followupCount || 0), 0);
+  const pausedRoutes = routes.filter((route) => route.status === "paused").length;
+  const plannedCustomers = routes.reduce((sum, route) => sum + Number(route.plannedCustomers || 0), 0);
+  const visitedCustomers = routes.reduce((sum, route) => sum + Number(route.visitedCustomers || 0), 0);
 
   return (
     <AppShell activeHref="/mcp">
       <PageHeader
         eyebrow="MCP"
         title="MCP"
-        subtitle="Trung tâm điều phối tuyến, phiên hôm nay và luật xử lý MCP."
+        subtitle="Trung tâm điều phối tuyến, phiên hôm nay và luật xử lý MCP. Bắt đầu từ tuyến để tránh mở nhầm phiên."
       >
         <SourceBadge source={routesResult.source} />
       </PageHeader>
 
       <TodaySummaryCard
-        eyebrow="Phiên đang chạy"
-        value={run.routeName}
-        description={`${run.date} · ${run.owner} · ${day.lines.length} khách trong phiên`}
+        eyebrow="Quy trình MCP"
+        value="Chọn tuyến trước"
+        description={`${activeRoutes} tuyến có thể đi · ${plannedCustomers} khách trong tuyến gốc`}
         pills={[
-          { label: "chờ xử lý", value: pendingLines },
-          { label: "kết quả", value: resultCount },
-          { label: "follow-up", value: followupCount }
+          { label: "tuyến", value: routes.length },
+          { label: "có thể đi", value: activeRoutes },
+          { label: "đã ghé", value: visitedCustomers }
         ]}
       />
 
-      <section className="dashboard-module-grid" aria-label="MCP nhanh">
+      <section className={styles.grid} aria-label="MCP nhanh">
         {MCP_MODULES.map(renderModuleCard)}
       </section>
 
@@ -89,17 +88,17 @@ export default async function McpPage() {
         filters={[
           { label: "Tuyến", value: String(routes.length) },
           { label: "Có thể đi", value: String(activeRoutes) },
-          { label: "Phiên", value: run.routeName },
-          { label: "Ngày", value: run.date }
+          { label: "Tạm dừng", value: String(pausedRoutes) },
+          { label: "Khách tuyến", value: String(plannedCustomers) }
         ]}
       />
 
       <CompactKpiStrip
         items={[
-          { label: "Khách phiên", value: day.lines.length, hint: "Cần xử lý trong ngày" },
-          { label: "Chờ xử lý", value: pendingLines, hint: "Chưa ghé hoặc chưa ghi nhận" },
-          { label: "Kết quả", value: resultCount, hint: "Đã có kết quả" },
-          { label: "Tuyến có thể đi", value: activeRoutes, hint: "Đang chạy hoặc theo dõi" }
+          { label: "Tuyến MCP", value: routes.length, hint: "Tuyến gốc đang quản lý" },
+          { label: "Có thể đi", value: activeRoutes, hint: "Đang chạy hoặc theo dõi" },
+          { label: "Khách tuyến", value: plannedCustomers, hint: "Tổng khách trong tuyến" },
+          { label: "Đã ghé", value: visitedCustomers, hint: "Theo dữ liệu route hiện có" }
         ]}
       />
 
@@ -120,10 +119,10 @@ export default async function McpPage() {
           <article className="action-card dashboard-action-card">
             <div>
               <span className="dashboard-priority priority-medium">Bước 2</span>
-              <h3>Đi tuyến hôm nay</h3>
-              <p>Xử lý khách trong phiên {run.routeName}, ghi đơn, test, báo cáo và follow-up.</p>
+              <h3>Mở phiên hôm nay</h3>
+              <p>Mở phiên từ tuyến đã chọn để hệ thống truyền đúng routeId và ngày.</p>
             </div>
-            <Link href="/visits" prefetch>Đi tuyến</Link>
+            <Link href="/routes" prefetch>Chọn tuyến</Link>
           </article>
           <article className="action-card dashboard-action-card">
             <div>
