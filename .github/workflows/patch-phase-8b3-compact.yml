@@ -47,3 +47,5 @@ jobs:
           git add -A
           git commit -m "add mcp day result and added customer endpoints"
           git push
+
+# trigger phase 8b3
