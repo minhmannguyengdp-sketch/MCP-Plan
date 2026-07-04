@@ -1,1 +1,1 @@
-export { MCPPage } from "./MCPPageSplit";
+export { MCPPage } from "./MCPPageEntry";
