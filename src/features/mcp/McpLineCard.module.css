@@ -1,0 +1,144 @@
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 16px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+.main {
+  display: grid;
+  grid-template-columns: 46px minmax(160px, 1.1fr) minmax(120px, 0.9fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.identity,
+.summary {
+  min-width: 0;
+}
+
+.identity {
+  display: grid;
+  gap: 2px;
+}
+
+.identity strong,
+.summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity strong {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.identity small,
+.summary {
+  color: #475467;
+  font-size: 12px;
+}
+
+.badge,
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.badge {
+  background: rgba(255, 255, 255, 0.72);
+  padding: 7px 10px;
+}
+
+.action {
+  min-height: 34px;
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  background: #ffffff;
+  color: #101828;
+  cursor: pointer;
+  padding: 7px 11px;
+}
+
+.pending {
+  background: #fffbeb;
+  border-color: #fedf89;
+}
+
+.pending .badge {
+  color: #b54708;
+}
+
+.visited {
+  background: #ecfdf3;
+  border-color: #abefc6;
+}
+
+.visited .badge {
+  color: #067647;
+}
+
+.skipped {
+  background: #f2f4f7;
+  border-color: #d0d5dd;
+}
+
+.skipped .badge {
+  color: #475467;
+}
+
+.cancelled {
+  background: #fef3f2;
+  border-color: #fecdca;
+}
+
+.cancelled .badge {
+  color: #b42318;
+}
+
+@media (max-width: 720px) {
+  .card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .main {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .summary {
+    grid-column: 2;
+  }
+
+  .action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
