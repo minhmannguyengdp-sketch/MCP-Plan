@@ -9,7 +9,7 @@
   }
 
   .main {
-    padding-bottom: calc(68px + max(0px, env(safe-area-inset-bottom) - 24px));
+    padding-bottom: 68px;
   }
 
   .app-shell::after {
@@ -18,7 +18,7 @@
 
   .bottom-nav {
     right: 8px;
-    bottom: max(2px, calc(env(safe-area-inset-bottom) - 28px));
+    bottom: 0px;
     left: 8px;
     z-index: 50;
     border: 1px solid rgba(255, 255, 255, 0.52);
@@ -48,12 +48,12 @@
 
 @media (max-width: 420px) {
   .main {
-    padding-bottom: calc(66px + max(0px, env(safe-area-inset-bottom) - 24px));
+    padding-bottom: 66px;
   }
 
   .bottom-nav {
     right: 6px;
-    bottom: max(2px, calc(env(safe-area-inset-bottom) - 30px));
+    bottom: 0px;
     left: 6px;
     border-radius: 20px;
     padding: 5px;
