@@ -47,12 +47,37 @@ function toQueryString(query?: ListQuery): string {
 }
 
 function getApiBaseUrl(): string | null {
-  const value = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const value = (process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
   return value ? value.replace(/\/+$/, "") : null;
 }
 
 function hasRouteContext(query?: ListQuery) {
   return Boolean(query?.routeId || query?.route_id);
+}
+
+function selectedRouteNotLoaded(query?: ListQuery): McpDayData {
+  const routeId = String(query?.routeId || query?.route_id || "");
+  const date = String(query?.date || query?.sessionDate || query?.session_date || "-").slice(0, 10);
+  return {
+    sessionOpened: false,
+    run: {
+      id: "selected-route-not-loaded",
+      routeId,
+      routeName: "Không tải được phiên đã chọn",
+      date,
+      owner: "-",
+      status: "cancelled",
+      openedAt: "-"
+    },
+    kpis: [
+      { label: "Trong phiên", value: 0, hint: "API chưa trả dữ liệu" },
+      { label: "Đã ghé", value: 0, hint: "Không dùng mock" },
+      { label: "Chờ xử lý", value: 0, hint: routeId || "Thiếu routeId" },
+      { label: "Phát sinh", value: 0, hint: "Kiểm tra API env" }
+    ],
+    lines: [],
+    results: []
+  };
 }
 
 async function fetchJson<T>(baseUrl: string, path: string, query?: ListQuery): Promise<ApiResult<T>> {
@@ -97,7 +122,7 @@ export const mockApiClient: McpApiClient = {
   async listAccounts() { return result([{ id: "acc-001", name: "Diem ban Minh Chau", area: "Cho Gao", routeName: "Tuyen Cho Gao", tier: "A" }, { id: "acc-002", name: "Diem ban Thanh Phat", area: "Cho Gao", routeName: "Tuyen Cho Gao", tier: "B" }]); },
   async getAccountsData() { return result(accountsMock); },
   async getCurrentDayRun() { return result({ id: "day-001", routeName: "Tuyen Cho Gao", date: "2026-07-03", owner: "Sale A", status: "opened" }); },
-  async getMcpDayData() { return result(mcpDayMock); },
+  async getMcpDayData(query) { return result(hasRouteContext(query) ? selectedRouteNotLoaded(query) : mcpDayMock); },
   async createMcpDayResult(payload) { return result({ payload, mock: true }); },
   async addMcpDayCustomer(payload) { return result({ payload, mock: true }); },
   async createMcpDayFollowup(payload) { return result({ payload, mock: true }); },
