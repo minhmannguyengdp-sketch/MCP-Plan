@@ -79,13 +79,20 @@
   padding: 7px 10px;
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .action {
-  min-height: 34px;
+  min-height: 32px;
   border: 1px solid rgba(16, 24, 40, 0.12);
   background: #ffffff;
   color: #101828;
   cursor: pointer;
-  padding: 7px 11px;
+  padding: 6px 9px;
 }
 
 .pending {
@@ -137,8 +144,14 @@
     grid-column: 2;
   }
 
-  .action {
+  .actions {
     grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .action {
     width: 100%;
   }
 }
