@@ -14,7 +14,11 @@ import type { RoutesData, RouteItem, RouteStatus } from "@/features/routes/route
 type MasterTab = "routes" | "customers" | "gps" | "open";
 
 function todayDateOnly() {
-  return new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function routeStatusLabel(status: RouteStatus) {
