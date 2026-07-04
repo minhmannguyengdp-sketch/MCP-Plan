@@ -4,12 +4,19 @@ Done:
 - A1: Supabase unique index for route session route/date was applied and tracked by migration.
 - A2: mcp_visits.visit_date is now derived from mcp_route_sessions.session_date by DB trigger.
 - A2: existing mismatched mcp_visits rows were backfilled; mismatch count is 0 after migration.
+- A3: DB now requires session context on MCP write tables.
+
+A3 DB enforcement:
+- mcp_session_customers.session_id is not null.
+- mcp_visits.session_id is not null.
+- mcp_followups.session_id is not null.
+- mcp_followups.session_customer_id is not null.
 
 Migrations:
 - supabase/migrations/20260704_mcp_phase_a_note.sql
 - supabase/migrations/20260704_mcp_visits_visit_date_from_session.sql
+- supabase/migrations/20260704_mcp_require_session_context.sql
 
 Pending:
-- A3: require session context for every write action.
 - A4: remove latest-session fallback from write flows.
 - A5: standardize counters for planned/visited/order/test/report/followup.
