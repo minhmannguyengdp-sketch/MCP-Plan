@@ -33,6 +33,15 @@ function resultSummary(line: McpDayLine) {
   return done.length > 0 ? done.join(" · ") : line.result || line.note || "Chưa ghi kết quả";
 }
 
+function actionItems(line: McpDayLine): Array<{ label: string; action: McpCustomerAction }> {
+  return [
+    { label: line.hasOrder ? "Đơn+" : "Đơn", action: "order" },
+    { label: line.hasTest ? "Test+" : "Test", action: "test" },
+    { label: line.hasReport ? "BC+" : "BC", action: "market_report" },
+    { label: Number(line.followupCount || 0) > 0 ? "FU+" : "FU", action: "follow_up" }
+  ];
+}
+
 export function McpLineCard({
   line,
   onOpen,
@@ -53,9 +62,13 @@ export function McpLineCard({
         <span className={styles.summary}>{resultSummary(line)}</span>
       </button>
       <span className={styles.badge}>{statusLabel(line.status)}</span>
-      <button className={styles.action} type="button" onClick={() => onAction(line, "order")}>
-        {line.hasOrder ? "Ghi tiếp" : "Ghi đơn"}
-      </button>
+      <div className={styles.actions}>
+        {actionItems(line).map((item) => (
+          <button className={styles.action} type="button" key={item.action} onClick={() => onAction(line, item.action)}>
+            {item.label}
+          </button>
+        ))}
+      </div>
     </article>
   );
 }
