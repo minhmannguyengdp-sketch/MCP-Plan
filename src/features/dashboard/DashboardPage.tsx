@@ -8,7 +8,7 @@ import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 
 const MODULE_CARDS = [
-  { href: "/visits", icon: "◇", title: "MCP", description: "Phiên tuyến hôm nay", cta: "Xử lý" },
+  { href: "/routes", icon: "◇", title: "Tuyến MCP", description: "Chọn tuyến và khách tuyến", cta: "Chọn tuyến" },
   { href: "/orders", icon: "+", title: "Đơn", description: "Đơn hàng và giao", cta: "Xem đơn" },
   { href: "/field-checks", icon: "◌", title: "Test", description: "Nhập kết quả test", cta: "Nhập" },
   { href: "/reports", icon: "□", title: "Báo cáo", description: "Giá, đối thủ, tồn kho", cta: "Ghi nhận" }
