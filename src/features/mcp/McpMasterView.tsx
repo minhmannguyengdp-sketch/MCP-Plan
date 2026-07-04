@@ -26,7 +26,7 @@ function routeStatusClass(status: RouteStatus) {
 
 function routeCustomerStatusLabel(status: RouteCustomerStatus) {
   if (status === "active") return "Đang trong tuyến";
-  if (status === "needs_gps") return "Cần GPS";
+  if (status === "needs_gps") return "Cần bổ sung GPS";
   return "Đang ẩn";
 }
 
@@ -67,18 +67,18 @@ function RouteInfoSheet({ route, onClose, onShowCustomers }: { route: RouteItem 
       {route ? (
         <div className="route-sheet-content">
           <div className="route-focus-card">
-            <span>Route Master</span>
+            <span>Tuyến master</span>
             <strong>{routeCompletion(route)}</strong>
             <small>{route.visitedCustomers}/{route.plannedCustomers} điểm bán · {route.orderCount} đơn</small>
           </div>
           <div className="grid">
-            <div className="metric-row"><span>Trạng thái</span><strong>{routeStatusLabel(route.status)}</strong></div>
+            <div className="metric-row"><span>Trạng thái tuyến</span><strong>{routeStatusLabel(route.status)}</strong></div>
             <div className="metric-row"><span>Lần ghé cuối</span><strong>{route.lastVisitDate}</strong></div>
-            <div className="metric-row"><span>Sale</span><strong>{route.salesOwner}</strong></div>
+            <div className="metric-row"><span>Nhân viên phụ trách</span><strong>{route.salesOwner}</strong></div>
           </div>
           <div className="sheet-note-card">
-            <h3>Master route</h3>
-            <p>Đây là dữ liệu tuyến gốc. Phiên đi tuyến trong ngày nằm riêng ở /visits, không trộn vào màn này.</p>
+            <h3>Dữ liệu tuyến gốc</h3>
+            <p>Màn này chỉ quản lý tuyến master. Phiên đi tuyến trong ngày nằm riêng ở /visits.</p>
           </div>
         </div>
       ) : null}
@@ -99,12 +99,12 @@ function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem
       {customer ? (
         <div className="outlet-sheet-content">
           <div className="outlet-focus-card">
-            <span>Route Customer Master</span>
+            <span>Khách tuyến master</span>
             <strong>{routeCustomerStatusLabel(customer.status)}</strong>
             <small>{gpsLabel(customer)}</small>
           </div>
           <div className="grid">
-            <div className="metric-row"><span>Liên hệ</span><strong>{customer.contactName}</strong></div>
+            <div className="metric-row"><span>Người liên hệ</span><strong>{customer.contactName}</strong></div>
             <div className="metric-row"><span>Khu vực</span><strong>{customer.area}</strong></div>
             <div className="metric-row"><span>Thứ tự ghé</span><strong>{customer.sortOrder}</strong></div>
             <div className="metric-row"><span>Cập nhật GPS</span><strong>{customer.gps?.updatedAt ?? "Chưa có"}</strong></div>
@@ -116,11 +116,11 @@ function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem
 }
 
 function RouteCard({ route, onSelect }: { route: RouteItem; onSelect: (route: RouteItem) => void }) {
-  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} · ${route.salesOwner}`} title={route.name} description={`${route.visitedCustomers}/${route.plannedCustomers} điểm đã ghé · ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{routeStatusLabel(route.status)}</span>} meta={[`Lần ghé cuối ${route.lastVisitDate}`, `${route.plannedCustomers} điểm bán`]} actions={[{ label: "Chi tiết", tone: "primary", onClick: () => onSelect(route) }]} />;
+  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} · ${route.salesOwner}`} title={route.name} description={`${route.visitedCustomers}/${route.plannedCustomers} điểm đã ghé · ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{routeStatusLabel(route.status)}</span>} meta={[`Lần ghé cuối ${route.lastVisitDate}`, `${route.plannedCustomers} điểm bán`]} actions={[{ label: "Xem tuyến", tone: "primary", onClick: () => onSelect(route) }]} />;
 }
 
 function RouteCustomerCard({ customer, onSelect }: { customer: RouteCustomerItem; onSelect: (customer: RouteCustomerItem) => void }) {
-  return <OperationalListCard leading={<span>#{customer.sortOrder}</span>} eyebrow={`${customer.area} · ${customer.contactName}`} title={customer.accountName} description={customer.routeName} badge={<span className={routeCustomerStatusClass(customer.status)}>{routeCustomerStatusLabel(customer.status)}</span>} meta={[gpsLabel(customer), customer.note]} actions={[{ label: "Chi tiết", tone: "primary", onClick: () => onSelect(customer) }]} />;
+  return <OperationalListCard leading={<span>#{customer.sortOrder}</span>} eyebrow={`${customer.area} · ${customer.contactName}`} title={customer.accountName} description={customer.routeName} badge={<span className={routeCustomerStatusClass(customer.status)}>{routeCustomerStatusLabel(customer.status)}</span>} meta={[gpsLabel(customer), customer.note]} actions={[{ label: "Xem khách", tone: "primary", onClick: () => onSelect(customer) }]} />;
 }
 
 export function McpMasterView({ activeHref, routesData, routeCustomersData }: { activeHref: string; routesData: RoutesData; routeCustomersData: RouteCustomersData }) {
@@ -144,7 +144,7 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
           <button className={tab === "routes" ? "active" : ""} type="button" onClick={() => setTab("routes")}>Tuyến <b>{routesData.routes.length}</b></button>
           <button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách tuyến <b>{routeCustomersData.customers.length}</b></button>
           <button className={tab === "gps" ? "active" : ""} type="button" onClick={() => setTab("gps")}>GPS <b>{needsGpsCustomers.length}</b></button>
-          <button className={tab === "open" ? "active" : ""} type="button" onClick={() => setTab("open")}>Mở phiên <b>{activeRoutes.length}</b></button>
+          <button className={tab === "open" ? "active" : ""} type="button" onClick={() => setTab("open")}>Chuẩn bị phiên <b>{activeRoutes.length}</b></button>
         </div>
       </section>
 
