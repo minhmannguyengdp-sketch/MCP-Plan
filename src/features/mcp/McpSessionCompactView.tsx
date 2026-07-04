@@ -102,7 +102,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   return (
     <AppShell activeHref={activeHref}>
       <PageHeader eyebrow="MCP Session" title="Phiên MCP ngày" subtitle={`${run.routeName} · ${run.date} · ${run.owner}`}><span className="badge">{run.status}</span></PageHeader>
-      <FilterBar filters={[{ label: "Mở lúc", value: run.openedAt }, { label: "Khách phiên", value: counters.customers }, { label: "Kết quả", value: counters.results }, { label: "Follow-up", value: counters.followups }]} />
+      <FilterBar filters={[{ label: "Mở lúc", value: run.openedAt }, { label: "Khách phiên", value: String(counters.customers) }, { label: "Kết quả", value: String(counters.results) }, { label: "Follow-up", value: String(counters.followups) }]} />
       <CompactKpiStrip items={mcpDayData.kpis} />
       <div className="mcp-status-chips" role="tablist" aria-label="Phiên MCP ngày"><button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách <b>{counters.customers}</b></button><button className={tab === "results" ? "active" : ""} type="button" onClick={() => setTab("results")}>Kết quả <b>{counters.results}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Follow-up <b>{counters.followups}</b></button></div>
       {tab === "customers" ? <LineList lines={mcpDayData.lines} onOpen={setSelectedLine} onAction={(line, action) => setSelectedAction({ line, action })} /> : null}
