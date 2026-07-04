@@ -1,4 +1,4 @@
-﻿import { createApiClient } from "@/lib/api/api-client";
+import { createApiClient } from "@/lib/api/api-client";
 import type { DashboardActionDto, DashboardRouteHealthDto } from "@/lib/api/api.types";
 import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
 import { TodaySummaryCard } from "@/ui/cards/TodaySummaryCard";
@@ -8,22 +8,22 @@ import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 
 const MODULE_CARDS = [
-  { href: "/routes", icon: "â—‡", title: "Tuyáº¿n MCP", description: "Chá»n tuyáº¿n vÃ  khÃ¡ch tuyáº¿n", cta: "Chá»n tuyáº¿n" },
-  { href: "/orders", icon: "+", title: "ÄÆ¡n", description: "ÄÆ¡n hÃ ng vÃ  giao", cta: "Xem Ä‘Æ¡n" },
-  { href: "/field-checks", icon: "â—Œ", title: "Test", description: "Nháº­p káº¿t quáº£ test", cta: "Nháº­p" },
-  { href: "/reports", icon: "â–¡", title: "BÃ¡o cÃ¡o", description: "GiÃ¡, Ä‘á»‘i thá»§, tá»“n kho", cta: "Ghi nháº­n" }
+  { href: "/mcp", icon: "◇", title: "MCP", description: "Tuyến, phiên hôm nay, cài đặt", cta: "Mở MCP" },
+  { href: "/orders", icon: "+", title: "Đơn", description: "Đơn hàng và giao", cta: "Xem đơn" },
+  { href: "/field-checks", icon: "◌", title: "Test", description: "Nhập kết quả test", cta: "Nhập" },
+  { href: "/reports", icon: "□", title: "Báo cáo", description: "Giá, đối thủ, tồn kho", cta: "Ghi nhận" }
 ];
 
 function getStatusLabel(status: "good" | "watch" | "risk") {
-  if (status === "good") return "á»”n";
-  if (status === "watch") return "Theo dÃµi";
-  return "Rá»§i ro";
+  if (status === "good") return "Ổn";
+  if (status === "watch") return "Theo dõi";
+  return "Rủi ro";
 }
 
 function getPriorityLabel(priority: "high" | "medium" | "low") {
   if (priority === "high") return "Cao";
-  if (priority === "medium") return "Vá»«a";
-  return "Tháº¥p";
+  if (priority === "medium") return "Vừa";
+  return "Thấp";
 }
 
 function getStatusClass(status: "good" | "watch" | "risk") {
@@ -57,21 +57,21 @@ function renderRouteCard(route: DashboardRouteHealthDto) {
         </div>
         <span className={`dashboard-status ${getStatusClass(route.status)}`}>{getStatusLabel(route.status)}</span>
       </div>
-      <div className="dashboard-route-progress" aria-label={`Tiáº¿n Ä‘á»™ ghÃ© ${visitRate}%`}>
+      <div className="dashboard-route-progress" aria-label={`Tiến độ ghé ${visitRate}%`}>
         <span style={{ width: `${Math.min(visitRate, 100)}%` }} />
       </div>
       <div className="dashboard-route-metrics">
         <span>
           <b>{route.visited}/{route.planned}</b>
-          <small>ÄÃ£ ghÃ©</small>
+          <small>Đã ghé</small>
         </span>
         <span>
           <b>{visitRate}%</b>
-          <small>Tiáº¿n Ä‘á»™</small>
+          <small>Tiến độ</small>
         </span>
         <span>
           <b>{route.orders}</b>
-          <small>ÄÆ¡n</small>
+          <small>Đơn</small>
         </span>
       </div>
     </article>
@@ -82,7 +82,7 @@ function renderAction(action: DashboardActionDto) {
   return (
     <article className="action-card dashboard-action-card" key={action.title}>
       <div>
-        <span className={`dashboard-priority priority-${action.priority}`}>Æ¯u tiÃªn {getPriorityLabel(action.priority)}</span>
+        <span className={`dashboard-priority priority-${action.priority}`}>Ưu tiên {getPriorityLabel(action.priority)}</span>
         <h3>{action.title}</h3>
         <p>{action.description}</p>
       </div>
@@ -105,33 +105,33 @@ export async function DashboardPage() {
     <AppShell activeHref="/">
       <PageHeader
         eyebrow="Dashboard"
-        title="HÃ´m nay"
-        subtitle="VÃ o nhanh MCP, Ä‘Æ¡n hÃ ng, test sáº£n pháº©m vÃ  bÃ¡o cÃ¡o thá»‹ trÆ°á»ng."
+        title="Hôm nay"
+        subtitle="Vào nhanh MCP, đơn hàng, test sản phẩm và báo cáo thị trường."
       >
         <SourceBadge source={dashboardResult.source} />
       </PageHeader>
 
       <TodaySummaryCard
-        eyebrow="Tá»•ng quan nhanh"
+        eyebrow="Tổng quan nhanh"
         value={primaryKpi?.value ?? "-"}
-        description={primaryKpi ? `${primaryKpi.label} Â· ${primaryKpi.hint}` : "Äang chá» dá»¯ liá»‡u"}
+        description={primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
         pills={[
-          { label: "tuyáº¿n", value: totalRoutes },
-          { label: "Ä‘Æ¡n", value: totalOrders },
-          { label: "cáº§n xem", value: riskRoutes + watchRoutes }
+          { label: "tuyến", value: totalRoutes },
+          { label: "đơn", value: totalOrders },
+          { label: "cần xem", value: riskRoutes + watchRoutes }
         ]}
       />
 
-      <section className="dashboard-module-grid" aria-label="Nghiá»‡p vá»¥ nhanh">
+      <section className="dashboard-module-grid" aria-label="Nghiệp vụ nhanh">
         {MODULE_CARDS.map(renderModuleCard)}
       </section>
 
       <FilterBar
-        title="Lá»c nhanh"
+        title="Lọc nhanh"
         filters={[
-          { label: "Ká»³", value: "HÃ´m nay" },
-          { label: "Tuyáº¿n", value: "Táº¥t cáº£" },
-          { label: "Tráº¡ng thÃ¡i", value: "Äang theo dÃµi" }
+          { label: "Kỳ", value: "Hôm nay" },
+          { label: "Tuyến", value: "Tất cả" },
+          { label: "Trạng thái", value: "Đang theo dõi" }
         ]}
       />
 
@@ -139,21 +139,21 @@ export async function DashboardPage() {
 
       <section className="dashboard-section dashboard-actions-section">
         <div className="dashboard-section-head">
-          <h2>Cáº§n xá»­ lÃ½</h2>
-          <span>{dashboard.actions.length} viá»‡c</span>
+          <h2>Cần xử lý</h2>
+          <span>{dashboard.actions.length} việc</span>
         </div>
         <div className="dashboard-action-list">{dashboard.actions.map(renderAction)}</div>
       </section>
 
       <section className="dashboard-section">
         <div className="dashboard-section-head">
-          <h2>Sá»©c khá»e tuyáº¿n</h2>
-          <span>{riskRoutes} rá»§i ro Â· {watchRoutes} theo dÃµi</span>
+          <h2>Sức khỏe tuyến</h2>
+          <span>{riskRoutes} rủi ro · {watchRoutes} theo dõi</span>
         </div>
         <div className="dashboard-route-list">{dashboard.routeHealth.map(renderRouteCard)}</div>
       </section>
 
-      <section className="dashboard-insight-strip" aria-label="Chá»‰ sá»‘ phá»¥">
+      <section className="dashboard-insight-strip" aria-label="Chỉ số phụ">
         {dashboard.insights.map((item) => (
           <div className="metric-row" key={item.label}>
             <span>{item.label}</span>
