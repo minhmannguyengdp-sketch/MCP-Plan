@@ -6,6 +6,7 @@ import "./outlet-profile.css";
 import "./mobile-nav-tune.css";
 import "./polish.css";
 import "./compact-operational.css";
+import "./brand-ui.css";
 
 export const metadata: Metadata = {
   title: "MCP-Plan",
@@ -31,7 +32,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#101828"
+  themeColor: "#00957f"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
