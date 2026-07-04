@@ -6,6 +6,7 @@ export type DayLineStatus = "pending" | "visited" | "skipped" | "cancelled";
 
 export type McpDayRun = {
   id: string;
+  routeId?: string;
   routeName: string;
   date: string;
   owner: string;
@@ -60,12 +61,25 @@ export type McpDayKpi = {
 };
 
 export type McpDayData = {
+  sessionOpened?: boolean;
   run: McpDayRun;
   kpis: McpDayKpi[];
   lines: McpDayLine[];
   results: McpDayResult[];
 };
 
+export type McpOpenSessionPayload = {
+  routeId: string;
+  sessionDate: string;
+  owner?: string;
+};
+
+export type McpOpenSessionResult = {
+  session: Record<string, unknown>;
+  createdSession: boolean;
+  insertedSnapshotCount: number;
+  snapshotCount: number;
+};
 
 export type McpDayResultPayload = {
   sessionCustomerId: string;
