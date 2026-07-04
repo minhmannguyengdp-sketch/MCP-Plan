@@ -1,10 +1,10 @@
 import type { McpDayLine } from "@/features/mcp-day/mcp-day.types";
-import { OperationalListCard } from "@/ui/cards/OperationalListCard";
 import { type McpCustomerAction } from "./mcp-customer-actions";
+import styles from "./McpLineCard.module.css";
 
 function sourceLabel(source: McpDayLine["source"]) {
-  if (source === "planned") return "Khách theo tuyến";
-  if (source === "added") return "Khách phát sinh";
+  if (source === "planned") return "Tuyến";
+  if (source === "added") return "Phát sinh";
   return "Đồng bộ";
 }
 
@@ -16,10 +16,10 @@ function statusLabel(status: McpDayLine["status"]) {
 }
 
 function statusClass(status: McpDayLine["status"]) {
-  if (status === "visited") return "mcp-line-status visited";
-  if (status === "pending") return "mcp-line-status pending";
-  if (status === "skipped") return "mcp-line-status skipped";
-  return "mcp-line-status cancelled";
+  if (status === "visited") return styles.visited;
+  if (status === "pending") return styles.pending;
+  if (status === "skipped") return styles.skipped;
+  return styles.cancelled;
 }
 
 function resultSummary(line: McpDayLine) {
@@ -30,7 +30,7 @@ function resultSummary(line: McpDayLine) {
     Number(line.followupCount || 0) > 0 ? `${line.followupCount} việc` : null
   ].filter(Boolean);
 
-  return done.length > 0 ? done.join(" · ") : "Chưa ghi kết quả";
+  return done.length > 0 ? done.join(" · ") : line.result || line.note || "Chưa ghi kết quả";
 }
 
 export function McpLineCard({
@@ -43,17 +43,19 @@ export function McpLineCard({
   onAction: (line: McpDayLine, action: McpCustomerAction) => void;
 }) {
   return (
-    <OperationalListCard
-      leading={<span>#{line.sortOrder}</span>}
-      eyebrow={`${line.area} · ${sourceLabel(line.source)}`}
-      title={line.accountName}
-      description={line.result || line.note || "Chưa ghi chú ghé"}
-      badge={<span className={statusClass(line.status)}>{statusLabel(line.status)}</span>}
-      meta={[statusLabel(line.status), resultSummary(line)]}
-      actions={[
-        { label: "Mở xử lý", tone: "primary", onClick: () => onOpen(line) },
-        { label: line.hasOrder ? "Ghi tiếp" : "Ghi đơn", onClick: () => onAction(line, "order") }
-      ]}
-    />
+    <article className={`${styles.card} ${statusClass(line.status)}`}>
+      <button className={styles.main} type="button" onClick={() => onOpen(line)}>
+        <span className={styles.index}>#{line.sortOrder || "-"}</span>
+        <span className={styles.identity}>
+          <strong>{line.accountName}</strong>
+          <small>{line.area} · {sourceLabel(line.source)}</small>
+        </span>
+        <span className={styles.summary}>{resultSummary(line)}</span>
+      </button>
+      <span className={styles.badge}>{statusLabel(line.status)}</span>
+      <button className={styles.action} type="button" onClick={() => onAction(line, "order")}>
+        {line.hasOrder ? "Ghi tiếp" : "Ghi đơn"}
+      </button>
+    </article>
   );
 }
