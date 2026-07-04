@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { MCPPage } from "@/features/mcp/MCPPage";
 import { createApiClient } from "@/lib/api/api-client";
 
@@ -9,11 +10,16 @@ type VisitsPageProps = {
 };
 
 export default async function Page({ searchParams }: VisitsPageProps) {
-  const api = createApiClient();
   const routeId = searchParams?.routeId;
   const date = searchParams?.date;
+
+  if (!routeId) {
+    redirect("/mcp");
+  }
+
+  const api = createApiClient();
   const dayQuery = { routeId, date };
-  const routeCustomersQuery = routeId ? { routeId } : undefined;
+  const routeCustomersQuery = { routeId };
 
   const [routesResult, dayResult, routeCustomersResult] = await Promise.all([
     api.getRoutesData(),
