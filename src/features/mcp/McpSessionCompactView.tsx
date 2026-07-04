@@ -2,9 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
 import { OperationalListCard } from "@/ui/cards/OperationalListCard";
-import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
@@ -13,7 +11,7 @@ import type { RouteCustomersData } from "@/features/mcp/route-customers.types";
 import type { RoutesData } from "@/features/routes/routes.types";
 import { createApiClient } from "@/lib/api/api-client";
 import { McpLineCard } from "./McpLineCard";
-import { mcpCustomerActionDescription, mcpCustomerActionLabel, type McpCustomerAction } from "./mcp-customer-actions";
+import { mcpCustomerActionDescription, type McpCustomerAction } from "./mcp-customer-actions";
 
 type SessionTab = "customers" | "results" | "added" | "followups";
 
@@ -81,6 +79,8 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   const resultLines = mcpDayData.lines.filter(hasLineResult);
   const addedLines = mcpDayData.lines.filter((line) => line.source === "added");
   const followupLines = mcpDayData.lines.filter((line) => Number(line.followupCount || 0) > 0);
+  const counters = { customers: mcpDayData.lines.length, results: mcpDayData.results.length || resultLines.length, added: addedLines.length, followups: followupLines.length };
+  const pendingCount = mcpDayData.lines.filter((line) => line.status === "pending").length;
 
   function submitAction() {
     if (!selectedAction) return;
@@ -104,17 +104,13 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
     });
   }
 
-  const counters = { customers: mcpDayData.lines.length, results: mcpDayData.results.length || resultLines.length, added: addedLines.length, followups: followupLines.length };
-
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader eyebrow="Phiên MCP ngày" title={run.routeName} subtitle={`${run.date} · ${run.owner} · ${statusLabel(run.status as McpDayLine["status"]) || run.status}`}><span className="badge">{mcpDayData.lines.length} khách</span></PageHeader>
-      <section className="mcp-gate-banner">
-        <strong>Tuyến đang đi: {run.routeName}</strong>
-        <span>Đây là phiên ngày. Tuyến gốc và danh sách khách cố định quản lý ở màn Tuyến MCP.</span>
+      <PageHeader eyebrow="Phiên MCP ngày" title={run.routeName} subtitle={`${run.date} · ${run.owner} · ${counters.customers} khách`} />
+      <section className="mcp-gate-banner mcp-session-compact-head">
+        <strong>{pendingCount} chờ xử lý</strong>
+        <span>{counters.results} kết quả · {counters.added} phát sinh · {counters.followups} follow-up · mở lúc {run.openedAt}</span>
       </section>
-      <FilterBar filters={[{ label: "Mở lúc", value: run.openedAt }, { label: "Khách phiên", value: String(counters.customers) }, { label: "Kết quả", value: String(counters.results) }, { label: "Follow-up", value: String(counters.followups) }]} />
-      <CompactKpiStrip items={mcpDayData.kpis} />
       <div className="mcp-status-chips" role="tablist" aria-label="Phiên MCP ngày"><button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách <b>{counters.customers}</b></button><button className={tab === "results" ? "active" : ""} type="button" onClick={() => setTab("results")}>Kết quả <b>{counters.results}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Follow-up <b>{counters.followups}</b></button></div>
       {tab === "customers" ? <LineList lines={mcpDayData.lines} onOpen={setSelectedLine} onAction={(line, action) => setSelectedAction({ line, action })} /> : null}
       {tab === "results" ? (mcpDayData.results.length > 0 ? <div className="mcp-line-list">{mcpDayData.results.map((result) => <ResultCard key={result.id} result={result} />)}</div> : <LineList lines={resultLines} onOpen={setSelectedLine} onAction={(line, action) => setSelectedAction({ line, action })} />) : null}
