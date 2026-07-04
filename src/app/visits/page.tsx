@@ -1,13 +1,16 @@
 import { MCPPage } from "@/features/mcp/MCPPage";
 import { createApiClient } from "@/lib/api/api-client";
 
-export default async function Page() {
+export default async function Page(props: any) {
   const api = createApiClient();
-  const [routesResult, dayResult, routeCustomersResult] = await Promise.all([
-    api.getRoutesData(),
-    api.getMcpDayData(),
-    api.getRouteCustomersData()
-  ]);
+  const routeId = props?.searchParams?.routeId;
+  const date = props?.searchParams?.date;
+  const dayQuery = routeId ? { routeId, date } : undefined;
+  const customerQuery = routeId ? { routeId } : undefined;
+
+  const routesResult = await api.getRoutesData();
+  const dayResult = await api.getMcpDayData(dayQuery);
+  const routeCustomersResult = await api.getRouteCustomersData(customerQuery);
 
   return (
     <MCPPage
