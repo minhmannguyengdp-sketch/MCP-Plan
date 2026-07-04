@@ -55,7 +55,7 @@ function RouteInfoSheet({ route, onClose, onShowCustomers }: { route: RouteItem 
     <BottomSheet
       open={Boolean(route)}
       onClose={onClose}
-      title={route ? route.name : "Tuyến master"}
+      title={route ? route.name : "Tuyến MCP"}
       description={route ? `${route.area} · ${route.salesOwner}` : undefined}
       footer={
         <div className="sheet-action-grid">
@@ -67,18 +67,18 @@ function RouteInfoSheet({ route, onClose, onShowCustomers }: { route: RouteItem 
       {route ? (
         <div className="route-sheet-content">
           <div className="route-focus-card">
-            <span>Tuyến master</span>
+            <span>Tiến độ ghé</span>
             <strong>{routeCompletion(route)}</strong>
             <small>{route.visitedCustomers}/{route.plannedCustomers} điểm đã ghé · {route.orderCount} đơn</small>
           </div>
           <div className="grid">
             <div className="metric-row"><span>Trạng thái tuyến</span><strong>{routeStatusLabel(route.status)}</strong></div>
             <div className="metric-row"><span>Lần ghé cuối</span><strong>{route.lastVisitDate}</strong></div>
-            <div className="metric-row"><span>Nhân viên phụ trách</span><strong>{route.salesOwner}</strong></div>
+            <div className="metric-row"><span>Sale phụ trách</span><strong>{route.salesOwner}</strong></div>
           </div>
           <div className="sheet-note-card">
-            <h3>Đúng phạm vi Gate C1</h3>
-            <p>Màn này chỉ xem tuyến gốc, khách tuyến và GPS. Phiên MCP ngày nằm riêng ở /visits.</p>
+            <h3>Chuẩn bị phiên</h3>
+            <p>Chọn tuyến này để xem khách tuyến trước khi mở phiên đi tuyến.</p>
           </div>
         </div>
       ) : null}
@@ -92,14 +92,14 @@ function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem
     <BottomSheet
       open={Boolean(customer)}
       onClose={onClose}
-      title={customer ? customer.accountName : "Khách trong tuyến"}
+      title={customer ? customer.accountName : "Khách tuyến"}
       description={customer ? `${customer.routeName} · STT ${customer.sortOrder}` : undefined}
       footer={<div className="sheet-action-grid">{mapsUrl ? <a className="button primary" href={mapsUrl} target="_blank" rel="noreferrer">Mở Google Maps</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {customer ? (
         <div className="outlet-sheet-content">
           <div className="outlet-focus-card">
-            <span>Khách tuyến master</span>
+            <span>Trạng thái khách</span>
             <strong>{routeCustomerStatusLabel(customer.status)}</strong>
             <small>{gpsLabel(customer)}</small>
           </div>
@@ -115,50 +115,60 @@ function RouteCustomerSheet({ customer, onClose }: { customer: RouteCustomerItem
   );
 }
 
-function RouteCard({ route, onSelect, actionLabel = "Xem tuyến" }: { route: RouteItem; onSelect: (route: RouteItem) => void; actionLabel?: string }) {
+function RouteCard({ route, onSelect, actionLabel = "Chọn tuyến" }: { route: RouteItem; onSelect: (route: RouteItem) => void; actionLabel?: string }) {
   return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} · ${route.salesOwner}`} title={route.name} description={`${route.plannedCustomers} điểm bán · ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{routeStatusLabel(route.status)}</span>} meta={[`Đã ghé ${route.visitedCustomers}/${route.plannedCustomers}`, `Lần cuối ${route.lastVisitDate}`]} actions={[{ label: actionLabel, tone: "primary", onClick: () => onSelect(route) }]} />;
 }
 
 function RouteCustomerCard({ customer, onSelect }: { customer: RouteCustomerItem; onSelect: (customer: RouteCustomerItem) => void }) {
-  return <OperationalListCard leading={<span>#{customer.sortOrder}</span>} eyebrow={`${customer.area} · ${customer.contactName}`} title={customer.accountName} description={customer.routeName} badge={<span className={routeCustomerStatusClass(customer.status)}>{routeCustomerStatusLabel(customer.status)}</span>} meta={[gpsLabel(customer), customer.note]} actions={[{ label: "Xem khách", tone: "primary", onClick: () => onSelect(customer) }]} />;
+  return <OperationalListCard leading={<span>#{customer.sortOrder}</span>} eyebrow={`${customer.area} · ${customer.contactName}`} title={customer.accountName} description={customer.note || gpsLabel(customer)} badge={<span className={routeCustomerStatusClass(customer.status)}>{routeCustomerStatusLabel(customer.status)}</span>} meta={[gpsLabel(customer)]} actions={[{ label: "Xem khách", tone: "primary", onClick: () => onSelect(customer) }]} />;
 }
 
 export function McpMasterView({ activeHref, routesData, routeCustomersData }: { activeHref: string; routesData: RoutesData; routeCustomersData: RouteCustomersData }) {
   const [tab, setTab] = useState<MasterTab>("routes");
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<RouteCustomerItem | null>(null);
-  const needsGpsCustomers = useMemo(() => routeCustomersData.customers.filter((customer) => customer.status === "needs_gps" || !customer.gps), [routeCustomersData.customers]);
-  const activeRoutes = routesData.routes.filter((route) => route.status === "active");
+
+  const selectedRouteCustomers = useMemo(() => {
+    if (!selectedRoute) return [];
+    return routeCustomersData.customers.filter((customer) => customer.routeId === selectedRoute.id);
+  }, [routeCustomersData.customers, selectedRoute]);
+
+  const needsGpsCustomers = useMemo(() => selectedRouteCustomers.filter((customer) => customer.status === "needs_gps" || !customer.gps), [selectedRouteCustomers]);
+  const activeRoutes = routesData.routes.filter((route) => route.status === "active" || route.status === "watch");
+
+  function selectRoute(route: RouteItem) {
+    setSelectedRoute(route);
+    setSelectedCustomer(null);
+  }
+
+  function showSelectedRouteCustomers() {
+    setTab("customers");
+  }
 
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader eyebrow="Gate C1" title="MCP tuyến master" subtitle="Nguồn tuyến gốc: tuyến, khách tuyến, GPS và danh sách tuyến có thể chuẩn bị phiên. Không trộn phiên MCP ngày.">
+      <PageHeader eyebrow="Tuyến MCP" title="Tuyến MCP" subtitle="Xem tuyến gốc, khách tuyến và chuẩn bị phiên đi tuyến.">
         <span className="badge">{routesData.routes.length} tuyến</span>
       </PageHeader>
 
-      <section className="mcp-gate-banner">
-        <strong>ĐANG TEST C1 · /routes tuyến master</strong>
-        <span>Chỉ kiểm tra tuyến gốc, khách tuyến, GPS. Không test phiên ngày ở màn này.</span>
-      </section>
-
-      <FilterBar filters={[{ label: "Tuyến", value: String(routesData.routes.length) }, { label: "Khách tuyến", value: String(routeCustomersData.customers.length) }, { label: "Cần GPS", value: String(needsGpsCustomers.length) }, { label: "Đang chạy", value: String(activeRoutes.length) }]} />
+      <FilterBar filters={[{ label: "Tuyến", value: String(routesData.routes.length) }, { label: "Khách tuyến", value: selectedRoute ? String(selectedRouteCustomers.length) : "Chưa chọn" }, { label: "Cần GPS", value: selectedRoute ? String(needsGpsCustomers.length) : "-" }, { label: "Có thể đi", value: String(activeRoutes.length) }]} />
 
       <section className="dashboard-section">
-        <div className="dashboard-section-head"><h2>Tuyến master</h2><span>Chỉ dữ liệu gốc, chưa tạo/sửa ở gate này</span></div>
-        <div className="mcp-status-chips" role="tablist" aria-label="MCP tuyến master">
+        <div className="dashboard-section-head"><h2>Tuyến MCP</h2><span>{selectedRoute ? `Đã chọn: ${selectedRoute.name}` : "Chọn tuyến để xem khách"}</span></div>
+        <div className="mcp-status-chips" role="tablist" aria-label="Tuyến MCP">
           <button className={tab === "routes" ? "active" : ""} type="button" onClick={() => setTab("routes")}>Tuyến <b>{routesData.routes.length}</b></button>
-          <button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách tuyến <b>{routeCustomersData.customers.length}</b></button>
-          <button className={tab === "gps" ? "active" : ""} type="button" onClick={() => setTab("gps")}>GPS <b>{needsGpsCustomers.length}</b></button>
+          <button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách tuyến <b>{selectedRoute ? selectedRouteCustomers.length : 0}</b></button>
+          <button className={tab === "gps" ? "active" : ""} type="button" onClick={() => setTab("gps")}>Cần GPS <b>{selectedRoute ? needsGpsCustomers.length : 0}</b></button>
           <button className={tab === "open" ? "active" : ""} type="button" onClick={() => setTab("open")}>Chuẩn bị phiên <b>{activeRoutes.length}</b></button>
         </div>
       </section>
 
-      {tab === "routes" ? routesData.routes.length > 0 ? <div className="mcp-line-list">{routesData.routes.map((route) => <RouteCard key={route.id} route={route} onSelect={setSelectedRoute} />)}</div> : <EmptyPanel title="Chưa có tuyến" hint="API /api/routes/data chưa trả tuyến master." /> : null}
-      {tab === "customers" ? routeCustomersData.customers.length > 0 ? <div className="mcp-line-list">{routeCustomersData.customers.map((customer) => <RouteCustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : <EmptyPanel title="Chưa có khách tuyến" hint="API /api/routes/customers/data chưa trả khách tuyến master." /> : null}
-      {tab === "gps" ? needsGpsCustomers.length > 0 ? <div className="mcp-line-list">{needsGpsCustomers.map((customer) => <RouteCustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : <EmptyPanel title="GPS đã ổn" hint="Không có khách tuyến cần bổ sung GPS trong dữ liệu hiện tại." /> : null}
-      {tab === "open" ? activeRoutes.length > 0 ? <div className="mcp-line-list">{activeRoutes.map((route) => <RouteCard key={route.id} route={route} onSelect={setSelectedRoute} actionLabel="Xem trước" />)}</div> : <EmptyPanel title="Không có tuyến đang chạy" hint="Chỉ tuyến active mới được dùng để chuẩn bị phiên MCP ngày." /> : null}
+      {tab === "routes" ? routesData.routes.length > 0 ? <div className="mcp-line-list">{routesData.routes.map((route) => <RouteCard key={route.id} route={route} onSelect={selectRoute} />)}</div> : <EmptyPanel title="Chưa có tuyến" hint="Chưa có dữ liệu tuyến MCP." /> : null}
+      {tab === "customers" ? !selectedRoute ? <EmptyPanel title="Chọn một tuyến" hint="Anh chọn tuyến MCP trước, rồi hệ thống mới hiện khách thuộc tuyến đó." /> : selectedRouteCustomers.length > 0 ? <div className="mcp-line-list">{selectedRouteCustomers.map((customer) => <RouteCustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : <EmptyPanel title="Tuyến chưa có khách" hint="Tuyến đang chọn chưa có khách đang hoạt động." /> : null}
+      {tab === "gps" ? !selectedRoute ? <EmptyPanel title="Chọn một tuyến" hint="Anh chọn tuyến trước để xem khách cần GPS." /> : needsGpsCustomers.length > 0 ? <div className="mcp-line-list">{needsGpsCustomers.map((customer) => <RouteCustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : <EmptyPanel title="GPS đã ổn" hint="Tuyến đang chọn không có khách cần bổ sung GPS." /> : null}
+      {tab === "open" ? activeRoutes.length > 0 ? <div className="mcp-line-list">{activeRoutes.map((route) => <RouteCard key={route.id} route={route} onSelect={selectRoute} actionLabel="Chuẩn bị" />)}</div> : <EmptyPanel title="Không có tuyến đang chạy" hint="Chỉ tuyến đang chạy hoặc cần theo dõi mới dùng để chuẩn bị phiên." /> : null}
 
-      <RouteInfoSheet route={selectedRoute} onClose={() => setSelectedRoute(null)} onShowCustomers={() => { setSelectedRoute(null); setTab("customers"); }} />
+      <RouteInfoSheet route={selectedRoute} onClose={() => setSelectedRoute(null)} onShowCustomers={showSelectedRouteCustomers} />
       <RouteCustomerSheet customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />
     </AppShell>
   );
