@@ -109,7 +109,7 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
         const response = await fetch(`${baseUrl}/api/mcp-day/open-session`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ routeId: route.id, sessionDate, owner: route.salesOwner || "Sale" }) });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || "Không mở được phiên MCP");
-        router.push(`/visits/${encodeURIComponent(route.id)}?date=${encodeURIComponent(sessionDate)}`);
+        router.push(`/visits?routeId=${encodeURIComponent(route.id)}&date=${encodeURIComponent(sessionDate)}`);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Không mở được phiên MCP");
       }
