@@ -13,17 +13,17 @@ const MCP_MODULES = [
     href: "/routes",
     tone: "routes",
     icon: "◎",
-    title: "Tuyến",
-    description: "Chọn tuyến gốc, xem khách tuyến và GPS trước khi mở phiên.",
-    cta: "Chọn tuyến"
+    title: "Tuyến gốc",
+    description: "Quản lý tuyến gốc: khách tuyến, GPS và dữ liệu nền trước khi mở phiên MCP.",
+    cta: "Xem tuyến gốc"
   },
   {
     href: "/routes",
     tone: "session",
     icon: "◇",
-    title: "MCP hôm nay",
-    description: "Mở hoặc tiếp tục phiên từ tuyến đã chọn, không tự lấy phiên gần nhất.",
-    cta: "Mở từ tuyến"
+    title: "Phiên MCP hôm nay",
+    description: "Mở hoặc tiếp tục phiên làm việc từ tuyến gốc đã chọn; đây không phải tuyến mới.",
+    cta: "Mở phiên"
   },
   {
     href: "/mcp/settings",
@@ -63,17 +63,17 @@ export default async function McpPage() {
       <PageHeader
         eyebrow="MCP"
         title="MCP"
-        subtitle="Trung tâm điều phối tuyến, phiên hôm nay và luật xử lý MCP. Bắt đầu từ tuyến để tránh mở nhầm phiên."
+        subtitle="Tuyến gốc là dữ liệu nền; Phiên MCP hôm nay là phiên làm việc được mở từ tuyến gốc đã chọn."
       >
         <SourceBadge source={routesResult.source} />
       </PageHeader>
 
       <TodaySummaryCard
         eyebrow="Quy trình MCP"
-        value="Chọn tuyến trước"
-        description={`${activeRoutes} tuyến có thể đi · ${plannedCustomers} khách trong tuyến gốc`}
+        value="Chọn tuyến gốc trước"
+        description={`${activeRoutes} tuyến gốc có thể đi · ${plannedCustomers} khách trong tuyến gốc`}
         pills={[
-          { label: "tuyến", value: routes.length },
+          { label: "tuyến gốc", value: routes.length },
           { label: "có thể đi", value: activeRoutes },
           { label: "đã ghé", value: visitedCustomers }
         ]}
@@ -86,7 +86,7 @@ export default async function McpPage() {
       <FilterBar
         title="Tóm tắt vận hành"
         filters={[
-          { label: "Tuyến", value: String(routes.length) },
+          { label: "Tuyến gốc", value: String(routes.length) },
           { label: "Có thể đi", value: String(activeRoutes) },
           { label: "Tạm dừng", value: String(pausedRoutes) },
           { label: "Khách tuyến", value: String(plannedCustomers) }
@@ -95,9 +95,9 @@ export default async function McpPage() {
 
       <CompactKpiStrip
         items={[
-          { label: "Tuyến MCP", value: routes.length, hint: "Tuyến gốc đang quản lý" },
+          { label: "Tuyến gốc", value: routes.length, hint: "Tuyến nền đang quản lý" },
           { label: "Có thể đi", value: activeRoutes, hint: "Đang chạy hoặc theo dõi" },
-          { label: "Khách tuyến", value: plannedCustomers, hint: "Tổng khách trong tuyến" },
+          { label: "Khách tuyến", value: plannedCustomers, hint: "Tổng khách trong tuyến gốc" },
           { label: "Đã ghé", value: visitedCustomers, hint: "Theo dữ liệu route hiện có" }
         ]}
       />
@@ -112,17 +112,17 @@ export default async function McpPage() {
             <div>
               <span className="dashboard-priority priority-high">Bước 1</span>
               <h3>Chọn tuyến gốc</h3>
-              <p>Xem tuyến, khách tuyến và GPS trước khi mở phiên.</p>
+              <p>Xem khách tuyến và GPS trước khi mở phiên MCP hôm nay.</p>
             </div>
-            <Link href="/routes" prefetch>Vào Tuyến</Link>
+            <Link href="/routes" prefetch>Vào tuyến gốc</Link>
           </article>
           <article className="action-card dashboard-action-card">
             <div>
               <span className="dashboard-priority priority-medium">Bước 2</span>
-              <h3>Mở phiên hôm nay</h3>
-              <p>Mở phiên từ tuyến đã chọn để hệ thống truyền đúng routeId và ngày.</p>
+              <h3>Mở phiên MCP hôm nay</h3>
+              <p>Mở phiên làm việc từ tuyến gốc đã chọn để truyền đúng routeId và ngày.</p>
             </div>
-            <Link href="/routes" prefetch>Chọn tuyến</Link>
+            <Link href="/routes" prefetch>Mở từ tuyến gốc</Link>
           </article>
           <article className="action-card dashboard-action-card">
             <div>
