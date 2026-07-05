@@ -14,9 +14,11 @@ type ReportTemplate = { routeId: string; title: string; reportType: string; cont
 type FollowupTemplate = { routeId: string; title: string; dueDays: string; priority: string; owner: string; note: string; followupType: string };
 type SkipReasonTemplate = { routeId: string; title: string; note: string; items: SkipReasonItem[] };
 type CustomerAddRule = { routeId: string; addMode: string; note: string };
+type RouteSessionStatus = { id: string; routeId: string; routeName?: string; sessionDate: string; status: string; note: string; plannedCustomers: number; visitedCustomers: number };
 type SettingsData = { routes: RouteOption[]; selectedRouteId: string; orderTemplate: OrderTemplate | null; testTemplate: TestTemplate | null; reportTemplate: ReportTemplate | null; followupTemplate: FollowupTemplate | null };
 type SkipReasonData = { routes: RouteOption[]; selectedRouteId: string; skipReasonTemplate: SkipReasonTemplate | null };
 type CustomerAddRuleData = { routes: RouteOption[]; selectedRouteId: string; customerAddRule: CustomerAddRule | null };
+type SessionStatusData = { routes: RouteOption[]; selectedRouteId: string; sessions: RouteSessionStatus[] };
 
 const emptyOrderItem = (): OrderItem => ({ productName: "", quantity: "1", unitPrice: "0", unit: "", note: "" });
 const emptyTestItem = (): TestItem => ({ productName: "", defaultStatus: "tested", note: "" });
@@ -28,23 +30,12 @@ const emptyFollowupTemplate = (routeId = "", owner = ""): FollowupTemplate => ({
 const emptySkipReasonTemplate = (routeId = ""): SkipReasonTemplate => ({ routeId, title: "Mẫu lý do bỏ qua/không mua", note: "", items: [{ reasonType: "skip", reasonText: "Khách đóng cửa", note: "" }, { reasonType: "no_buy", reasonText: "Còn tồn hàng", note: "" }] });
 const emptyCustomerAddRule = (routeId = ""): CustomerAddRule => ({ routeId, addMode: "session_only", note: "" });
 
-const addModeLabels: Record<string, string> = {
-  session_only: "Chỉ thêm vào phiên",
-  route_only: "Thêm vào tuyến cố định",
-  both: "Thêm cả hai"
-};
+const addModeLabels: Record<string, string> = { session_only: "Chỉ thêm vào phiên", route_only: "Thêm vào tuyến cố định", both: "Thêm cả hai" };
+const sessionStatusLabels: Record<string, string> = { active: "Đang hoạt động", done: "Đã hoàn tất", cancelled: "Đã hủy" };
 
-function cleanOrderItems(items: OrderItem[]) {
-  return items.map((item) => ({ productName: item.productName.trim(), quantity: Number(item.quantity || 0), unitPrice: Number(item.unitPrice || 0), unit: item.unit.trim(), note: item.note.trim() })).filter((item) => item.productName);
-}
-
-function cleanTestItems(items: TestItem[]) {
-  return items.map((item) => ({ productName: item.productName.trim(), defaultStatus: item.defaultStatus || "tested", note: item.note.trim() })).filter((item) => item.productName);
-}
-
-function cleanSkipReasonItems(items: SkipReasonItem[]) {
-  return items.map((item) => ({ reasonType: item.reasonType || "skip", reasonText: item.reasonText.trim(), note: item.note.trim() })).filter((item) => item.reasonText);
-}
+function cleanOrderItems(items: OrderItem[]) { return items.map((item) => ({ productName: item.productName.trim(), quantity: Number(item.quantity || 0), unitPrice: Number(item.unitPrice || 0), unit: item.unit.trim(), note: item.note.trim() })).filter((item) => item.productName); }
+function cleanTestItems(items: TestItem[]) { return items.map((item) => ({ productName: item.productName.trim(), defaultStatus: item.defaultStatus || "tested", note: item.note.trim() })).filter((item) => item.productName); }
+function cleanSkipReasonItems(items: SkipReasonItem[]) { return items.map((item) => ({ reasonType: item.reasonType || "skip", reasonText: item.reasonText.trim(), note: item.note.trim() })).filter((item) => item.reasonText); }
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(path, { cache: "no-store", headers: { Accept: "application/json" } });
@@ -69,15 +60,22 @@ export default function McpSettingsPage() {
   const [followupTemplate, setFollowupTemplate] = useState<FollowupTemplate>(emptyFollowupTemplate());
   const [skipReasonTemplate, setSkipReasonTemplate] = useState<SkipReasonTemplate>(emptySkipReasonTemplate());
   const [customerAddRule, setCustomerAddRule] = useState<CustomerAddRule>(emptyCustomerAddRule());
+  const [sessions, setSessions] = useState<RouteSessionStatus[]>([]);
+  const [selectedSessionDate, setSelectedSessionDate] = useState("");
+  const [sessionStatus, setSessionStatus] = useState("active");
+  const [sessionStatusNote, setSessionStatusNote] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
   const [saving, startSaving] = useTransition();
   const selectedRoute = useMemo(() => routes.find((route) => route.id === selectedRouteId) || null, [routes, selectedRouteId]);
+  const selectedSession = useMemo(() => sessions.find((session) => session.sessionDate === selectedSessionDate) || null, [sessions, selectedSessionDate]);
 
-  function applyData(data: SettingsData, skipData: SkipReasonData, addRuleData: CustomerAddRuleData) {
-    const routeId = data.selectedRouteId || skipData.selectedRouteId || addRuleData.selectedRouteId || data.routes?.[0]?.id || skipData.routes?.[0]?.id || addRuleData.routes?.[0]?.id || "";
-    const routeList = data.routes?.length ? data.routes : skipData.routes?.length ? skipData.routes : addRuleData.routes || [];
+  function applyData(data: SettingsData, skipData: SkipReasonData, addRuleData: CustomerAddRuleData, sessionData: SessionStatusData) {
+    const routeId = data.selectedRouteId || skipData.selectedRouteId || addRuleData.selectedRouteId || sessionData.selectedRouteId || data.routes?.[0]?.id || skipData.routes?.[0]?.id || addRuleData.routes?.[0]?.id || sessionData.routes?.[0]?.id || "";
+    const routeList = data.routes?.length ? data.routes : skipData.routes?.length ? skipData.routes : addRuleData.routes?.length ? addRuleData.routes : sessionData.routes || [];
     const owner = routeList.find((route) => route.id === routeId)?.salesOwner || "";
+    const nextSessions = sessionData.sessions || [];
+    const firstSession = nextSessions[0] || null;
     setRoutes(routeList);
     setSelectedRouteId(routeId);
     setOrderTemplate(data.orderTemplate || emptyOrderTemplate(routeId));
@@ -86,6 +84,10 @@ export default function McpSettingsPage() {
     setFollowupTemplate(data.followupTemplate || emptyFollowupTemplate(routeId, owner));
     setSkipReasonTemplate(skipData.skipReasonTemplate || emptySkipReasonTemplate(routeId));
     setCustomerAddRule(addRuleData.customerAddRule || emptyCustomerAddRule(routeId));
+    setSessions(nextSessions);
+    setSelectedSessionDate(firstSession?.sessionDate || "");
+    setSessionStatus(firstSession?.status || "active");
+    setSessionStatusNote(firstSession?.note || "");
   }
 
   function load(routeId?: string) {
@@ -93,12 +95,13 @@ export default function McpSettingsPage() {
       try {
         setMessage(null);
         const suffix = routeId ? `?routeId=${encodeURIComponent(routeId)}` : "";
-        const [data, skipData, addRuleData] = await Promise.all([
+        const [data, skipData, addRuleData, sessionData] = await Promise.all([
           getJson<SettingsData>(`/api/backend/mcp-settings/templates${suffix}`),
           getJson<SkipReasonData>(`/api/backend/mcp-settings/skip-reason-template${suffix}`),
-          getJson<CustomerAddRuleData>(`/api/backend/mcp-settings/customer-add-rule${suffix}`)
+          getJson<CustomerAddRuleData>(`/api/backend/mcp-settings/customer-add-rule${suffix}`),
+          getJson<SessionStatusData>(`/api/backend/mcp-settings/session-status${suffix}`)
         ]);
-        applyData(data, skipData, addRuleData);
+        applyData(data, skipData, addRuleData, sessionData);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Không tải được cài đặt");
       }
@@ -107,7 +110,14 @@ export default function McpSettingsPage() {
 
   useEffect(() => { load(); }, []);
 
-  function save(kind: "order" | "test" | "report" | "followup" | "skip" | "add_rule") {
+  function chooseSession(sessionDate: string) {
+    const session = sessions.find((item) => item.sessionDate === sessionDate) || null;
+    setSelectedSessionDate(sessionDate);
+    setSessionStatus(session?.status || "active");
+    setSessionStatusNote(session?.note || "");
+  }
+
+  function save(kind: "order" | "test" | "report" | "followup" | "skip" | "add_rule" | "session_status") {
     startSaving(async () => {
       try {
         setMessage(null);
@@ -144,6 +154,11 @@ export default function McpSettingsPage() {
           const result = await postSetting("/api/backend/mcp-settings/customer-add-rule", { ...customerAddRule, routeId });
           setMessage(`Đã lưu luật thêm khách: ${addModeLabels[result.addMode || customerAddRule.addMode] || customerAddRule.addMode}`);
         }
+        if (kind === "session_status") {
+          if (!selectedSessionDate) throw new Error("Cần chọn phiên");
+          const result = await postSetting("/api/backend/mcp-settings/session-status", { routeId, sessionDate: selectedSessionDate, status: sessionStatus, note: sessionStatusNote });
+          setMessage(`Đã cập nhật phiên ${result.sessionDate}: ${sessionStatusLabels[result.status || sessionStatus] || sessionStatus}`);
+        }
 
         load(routeId);
       } catch (error) {
@@ -156,13 +171,7 @@ export default function McpSettingsPage() {
     <AppShell activeHref="/mcp">
       <PageHeader eyebrow="Cài đặt tuyến" title="Mẫu nghiệp vụ tuyến" subtitle="Thiết lập mẫu và luật theo từng tuyến cho quy trình MCP." />
 
-      <section className="card">
-        <div className="section-heading"><div><h2 className="panel-title">Tuyến áp dụng</h2><p className="page-subtitle">Mỗi mẫu và luật được lưu riêng theo tuyến đang chọn.</p></div></div>
-        <div className="grid">
-          <label className="form-field"><small>Chọn tuyến</small><select value={selectedRouteId} onChange={(event) => { setSelectedRouteId(event.target.value); load(event.target.value); }} disabled={loading || saving}>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></label>
-          <div className="metric-row"><span>Tuyến đang chọn</span><strong>{selectedRoute ? `${selectedRoute.name} · ${selectedRoute.area || "-"}` : "Chưa chọn"}</strong></div>
-        </div>
-      </section>
+      <section className="card"><div className="section-heading"><div><h2 className="panel-title">Tuyến áp dụng</h2><p className="page-subtitle">Mỗi mẫu và luật được lưu riêng theo tuyến đang chọn.</p></div></div><div className="grid"><label className="form-field"><small>Chọn tuyến</small><select value={selectedRouteId} onChange={(event) => { setSelectedRouteId(event.target.value); load(event.target.value); }} disabled={loading || saving}>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></label><div className="metric-row"><span>Tuyến đang chọn</span><strong>{selectedRoute ? `${selectedRoute.name} · ${selectedRoute.area || "-"}` : "Chưa chọn"}</strong></div></div></section>
 
       <section className="card"><div className="section-heading"><div><h2 className="panel-title">1. Mẫu đơn hàng</h2><p className="page-subtitle">Sản phẩm, số lượng, giá và ghi chú mặc định.</p></div><button className="button primary" type="button" onClick={() => save("order")} disabled={saving}>Lưu mẫu đơn</button></div><div className="grid"><label className="form-field"><small>Tên mẫu</small><input value={orderTemplate.title} onChange={(event) => setOrderTemplate((current) => ({ ...current, title: event.target.value }))} /></label><label className="form-field"><small>Ghi chú mẫu</small><textarea value={orderTemplate.note} onChange={(event) => setOrderTemplate((current) => ({ ...current, note: event.target.value }))} /></label></div><div className="mcp-line-list">{orderTemplate.items.map((item, index) => <div className="visit-focus-card" key={`order-${index}`}><span>Sản phẩm mẫu {index + 1}</span><label className="form-field"><small>Tên sản phẩm</small><input value={item.productName} onChange={(event) => setOrderTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, productName: event.target.value } : row) }))} /></label><label className="form-field"><small>Số lượng mặc định</small><input inputMode="decimal" value={item.quantity} onChange={(event) => setOrderTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: event.target.value } : row) }))} /></label><label className="form-field"><small>Giá mặc định</small><input inputMode="decimal" value={item.unitPrice} onChange={(event) => setOrderTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: event.target.value } : row) }))} /></label><label className="form-field"><small>Đơn vị</small><input value={item.unit} onChange={(event) => setOrderTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, unit: event.target.value } : row) }))} /></label><label className="form-field"><small>Ghi chú dòng</small><input value={item.note} onChange={(event) => setOrderTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, note: event.target.value } : row) }))} /></label>{orderTemplate.items.length > 1 ? <button className="button" type="button" onClick={() => setOrderTemplate((current) => ({ ...current, items: current.items.filter((_, rowIndex) => rowIndex !== index) }))}>Xóa sản phẩm</button> : null}</div>)}</div><button className="button" type="button" onClick={() => setOrderTemplate((current) => ({ ...current, items: [...current.items, emptyOrderItem()] }))}>Thêm sản phẩm mẫu</button></section>
 
@@ -174,14 +183,9 @@ export default function McpSettingsPage() {
 
       <section className="card"><div className="section-heading"><div><h2 className="panel-title">5. Mẫu lý do bỏ qua/không mua</h2><p className="page-subtitle">Danh sách lý do chuẩn để dùng khi khách bị bỏ qua hoặc đã ghé nhưng không mua.</p></div><button className="button primary" type="button" onClick={() => save("skip")} disabled={saving}>Lưu mẫu lý do</button></div><div className="grid"><label className="form-field"><small>Tên mẫu lý do</small><input value={skipReasonTemplate.title} onChange={(event) => setSkipReasonTemplate((current) => ({ ...current, title: event.target.value }))} /></label><label className="form-field"><small>Ghi chú mẫu</small><textarea value={skipReasonTemplate.note} onChange={(event) => setSkipReasonTemplate((current) => ({ ...current, note: event.target.value }))} /></label></div><div className="mcp-line-list">{skipReasonTemplate.items.map((item, index) => <div className="visit-focus-card" key={`skip-${index}`}><span>Lý do mẫu {index + 1}</span><label className="form-field"><small>Loại lý do</small><select value={item.reasonType} onChange={(event) => setSkipReasonTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, reasonType: event.target.value } : row) }))}><option value="skip">Bỏ qua</option><option value="no_buy">Không mua</option></select></label><label className="form-field"><small>Nội dung lý do</small><input value={item.reasonText} onChange={(event) => setSkipReasonTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, reasonText: event.target.value } : row) }))} placeholder="VD: Khách đóng cửa / còn tồn hàng" /></label><label className="form-field"><small>Ghi chú dòng</small><input value={item.note} onChange={(event) => setSkipReasonTemplate((current) => ({ ...current, items: current.items.map((row, rowIndex) => rowIndex === index ? { ...row, note: event.target.value } : row) }))} /></label>{skipReasonTemplate.items.length > 1 ? <button className="button" type="button" onClick={() => setSkipReasonTemplate((current) => ({ ...current, items: current.items.filter((_, rowIndex) => rowIndex !== index) }))}>Xóa lý do</button> : null}</div>)}</div><button className="button" type="button" onClick={() => setSkipReasonTemplate((current) => ({ ...current, items: [...current.items, emptySkipReasonItem()] }))}>Thêm lý do mẫu</button></section>
 
-      <section className="card">
-        <div className="section-heading"><div><h2 className="panel-title">6. Luật thêm khách</h2><p className="page-subtitle">Quy định khách phát sinh được lưu vào phiên, tuyến cố định hoặc cả hai.</p></div><button className="button primary" type="button" onClick={() => save("add_rule")} disabled={saving}>Lưu luật thêm khách</button></div>
-        <div className="grid">
-          <label className="form-field"><small>Cách lưu khách phát sinh</small><select value={customerAddRule.addMode} onChange={(event) => setCustomerAddRule((current) => ({ ...current, addMode: event.target.value }))}><option value="session_only">Chỉ thêm vào phiên</option><option value="route_only">Thêm vào tuyến cố định</option><option value="both">Thêm cả hai</option></select></label>
-          <div className="metric-row"><span>Luật hiện tại</span><strong>{addModeLabels[customerAddRule.addMode] || customerAddRule.addMode}</strong></div>
-          <label className="form-field"><small>Ghi chú luật</small><textarea value={customerAddRule.note} onChange={(event) => setCustomerAddRule((current) => ({ ...current, note: event.target.value }))} placeholder="Ghi chú cách áp dụng luật thêm khách cho tuyến này" /></label>
-        </div>
-      </section>
+      <section className="card"><div className="section-heading"><div><h2 className="panel-title">6. Luật thêm khách</h2><p className="page-subtitle">Quy định khách phát sinh được lưu vào phiên, tuyến cố định hoặc cả hai.</p></div><button className="button primary" type="button" onClick={() => save("add_rule")} disabled={saving}>Lưu luật thêm khách</button></div><div className="grid"><label className="form-field"><small>Cách lưu khách phát sinh</small><select value={customerAddRule.addMode} onChange={(event) => setCustomerAddRule((current) => ({ ...current, addMode: event.target.value }))}><option value="session_only">Chỉ thêm vào phiên</option><option value="route_only">Thêm vào tuyến cố định</option><option value="both">Thêm cả hai</option></select></label><div className="metric-row"><span>Luật hiện tại</span><strong>{addModeLabels[customerAddRule.addMode] || customerAddRule.addMode}</strong></div><label className="form-field"><small>Ghi chú luật</small><textarea value={customerAddRule.note} onChange={(event) => setCustomerAddRule((current) => ({ ...current, note: event.target.value }))} placeholder="Ghi chú cách áp dụng luật thêm khách cho tuyến này" /></label></div></section>
+
+      <section className="card"><div className="section-heading"><div><h2 className="panel-title">7. Trạng thái phiên</h2><p className="page-subtitle">Đổi trạng thái phiên hiện có theo tuyến và ngày: active, done hoặc cancelled.</p></div><button className="button primary" type="button" onClick={() => save("session_status")} disabled={saving || !selectedSessionDate}>Lưu trạng thái phiên</button></div><div className="grid"><label className="form-field"><small>Chọn phiên</small><select value={selectedSessionDate} onChange={(event) => chooseSession(event.target.value)} disabled={loading || saving}>{sessions.map((session) => <option key={session.id} value={session.sessionDate}>{session.sessionDate} · {sessionStatusLabels[session.status] || session.status}</option>)}</select></label><label className="form-field"><small>Trạng thái phiên</small><select value={sessionStatus} onChange={(event) => setSessionStatus(event.target.value)} disabled={!selectedSessionDate}><option value="active">active</option><option value="done">done</option><option value="cancelled">cancelled</option></select></label><div className="metric-row"><span>Phiên đang chọn</span><strong>{selectedSession ? `${selectedSession.sessionDate} · ${selectedSession.visitedCustomers}/${selectedSession.plannedCustomers} khách` : "Chưa có phiên"}</strong></div><label className="form-field"><small>Ghi chú trạng thái</small><textarea value={sessionStatusNote} onChange={(event) => setSessionStatusNote(event.target.value)} placeholder="Ghi chú khi hoàn tất hoặc hủy phiên" /></label></div></section>
 
       {message ? <section className="card"><p className="page-subtitle">{message}</p></section> : null}
     </AppShell>

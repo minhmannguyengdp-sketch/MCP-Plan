@@ -685,6 +685,66 @@ async function saveMcpCustomerAddRuleSettings(body) {
   });
 }
 
+function normalizeMcpRouteSessionStatus(value) {
+  const status = String(value || "active").trim().toLowerCase() || "active";
+  if (!["active", "done", "cancelled"].includes(status)) throw badRequest("invalid_session_status");
+  return status;
+}
+
+async function loadMcpRouteSessionStatusSettings(url) {
+  const routes = await loadRoutes();
+  const routeId = String(url.searchParams.get("routeId") || routes[0]?.id || "").trim();
+  let sessions = [];
+
+  if (routeId) {
+    sessions = await supabaseGet("mcp_route_sessions", {
+      select: "id,route_id,route_name,session_date,status,note,planned_customers,visited_customers,created_at,updated_at",
+      route_id: `eq.${routeId}`,
+      order: "session_date.desc,created_at.desc",
+      limit: 30
+    });
+  }
+
+  return {
+    routes: routes.map((route) => ({
+      id: route.id,
+      name: route.name,
+      area: route.area,
+      salesOwner: route.salesOwner,
+      status: route.status
+    })),
+    selectedRouteId: routeId,
+    sessions: sessions.map((session) => ({
+      id: session.id,
+      routeId: session.route_id,
+      routeName: session.route_name,
+      sessionDate: dateOnly(session.session_date),
+      status: session.status || "active",
+      note: session.note || "",
+      plannedCustomers: Number(session.planned_customers || 0),
+      visitedCustomers: Number(session.visited_customers || 0)
+    }))
+  };
+}
+
+async function saveMcpRouteSessionStatusSettings(body) {
+  const routeId = String(body.routeId || body.route_id || "").trim();
+  if (!routeId) throw badRequest("route_id_required");
+
+  const sessionDate = String(body.sessionDate || body.session_date || "").trim();
+  if (!sessionDate) throw badRequest("session_date_required");
+
+  const status = normalizeMcpRouteSessionStatus(body.status);
+  const note = String(body.note || "").trim();
+
+  return supabaseRpc("mcp_set_route_session_status", {
+    p_route_id: routeId,
+    p_session_date: sessionDate,
+    p_status: status,
+    p_note: note || null
+  });
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -1221,6 +1281,7 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-settings/followup-template") return wrap(await saveMcpFollowupTemplateSettings(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/skip-reason-template") return wrap(await saveMcpSkipReasonTemplateSettings(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/customer-add-rule") return wrap(await saveMcpCustomerAddRuleSettings(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-settings/session-status") return wrap(await saveMcpRouteSessionStatusSettings(await readJsonBody(req)));
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
@@ -1240,6 +1301,7 @@ async function handleGet(url) {
   if (url.pathname === "/api/mcp-settings/templates") return wrap(await loadMcpTemplatesSettings(url));
   if (url.pathname === "/api/mcp-settings/skip-reason-template") return wrap(await loadMcpSkipReasonTemplateSettings(url));
   if (url.pathname === "/api/mcp-settings/customer-add-rule") return wrap(await loadMcpCustomerAddRuleSettings(url));
+  if (url.pathname === "/api/mcp-settings/session-status") return wrap(await loadMcpRouteSessionStatusSettings(url));
   if (url.pathname === "/api/orders") return wrap(await loadOrders(url));
   if (url.pathname === "/api/tests") return wrap(await getMarketChecksData(url));
   if (url.pathname === "/api/market-checks") return wrap((await loadMarketChecks(url)).map((check) => ({ id: check.id, date: check.date, routeName: check.routeName, accountName: check.accountName, productName: check.productName, status: check.status })));
