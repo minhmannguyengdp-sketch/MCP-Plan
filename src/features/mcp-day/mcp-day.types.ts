@@ -1,4 +1,4 @@
-export type DayRunStatus = "opened" | "completed" | "cancelled";
+export type DayRunStatus = "active" | "done" | "cancelled" | "opened" | "completed";
 
 export type DayLineSource = "planned" | "added" | "synced";
 
