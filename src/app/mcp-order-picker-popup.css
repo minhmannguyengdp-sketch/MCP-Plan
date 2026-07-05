@@ -8,8 +8,10 @@
   }
 
   .order-action-content:not(.product-picker-popup-open) .order-picker-head,
+  .order-action-content:not(.product-picker-popup-open) .order-picker-filter-toggle,
   .order-action-content:not(.product-picker-popup-open) .catalog-strip,
-  .order-action-content:not(.product-picker-popup-open) .order-main-grid {
+  .order-action-content:not(.product-picker-popup-open) .order-main-grid,
+  .order-action-content:not(.product-picker-popup-open) .order-picker-done-bar {
     display: none !important;
   }
 
@@ -22,8 +24,10 @@
   }
 
   .order-action-content.product-picker-popup-open .order-picker-head,
+  .order-action-content.product-picker-popup-open .order-picker-filter-toggle,
   .order-action-content.product-picker-popup-open .catalog-strip,
-  .order-action-content.product-picker-popup-open .order-main-grid {
+  .order-action-content.product-picker-popup-open .order-main-grid,
+  .order-action-content.product-picker-popup-open .order-picker-done-bar {
     z-index: 80 !important;
   }
 
@@ -43,7 +47,7 @@
   }
 
   .order-action-content.product-picker-popup-open .order-picker-head::before {
-    content: "Chọn sản phẩm";
+    content: "1. Tìm sản phẩm";
     position: absolute;
     left: 14px;
     top: 13px;
@@ -52,25 +56,48 @@
     font-weight: 900;
   }
 
-  .order-action-content.product-picker-popup-open .catalog-strip {
+  .order-action-content.product-picker-popup-open .order-picker-filter-toggle {
     position: fixed !important;
     top: calc(114px + env(safe-area-inset-top)) !important;
     left: 12px !important;
     right: 12px !important;
     display: flex !important;
-    flex-wrap: nowrap !important;
-    min-height: 44px !important;
-    max-height: 44px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    min-height: 42px !important;
+    border: 1px solid #bbf7d0 !important;
     border-radius: 0 !important;
-    border-left: 1px solid #dbeafe !important;
-    border-right: 1px solid #dbeafe !important;
+    background: #f0fdf4 !important;
+    color: #166534 !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    padding: 8px 12px !important;
+  }
+
+  .order-action-content.product-picker-popup-open .order-picker-filter-toggle::before {
+    content: "2. Nhóm nguyên liệu";
+  }
+
+  .order-action-content.product-picker-popup-open .catalog-strip {
+    position: fixed !important;
+    top: calc(156px + env(safe-area-inset-top)) !important;
+    left: 12px !important;
+    right: 12px !important;
+    display: none !important;
+    flex-wrap: wrap !important;
+    min-height: 0 !important;
+    max-height: 172px !important;
+    overflow: auto !important;
+    border-radius: 0 0 16px 16px !important;
+    border: 1px solid #bbf7d0 !important;
     border-top: 0 !important;
-    border-bottom: 0 !important;
-    background: #f8fffb !important;
-    padding: 7px 12px !important;
-    box-shadow: none !important;
+    background: #ffffff !important;
+    padding: 8px 10px !important;
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16) !important;
+  }
+
+  .order-action-content.product-picker-popup-open.product-filter-open .catalog-strip {
+    display: flex !important;
   }
 
   .order-action-content.product-picker-popup-open .catalog-strip::before {
@@ -79,10 +106,10 @@
 
   .order-action-content.product-picker-popup-open .order-main-grid {
     position: fixed !important;
-    top: calc(158px + env(safe-area-inset-top)) !important;
+    top: calc(156px + env(safe-area-inset-top)) !important;
     left: 12px !important;
     right: 12px !important;
-    bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+    bottom: calc(132px + env(safe-area-inset-bottom)) !important;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr) auto !important;
@@ -90,11 +117,14 @@
     min-height: 0 !important;
     overflow: hidden !important;
     border: 1px solid #dbeafe !important;
-    border-top: 0 !important;
     border-radius: 0 0 18px 18px !important;
     background: #ffffff !important;
-    padding: 8px 12px 12px !important;
+    padding: 10px 12px 12px !important;
     box-shadow: 0 20px 42px rgba(15, 23, 42, 0.20) !important;
+  }
+
+  .order-action-content.product-picker-popup-open.product-filter-open .order-main-grid {
+    top: calc(328px + env(safe-area-inset-top)) !important;
   }
 
   .order-action-content.product-picker-popup-open .product-card-list.compact {
@@ -149,6 +179,38 @@
     font-weight: 800;
     line-height: 1;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  }
+
+  .order-action-content.product-picker-popup-open .order-picker-done-bar {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(62px + env(safe-area-inset-bottom)) !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 132px !important;
+    gap: 8px !important;
+    align-items: center !important;
+    border: 1px solid #dbeafe !important;
+    border-radius: 16px !important;
+    background: #ffffff !important;
+    padding: 9px 10px !important;
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.22) !important;
+  }
+
+  .order-picker-selected-status {
+    overflow: hidden;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .order-picker-done-button {
+    min-height: 38px !important;
+    border-radius: 12px !important;
+    padding: 7px 10px !important;
+    font-size: 13px !important;
   }
 
   .order-action-content.product-picker-popup-open .order-open-picker-button,
