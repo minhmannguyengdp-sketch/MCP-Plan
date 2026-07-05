@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { headers } from "next/headers";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
+import { McpSessionsManager } from "@/features/mcp/McpSessionsManager";
 
 type SessionRow = {
   id: string;
@@ -9,6 +9,7 @@ type SessionRow = {
   routeName: string;
   sessionDate: string;
   status: string;
+  note?: string;
   plannedCustomers: number;
   visitedCustomers: number;
 };
@@ -52,40 +53,18 @@ async function loadSessions(searchParams: Record<string, string | string[] | und
 
 export default async function McpSessionsPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const data = await loadSessions(searchParams);
-  const dateFrom = String(searchParams.dateFrom || daysAgo(30)).slice(0, 10);
-  const dateTo = String(searchParams.dateTo || today()).slice(0, 10);
-  const routeId = String(searchParams.routeId || "");
-  const status = String(searchParams.status || "");
+  const filters = {
+    dateFrom: String(searchParams.dateFrom || daysAgo(30)).slice(0, 10),
+    dateTo: String(searchParams.dateTo || today()).slice(0, 10),
+    routeId: String(searchParams.routeId || ""),
+    status: String(searchParams.status || "")
+  };
 
   return (
     <AppShell activeHref="/mcp/sessions">
       <div className="mcp-sessions-page">
-        <PageHeader eyebrow="MCP" title="Phiên chạy tuyến" subtitle="Lịch sử phiên theo ngày. Click một phiên để mở checklist khách trong phiên đó." />
-
-        <form className="filter-bar mcp-session-filter" action="/mcp/sessions">
-          <label className="form-field"><small>Từ</small><input name="dateFrom" type="date" defaultValue={dateFrom} /></label>
-          <label className="form-field"><small>Đến</small><input name="dateTo" type="date" defaultValue={dateTo} /></label>
-          <label className="form-field"><small>Tuyến</small><select name="routeId" defaultValue={routeId}><option value="">Tất cả tuyến</option>{data.routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></label>
-          <label className="form-field"><small>TT</small><select name="status" defaultValue={status}><option value="">Tất cả</option><option value="active">Đang chạy</option><option value="done">Đã chốt</option><option value="cancelled">Đã hủy</option></select></label>
-          <button className="button primary" type="submit">Lọc</button>
-        </form>
-
-        <div className="grid cards mcp-session-kpis">
-          {data.kpis.map((item) => <article className="card" key={item.label}><div className="card-label">{item.label}</div><div className="card-value">{item.value}</div><p className="card-hint">{item.hint}</p></article>)}
-        </div>
-
-        <section className="grid mcp-session-list">
-          {data.sessions.length === 0 ? <div className="empty-inline">Chưa có phiên trong bộ lọc.</div> : data.sessions.map((session) => (
-            <article className="action-card" key={session.id}>
-              <div>
-                <span className="badge">{session.status}</span>
-                <h3>{session.routeName}</h3>
-                <p>{session.sessionDate} · {session.visitedCustomers}/{session.plannedCustomers} khách đã ghé</p>
-              </div>
-              <Link href={`/visits?routeId=${encodeURIComponent(session.routeId)}&date=${encodeURIComponent(session.sessionDate)}`} prefetch>Mở checklist</Link>
-            </article>
-          ))}
-        </section>
+        <PageHeader eyebrow="MCP" title="Phiên chạy tuyến" subtitle="Lịch sử phiên theo ngày. Có thể mở checklist, sửa ngày/trạng thái/ghi chú hoặc xóa phiên rỗng khi chọn sai." />
+        <McpSessionsManager data={data} filters={filters} />
       </div>
     </AppShell>
   );
