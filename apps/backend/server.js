@@ -435,6 +435,101 @@ async function saveMcpOrderTemplateSettings(body) {
   });
 }
 
+
+function normalizeMcpTestTemplateItems(items) {
+  if (!Array.isArray(items) || items.length === 0) throw badRequest("test_template_items_required");
+  return items.map((item) => {
+    const productName = String(item.productName || item.product_name || "").trim();
+    const defaultStatus = String(item.defaultStatus || item.default_status || "tested").trim() || "tested";
+    if (!productName) throw badRequest("product_name_required");
+    return { productId: String(item.productId || item.product_id || "").trim() || null, productName, defaultStatus, note: String(item.note || "").trim() || null };
+  });
+}
+
+function emptyOrderTemplate(routeId) {
+  return { routeId, title: "Mẫu đơn hàng", note: "", items: [{ productName: "", quantity: "1", unitPrice: "0", unit: "", note: "" }] };
+}
+
+function emptyTestTemplate(routeId) {
+  return { routeId, title: "Mẫu test sản phẩm", note: "", items: [{ productName: "", defaultStatus: "tested", note: "" }] };
+}
+
+function emptyReportTemplate(routeId) {
+  return { routeId, title: "Mẫu báo cáo thị trường", reportType: "price", content: "", priceSummary: "", competitorSummary: "", displaySummary: "", stockSummary: "", demandSummary: "", opportunitySummary: "", riskSummary: "", nextAction: "", note: "" };
+}
+
+function emptyFollowupTemplate(routeId, owner = "") {
+  return { routeId, title: "Mẫu follow-up", dueDays: "1", priority: "medium", owner, note: "", followupType: "general" };
+}
+
+async function loadMcpTemplatesSettings(url) {
+  const routes = await loadRoutes();
+  const routeId = String(url.searchParams.get("routeId") || routes[0]?.id || "").trim();
+  const routeOwner = routes.find((route) => route.id === routeId)?.salesOwner || "";
+
+  let orderTemplate = routeId ? emptyOrderTemplate(routeId) : null;
+  let testTemplate = routeId ? emptyTestTemplate(routeId) : null;
+  let reportTemplate = routeId ? emptyReportTemplate(routeId) : null;
+  let followupTemplate = routeId ? emptyFollowupTemplate(routeId, routeOwner) : null;
+
+  if (routeId) {
+    const [orderRows, testRows, reportRows, followupRows] = await Promise.all([
+      supabaseGet("mcp_route_order_templates", { select: "id,route_id,title,note,status", route_id: `eq.${routeId}`, limit: 1 }),
+      supabaseGet("mcp_route_test_templates", { select: "id,route_id,title,note,status", route_id: `eq.${routeId}`, limit: 1 }),
+      supabaseGet("mcp_route_report_templates", { select: "id,route_id,title,report_type,content,price_summary,competitor_summary,display_summary,stock_summary,demand_summary,opportunity_summary,risk_summary,next_action,note,status", route_id: `eq.${routeId}`, limit: 1 }),
+      supabaseGet("mcp_route_followup_templates", { select: "id,route_id,title,due_days,priority,owner,note,followup_type,status", route_id: `eq.${routeId}`, limit: 1 })
+    ]);
+
+    const order = orderRows[0] || null;
+    if (order) {
+      const items = await supabaseGet("mcp_route_order_template_items", { select: "id,product_name,unit,quantity,unit_price,note,sort_order", template_id: `eq.${order.id}`, order: "sort_order.asc,created_at.asc", limit: 200 });
+      orderTemplate = { routeId, title: order.title || "Mẫu đơn hàng", note: order.note || "", items: items.map((item) => ({ productName: item.product_name || "", quantity: String(item.quantity ?? 1), unitPrice: String(item.unit_price ?? 0), unit: item.unit || "", note: item.note || "" })) };
+    }
+
+    const test = testRows[0] || null;
+    if (test) {
+      const items = await supabaseGet("mcp_route_test_template_items", { select: "id,product_name,default_status,note,sort_order", template_id: `eq.${test.id}`, order: "sort_order.asc,created_at.asc", limit: 200 });
+      testTemplate = { routeId, title: test.title || "Mẫu test sản phẩm", note: test.note || "", items: items.map((item) => ({ productName: item.product_name || "", defaultStatus: item.default_status || "tested", note: item.note || "" })) };
+    }
+
+    const report = reportRows[0] || null;
+    if (report) {
+      reportTemplate = { routeId, title: report.title || "Mẫu báo cáo thị trường", reportType: report.report_type || "price", content: report.content || "", priceSummary: report.price_summary || "", competitorSummary: report.competitor_summary || "", displaySummary: report.display_summary || "", stockSummary: report.stock_summary || "", demandSummary: report.demand_summary || "", opportunitySummary: report.opportunity_summary || "", riskSummary: report.risk_summary || "", nextAction: report.next_action || "", note: report.note || "" };
+    }
+
+    const followup = followupRows[0] || null;
+    if (followup) {
+      followupTemplate = { routeId, title: followup.title || "Mẫu follow-up", dueDays: followup.due_days === null || followup.due_days === undefined ? "" : String(followup.due_days), priority: followup.priority || "medium", owner: followup.owner || routeOwner, note: followup.note || "", followupType: followup.followup_type || "general" };
+    }
+  }
+
+  return { routes: routes.map((route) => ({ id: route.id, name: route.name, area: route.area, salesOwner: route.salesOwner, status: route.status })), selectedRouteId: routeId, orderTemplate, testTemplate, reportTemplate, followupTemplate };
+}
+
+async function saveMcpTestTemplateSettings(body) {
+  const routeId = String(body.routeId || body.route_id || "").trim();
+  if (!routeId) throw badRequest("route_id_required");
+  const items = normalizeMcpTestTemplateItems(body.items);
+  return supabaseRpc("mcp_save_route_test_template", { p_route_id: routeId, p_title: String(body.title || "").trim() || "Mau test san pham", p_note: String(body.note || "").trim() || null, p_items: items });
+}
+
+async function saveMcpReportTemplateSettings(body) {
+  const routeId = String(body.routeId || body.route_id || "").trim();
+  if (!routeId) throw badRequest("route_id_required");
+  const reportType = normalizeReportType(body.reportType || body.report_type || "price");
+  return supabaseRpc("mcp_save_route_report_template", { p_route_id: routeId, p_title: String(body.title || "").trim() || "Mau bao cao thi truong", p_report_type: reportType, p_content: String(body.content || "").trim() || null, p_price_summary: String(body.priceSummary || body.price_summary || "").trim() || null, p_competitor_summary: String(body.competitorSummary || body.competitor_summary || "").trim() || null, p_display_summary: String(body.displaySummary || body.display_summary || "").trim() || null, p_stock_summary: String(body.stockSummary || body.stock_summary || "").trim() || null, p_demand_summary: String(body.demandSummary || body.demand_summary || "").trim() || null, p_opportunity_summary: String(body.opportunitySummary || body.opportunity_summary || "").trim() || null, p_risk_summary: String(body.riskSummary || body.risk_summary || "").trim() || null, p_next_action: String(body.nextAction || body.next_action || "").trim() || null, p_note: String(body.note || "").trim() || null });
+}
+
+async function saveMcpFollowupTemplateSettings(body) {
+  const routeId = String(body.routeId || body.route_id || "").trim();
+  if (!routeId) throw badRequest("route_id_required");
+  const dueDaysValue = String(body.dueDays ?? body.due_days ?? "").trim();
+  const dueDays = dueDaysValue ? Number(dueDaysValue) : null;
+  if (dueDays !== null && (!Number.isFinite(dueDays) || dueDays < 0)) throw badRequest("invalid_due_days");
+  const priority = normalizeFollowupPriority(body.priority);
+  return supabaseRpc("mcp_save_route_followup_template", { p_route_id: routeId, p_title: String(body.title || "").trim() || "Mau follow-up", p_due_days: dueDays, p_priority: priority, p_owner: String(body.owner || "").trim() || null, p_note: String(body.note || "").trim() || null, p_followup_type: String(body.followupType || body.followup_type || "general").trim() || "general" });
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -966,6 +1061,9 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/session-customer/add") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req), { action: "add" }));
   if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await createMcpSessionCustomerFollowup(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/order-template") return wrap(await saveMcpOrderTemplateSettings(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-settings/test-template") return wrap(await saveMcpTestTemplateSettings(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-settings/report-template") return wrap(await saveMcpReportTemplateSettings(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-settings/followup-template") return wrap(await saveMcpFollowupTemplateSettings(await readJsonBody(req)));
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
@@ -982,6 +1080,7 @@ async function handleGet(url) {
   if (url.pathname === "/api/mcp-day/data") return wrap(await loadMcpDayData(url));
   if (url.pathname === "/api/mcp-day/test-options") return wrap(await loadMcpTestOptions());
   if (url.pathname === "/api/mcp-settings/order-template") return wrap(await loadMcpOrderTemplateSettings(url));
+  if (url.pathname === "/api/mcp-settings/templates") return wrap(await loadMcpTemplatesSettings(url));
   if (url.pathname === "/api/orders") return wrap(await loadOrders(url));
   if (url.pathname === "/api/tests") return wrap(await getMarketChecksData(url));
   if (url.pathname === "/api/market-checks") return wrap((await loadMarketChecks(url)).map((check) => ({ id: check.id, date: check.date, routeName: check.routeName, accountName: check.accountName, productName: check.productName, status: check.status })));
