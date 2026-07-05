@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PRIMARY_NAV_ITEMS, SIDEBAR_NAV_ITEMS, type NavItem } from "./navigation";
+import { SettingsQuickButton } from "./SettingsQuickButton";
 
 type AppShellProps = {
   children: ReactNode;
@@ -46,9 +47,7 @@ export function AppShell({ children, activeHref = "/" }: AppShellProps) {
         <div className="sidebar-footer">Frontend sạch trước. Backend/VPS và Supabase nối sau theo API contract.</div>
       </aside>
 
-      <Link className={activeHref === "/settings" ? "mobile-settings-link active" : "mobile-settings-link"} href="/settings" aria-label="Cài đặt" prefetch>
-        {"\u2699"}
-      </Link>
+      <SettingsQuickButton />
 
       <main className="main">{children}</main>
       <NavLinks activeHref={activeHref} items={PRIMARY_NAV_ITEMS} mode="bottom" />
