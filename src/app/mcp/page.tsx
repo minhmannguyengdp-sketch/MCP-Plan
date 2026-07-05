@@ -34,12 +34,12 @@ const MCP_MODULES = [
     cta: "Xem lịch sử"
   },
   {
-    href: "/mcp/settings",
+    href: "/mcp-setting",
     tone: "settings",
     icon: "⚙",
-    title: "Cài đặt MCP",
-    description: "Luật thêm khách, trạng thái, GPS và mẫu ghi nhận.",
-    cta: "Cài đặt"
+    title: "MCP Setting",
+    description: "Quản lý mẫu báo cáo global dùng chung, không gắn theo tuyến hay phiên cố định.",
+    cta: "Cài đặt mẫu"
   }
 ] as const;
 
