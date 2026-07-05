@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 
@@ -30,6 +31,12 @@ function daysAgo(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function getRequestBaseUrl() {
+  const host = headers().get("host") || "localhost:3000";
+  const proto = process.env.VERCEL ? "https" : "http";
+  return `${proto}://${host}`;
+}
+
 async function loadSessions(searchParams: Record<string, string | string[] | undefined>) {
   const params = new URLSearchParams();
   params.set("dateFrom", String(searchParams.dateFrom || daysAgo(30)).slice(0, 10));
@@ -37,8 +44,7 @@ async function loadSessions(searchParams: Record<string, string | string[] | und
   if (searchParams.routeId) params.set("routeId", String(searchParams.routeId));
   if (searchParams.status) params.set("status", String(searchParams.status));
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
-  const response = await fetch(`${baseUrl}/api/mcp-sessions?${params.toString()}`, { cache: "no-store" });
+  const response = await fetch(`${getRequestBaseUrl()}/api/mcp-sessions?${params.toString()}`, { cache: "no-store" });
   if (!response.ok) return { sessions: [], routes: [], kpis: [] } satisfies SessionsPayload;
   const payload = await response.json() as { data?: SessionsPayload };
   return payload.data || { sessions: [], routes: [], kpis: [] };
