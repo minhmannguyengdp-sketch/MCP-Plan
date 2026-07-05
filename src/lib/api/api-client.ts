@@ -32,6 +32,16 @@ export type McpApiClient = {
   getActionsData(query?: ListQuery): Promise<ApiResult<ActionsData>>;
 };
 
+type McpSessionStatusRow = {
+  routeId?: string;
+  sessionDate?: string;
+  status?: string;
+};
+
+type McpSessionStatusData = {
+  sessions?: McpSessionStatusRow[];
+};
+
 function result<T>(data: T, source: ApiResult<T>["source"] = "mock"): ApiResult<T> {
   return { data, source, receivedAt: new Date().toISOString() };
 }
@@ -55,9 +65,17 @@ function hasRouteContext(query?: ListQuery) {
   return Boolean(query?.routeId || query?.route_id);
 }
 
+function getRouteId(query?: ListQuery) {
+  return String(query?.routeId || query?.route_id || "").trim();
+}
+
+function getSessionDate(query?: ListQuery) {
+  return String(query?.date || query?.sessionDate || query?.session_date || "").slice(0, 10);
+}
+
 function selectedRouteNotLoaded(query?: ListQuery): McpDayData {
-  const routeId = String(query?.routeId || query?.route_id || "");
-  const date = String(query?.date || query?.sessionDate || query?.session_date || "-").slice(0, 10);
+  const routeId = getRouteId(query);
+  const date = getSessionDate(query) || "-";
   return {
     sessionOpened: false,
     run: {
@@ -105,6 +123,35 @@ async function postJson<T>(baseUrl: string, path: string, body: unknown): Promis
   return result(payload as T, "api");
 }
 
+function normalizeSessionStatus(value?: string) {
+  if (value === "done" || value === "completed") return "done";
+  if (value === "cancelled") return "cancelled";
+  return "active";
+}
+
+async function getMcpDayDataWithSessionStatus(baseUrl: string, query?: ListQuery): Promise<ApiResult<McpDayData>> {
+  const dayResult = await fetchJson<McpDayData>(baseUrl, "/api/mcp-day/data", query);
+  const routeId = getRouteId(query);
+  const sessionDate = getSessionDate(query);
+
+  if (!routeId || !sessionDate || !dayResult.data.sessionOpened) return dayResult;
+
+  const statusResult = await fetchJson<McpSessionStatusData>(baseUrl, "/api/mcp-settings/session-status", { routeId });
+  const session = statusResult.data.sessions?.find((item) => item.routeId === routeId && item.sessionDate === sessionDate);
+  if (!session?.status) return dayResult;
+
+  return {
+    ...dayResult,
+    data: {
+      ...dayResult.data,
+      run: {
+        ...dayResult.data.run,
+        status: normalizeSessionStatus(session.status)
+      }
+    }
+  };
+}
+
 async function withMockFallback<T>(apiRequest: () => Promise<ApiResult<T>>, mockRequest: () => Promise<ApiResult<T>>): Promise<ApiResult<T>> {
   try {
     return await apiRequest();
@@ -144,8 +191,8 @@ function createHttpApiClient(baseUrl: string): McpApiClient {
     getAccountsData(query) { return withMockFallback(() => fetchJson<AccountsData>(baseUrl, "/api/accounts/data", query), () => mockApiClient.getAccountsData(query)); },
     getCurrentDayRun(query) { return withMockFallback(() => fetchJson<DayRunDto>(baseUrl, "/api/mcp-day/current", query), () => mockApiClient.getCurrentDayRun(query)); },
     getMcpDayData(query) {
-      if (hasRouteContext(query)) return fetchJson<McpDayData>(baseUrl, "/api/mcp-day/data", query);
-      return withMockFallback(() => fetchJson<McpDayData>(baseUrl, "/api/mcp-day/data", query), () => mockApiClient.getMcpDayData(query));
+      if (hasRouteContext(query)) return getMcpDayDataWithSessionStatus(baseUrl, query);
+      return withMockFallback(() => getMcpDayDataWithSessionStatus(baseUrl, query), () => mockApiClient.getMcpDayData(query));
     },
     createMcpDayResult(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", payload); },
     addMcpDayCustomer(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", payload); },
