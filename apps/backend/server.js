@@ -264,6 +264,48 @@ async function createMcpSessionCustomerTest(body) {
   });
 }
 
+function normalizeReportType(value) {
+  const reportType = String(value || "general").trim() || "general";
+  const allowed = new Set(["price", "competitor", "display", "stock", "demand", "general"]);
+  if (!allowed.has(reportType)) throw badRequest("invalid_report_type");
+  return reportType;
+}
+
+async function createMcpSessionCustomerReport(body) {
+  const sessionCustomerId = String(body.sessionCustomerId || body.session_customer_id || body.id || "").trim();
+  if (!sessionCustomerId) throw badRequest("session_customer_id_required");
+
+  const reportType = normalizeReportType(body.reportType || body.report_type);
+  const content = String(body.content || body.note || "").trim();
+  const priceSummary = String(body.priceSummary || body.price_summary || "").trim();
+  const competitorSummary = String(body.competitorSummary || body.competitor_summary || "").trim();
+  const displaySummary = String(body.displaySummary || body.display_summary || "").trim();
+  const stockSummary = String(body.stockSummary || body.stock_summary || "").trim();
+  const demandSummary = String(body.demandSummary || body.demand_summary || "").trim();
+  const opportunitySummary = String(body.opportunitySummary || body.opportunity_summary || "").trim();
+  const riskSummary = String(body.riskSummary || body.risk_summary || "").trim();
+  const nextAction = String(body.nextAction || body.next_action || "").trim();
+
+  if (!content && !priceSummary && !competitorSummary && !displaySummary && !stockSummary && !demandSummary && !opportunitySummary && !riskSummary && !nextAction) {
+    throw badRequest("report_content_required");
+  }
+
+  return supabaseRpc("mcp_create_report_from_session_customer", {
+    p_session_customer_id: sessionCustomerId,
+    p_report_type: reportType,
+    p_content: content || null,
+    p_price_summary: priceSummary || null,
+    p_competitor_summary: competitorSummary || null,
+    p_display_summary: displaySummary || null,
+    p_stock_summary: stockSummary || null,
+    p_demand_summary: demandSummary || null,
+    p_opportunity_summary: opportunitySummary || null,
+    p_risk_summary: riskSummary || null,
+    p_next_action: nextAction || null,
+    p_note: content || null
+  });
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -790,6 +832,7 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/session-customer/status") return wrap(await updateMcpSessionCustomerStatus(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/order") return wrap(await createMcpSessionCustomerOrder(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/test") return wrap(await createMcpSessionCustomerTest(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-day/session-customer/report") return wrap(await createMcpSessionCustomerReport(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/result") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/add") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req), { action: "add" }));
   if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await proxySupabaseFunction("mcp-day-followup", await readJsonBody(req)));

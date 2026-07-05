@@ -41,6 +41,19 @@ type TestDraftResult = {
   note: string;
 };
 
+type ReportDraft = {
+  reportType: string;
+  content: string;
+  priceSummary: string;
+  competitorSummary: string;
+  displaySummary: string;
+  stockSummary: string;
+  demandSummary: string;
+  opportunitySummary: string;
+  riskSummary: string;
+  nextAction: string;
+};
+
 const emptyOrderItem = (): OrderDraftItem => ({
   productName: "",
   quantity: "1",
@@ -54,6 +67,19 @@ const emptyTestResult = (): TestDraftResult => ({
   productName: "",
   status: "tested",
   note: ""
+});
+
+const emptyReportDraft = (): ReportDraft => ({
+  reportType: "price",
+  content: "",
+  priceSummary: "",
+  competitorSummary: "",
+  displaySummary: "",
+  stockSummary: "",
+  demandSummary: "",
+  opportunitySummary: "",
+  riskSummary: "",
+  nextAction: ""
 });
 
 function toOrderPayloadItems(items: OrderDraftItem[]) {
@@ -77,6 +103,20 @@ function toTestPayloadResults(results: TestDraftResult[]) {
       note: item.note.trim()
     }))
     .filter((item) => item.productId || item.productName);
+}
+
+function reportHasContent(report: ReportDraft) {
+  return Boolean(
+    report.content.trim() ||
+    report.priceSummary.trim() ||
+    report.competitorSummary.trim() ||
+    report.displaySummary.trim() ||
+    report.stockSummary.trim() ||
+    report.demandSummary.trim() ||
+    report.opportunitySummary.trim() ||
+    report.riskSummary.trim() ||
+    report.nextAction.trim()
+  );
 }
 
 function sourceLabel(source: McpDayLine["source"]) {
@@ -160,6 +200,7 @@ function CustomerActionSheet({
   quickTestFileTitle,
   testResults,
   testNote,
+  reportDraft,
   onOrderItemChange,
   onAddOrderItem,
   onRemoveOrderItem,
@@ -170,6 +211,7 @@ function CustomerActionSheet({
   onAddTestResult,
   onRemoveTestResult,
   onTestNoteChange,
+  onReportChange,
   onClose,
   onSubmit
 }: {
@@ -184,6 +226,7 @@ function CustomerActionSheet({
   quickTestFileTitle: string;
   testResults: TestDraftResult[];
   testNote: string;
+  reportDraft: ReportDraft;
   onOrderItemChange: (index: number, field: keyof OrderDraftItem, value: string) => void;
   onAddOrderItem: () => void;
   onRemoveOrderItem: (index: number) => void;
@@ -194,21 +237,23 @@ function CustomerActionSheet({
   onAddTestResult: () => void;
   onRemoveTestResult: (index: number) => void;
   onTestNoteChange: (value: string) => void;
+  onReportChange: (field: keyof ReportDraft, value: string) => void;
   onClose: () => void;
   onSubmit: () => void;
 }) {
   const isOrder = selection?.action === "order";
   const isTest = selection?.action === "test";
+  const isReport = selection?.action === "market_report";
   const selectedTestFile = testFiles.find((file) => file.id === testFileId) || null;
 
   return (
-    <BottomSheet open={Boolean(selection)} onClose={onClose} title={selection ? actionTitle(selection.action) : "Hành động MCP"} description={selection ? selection.line.accountName : undefined} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : isOrder ? "Lưu đơn hàng" : isTest ? "Lưu test" : "Lưu kết quả"}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>
+    <BottomSheet open={Boolean(selection)} onClose={onClose} title={selection ? actionTitle(selection.action) : "Hành động MCP"} description={selection ? selection.line.accountName : undefined} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : isOrder ? "Lưu đơn hàng" : isTest ? "Lưu test" : isReport ? "Lưu báo cáo" : "Lưu kết quả"}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>
       {selection ? (
         <div className="visit-sheet-content">
           <div className="visit-focus-card">
             <span>Điểm bán</span>
             <strong>{selection.line.accountName}</strong>
-            <small>{isOrder ? "Tạo đơn hàng thật và link vào phiên MCP" : isTest ? "Lưu test_customer_results và link vào phiên MCP" : mcpCustomerActionDescription(selection.action)}</small>
+            <small>{isOrder ? "Tạo đơn hàng thật và link vào phiên MCP" : isTest ? "Lưu test_customer_results và link vào phiên MCP" : isReport ? "Lưu market_reports và link vào phiên MCP" : mcpCustomerActionDescription(selection.action)}</small>
           </div>
 
           {isOrder ? (
@@ -256,11 +301,7 @@ function CustomerActionSheet({
                     </label>
                   ) : null}
 
-                  <label className="form-field">
-                    <small>Tên sản phẩm test</small>
-                    <input value={item.productName} onChange={(event) => onTestResultChange(index, "productName", event.target.value)} placeholder="VD: Trà ô long / topping / syrup" disabled={Boolean(item.productId)} />
-                  </label>
-
+                  <label className="form-field"><small>Tên sản phẩm test</small><input value={item.productName} onChange={(event) => onTestResultChange(index, "productName", event.target.value)} placeholder="VD: Trà ô long / topping / syrup" disabled={Boolean(item.productId)} /></label>
                   <label className="form-field">
                     <small>Kết quả</small>
                     <select value={item.status} onChange={(event) => onTestResultChange(index, "status", event.target.value)}>
@@ -271,14 +312,34 @@ function CustomerActionSheet({
                       <option value="follow_up">Cần theo dõi</option>
                     </select>
                   </label>
-
                   <label className="form-field"><small>Ghi chú kết quả</small><input value={item.note} onChange={(event) => onTestResultChange(index, "note", event.target.value)} placeholder="Phản hồi của khách / vị / giá / lần sau" /></label>
                   {testResults.length > 1 ? <button className="button" type="button" onClick={() => onRemoveTestResult(index)} disabled={saving}>Xóa kết quả</button> : null}
                 </div>
               ))}
-
               <button className="button" type="button" onClick={onAddTestResult} disabled={saving}>Thêm sản phẩm test</button>
               <label className="form-field"><small>Ghi chú test chung</small><textarea value={testNote} onChange={(event) => onTestNoteChange(event.target.value)} placeholder="Ghi chú chung cho lần test" /></label>
+            </div>
+          ) : isReport ? (
+            <div className="grid">
+              <label className="form-field">
+                <small>Loại báo cáo</small>
+                <select value={reportDraft.reportType} onChange={(event) => onReportChange("reportType", event.target.value)} disabled={saving}>
+                  <option value="price">Giá</option>
+                  <option value="competitor">Đối thủ</option>
+                  <option value="display">Trưng bày</option>
+                  <option value="stock">Tồn kho</option>
+                  <option value="demand">Nhu cầu</option>
+                </select>
+              </label>
+              <label className="form-field"><small>Nội dung</small><textarea value={reportDraft.content} onChange={(event) => onReportChange("content", event.target.value)} placeholder="Nội dung chính của báo cáo" /></label>
+              <label className="form-field"><small>Giá nếu có</small><input value={reportDraft.priceSummary} onChange={(event) => onReportChange("priceSummary", event.target.value)} placeholder="VD: đối thủ bán 15.000 / ly" /></label>
+              <label className="form-field"><small>Đối thủ nếu có</small><input value={reportDraft.competitorSummary} onChange={(event) => onReportChange("competitorSummary", event.target.value)} placeholder="Tên đối thủ / chương trình / điểm mạnh" /></label>
+              <label className="form-field"><small>Trưng bày</small><input value={reportDraft.displaySummary} onChange={(event) => onReportChange("displaySummary", event.target.value)} placeholder="Vị trí trưng bày / POSM / hình ảnh tại quầy" /></label>
+              <label className="form-field"><small>Tồn kho</small><input value={reportDraft.stockSummary} onChange={(event) => onReportChange("stockSummary", event.target.value)} placeholder="Tồn nhiều / thiếu hàng / cần bổ sung" /></label>
+              <label className="form-field"><small>Nhu cầu</small><input value={reportDraft.demandSummary} onChange={(event) => onReportChange("demandSummary", event.target.value)} placeholder="Khách đang cần sản phẩm / dung lượng / vị nào" /></label>
+              <label className="form-field"><small>Cơ hội</small><input value={reportDraft.opportunitySummary} onChange={(event) => onReportChange("opportunitySummary", event.target.value)} placeholder="Cơ hội bán thêm / mở SKU / hỗ trợ khách" /></label>
+              <label className="form-field"><small>Rủi ro</small><input value={reportDraft.riskSummary} onChange={(event) => onReportChange("riskSummary", event.target.value)} placeholder="Rủi ro mất điểm bán / giá / đối thủ / tồn kho" /></label>
+              <label className="form-field"><small>Next action</small><input value={reportDraft.nextAction} onChange={(event) => onReportChange("nextAction", event.target.value)} placeholder="Việc tiếp theo cần làm" /></label>
             </div>
           ) : (
             <div className="grid">
@@ -312,6 +373,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   const [quickTestFileTitle, setQuickTestFileTitle] = useState("");
   const [testResults, setTestResults] = useState<TestDraftResult[]>([emptyTestResult()]);
   const [testNote, setTestNote] = useState("");
+  const [reportDraft, setReportDraft] = useState<ReportDraft>(emptyReportDraft());
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const router = useRouter();
@@ -349,6 +411,9 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       setTestNote("");
       void loadTestOptions();
     }
+    if (action === "market_report") {
+      setReportDraft(emptyReportDraft());
+    }
     setSelectedAction({ line, action });
   }
 
@@ -358,6 +423,10 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
 
   function updateTestResult(index: number, field: keyof TestDraftResult, value: string) {
     setTestResults((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
+  }
+
+  function updateReportDraft(field: keyof ReportDraft, value: string) {
+    setReportDraft((current) => ({ ...current, [field]: value }));
   }
 
   function submitAction() {
@@ -374,15 +443,23 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
           const results = toTestPayloadResults(testResults);
           if (results.length === 0) throw new Error("Cần nhập ít nhất một kết quả test");
           await postMcpBackend("/api/backend/mcp-day/session-customer/test", { sessionCustomerId, fileId: testFileId || undefined, fileTitle: quickTestFileTitle || undefined, results, note: testNote, status: "tested" });
+        } else if (selectedAction.action === "market_report") {
+          if (!reportHasContent(reportDraft)) throw new Error("Cần nhập nội dung báo cáo");
+          await postMcpBackend("/api/backend/mcp-day/session-customer/report", {
+            sessionCustomerId,
+            reportType: reportDraft.reportType,
+            content: reportDraft.content,
+            priceSummary: reportDraft.priceSummary,
+            competitorSummary: reportDraft.competitorSummary,
+            displaySummary: reportDraft.displaySummary,
+            stockSummary: reportDraft.stockSummary,
+            demandSummary: reportDraft.demandSummary,
+            opportunitySummary: reportDraft.opportunitySummary,
+            riskSummary: reportDraft.riskSummary,
+            nextAction: reportDraft.nextAction
+          });
         } else if (selectedAction.action === "follow_up") {
           await postMcpBackend("/api/backend/mcp-day/session-customer/followup", { sessionCustomerId, title: `Theo dõi ${selectedAction.line.accountName}`, followupType: "general", priority: "medium", owner: run.owner, note: `Tạo việc từ MCP Day cho ${selectedAction.line.accountName}` });
-        } else {
-          await postMcpBackend("/api/backend/mcp-day/session-customer/result", {
-            sessionCustomerId,
-            resultType: "report",
-            note: mcpCustomerActionDescription(selectedAction.action),
-            hasReport: true
-          });
         }
         setSelectedAction(null);
         setSelectedLine(null);
@@ -406,7 +483,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       {tab === "added" ? <LineList lines={addedLines} onOpen={setSelectedLine} onAction={openCustomerAction} /> : null}
       {tab === "followups" ? <LineList lines={followupLines} onOpen={setSelectedLine} onAction={openCustomerAction} /> : null}
       <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} />
-      <CustomerActionSheet selection={selectedAction} saving={saving} message={message} orderItems={orderItems} orderNote={orderNote} testFiles={testFiles} testFilesLoading={testFilesLoading} testFileId={testFileId} quickTestFileTitle={quickTestFileTitle} testResults={testResults} testNote={testNote} onOrderItemChange={updateOrderItem} onAddOrderItem={() => setOrderItems((items) => [...items, emptyOrderItem()])} onRemoveOrderItem={(index) => setOrderItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} onOrderNoteChange={setOrderNote} onTestFileChange={setTestFileId} onQuickTestFileTitleChange={setQuickTestFileTitle} onTestResultChange={updateTestResult} onAddTestResult={() => setTestResults((items) => [...items, emptyTestResult()])} onRemoveTestResult={(index) => setTestResults((items) => items.filter((_, itemIndex) => itemIndex !== index))} onTestNoteChange={setTestNote} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
+      <CustomerActionSheet selection={selectedAction} saving={saving} message={message} orderItems={orderItems} orderNote={orderNote} testFiles={testFiles} testFilesLoading={testFilesLoading} testFileId={testFileId} quickTestFileTitle={quickTestFileTitle} testResults={testResults} testNote={testNote} reportDraft={reportDraft} onOrderItemChange={updateOrderItem} onAddOrderItem={() => setOrderItems((items) => [...items, emptyOrderItem()])} onRemoveOrderItem={(index) => setOrderItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} onOrderNoteChange={setOrderNote} onTestFileChange={setTestFileId} onQuickTestFileTitleChange={setQuickTestFileTitle} onTestResultChange={updateTestResult} onAddTestResult={() => setTestResults((items) => [...items, emptyTestResult()])} onRemoveTestResult={(index) => setTestResults((items) => items.filter((_, itemIndex) => itemIndex !== index))} onTestNoteChange={setTestNote} onReportChange={updateReportDraft} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
     </AppShell>
   );
 }
