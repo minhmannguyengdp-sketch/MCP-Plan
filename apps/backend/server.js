@@ -1,4 +1,4 @@
-﻿import http from "node:http";
+import http from "node:http";
 import { randomUUID } from "node:crypto";
 import { loadEnvFile } from "node:process";
 
@@ -191,6 +191,74 @@ async function createMcpSessionCustomerOrder(body) {
   return supabaseRpc("mcp_create_order_from_session_customer", {
     p_session_customer_id: sessionCustomerId,
     p_items: items,
+    p_note: note || null,
+    p_status: status
+  });
+}
+
+function normalizeTestResults(results) {
+  if (!Array.isArray(results) || results.length === 0) throw badRequest("test_results_required");
+
+  return results.map((item) => {
+    const productId = String(item.productId || item.product_id || "").trim();
+    const productName = String(item.productName || item.product_name || "").trim();
+    const status = String(item.status || "tested").trim() || "tested";
+    const note = String(item.note || "").trim();
+
+    if (!productId && !productName) throw badRequest("product_name_required");
+
+    return {
+      productId: productId || null,
+      productName: productName || null,
+      status,
+      note: note || null
+    };
+  });
+}
+
+async function loadMcpTestOptions() {
+  const [fileRows, productRows] = await Promise.all([
+    supabaseGet("test_files", { select: "id,title,test_date,sales,status,note,created_at", order: "test_date.desc,created_at.desc", limit: 50 }),
+    supabaseGet("test_file_products", { select: "id,file_id,product_name,sort_order,status", order: "sort_order.asc,created_at.asc", limit: 1000 })
+  ]);
+
+  const productsByFile = new Map();
+  productRows.forEach((product) => {
+    if (product.status === "deleted") return;
+    if (!productsByFile.has(product.file_id)) productsByFile.set(product.file_id, []);
+    productsByFile.get(product.file_id).push({
+      id: product.id,
+      productName: product.product_name || "Sáº£n pháº©m test"
+    });
+  });
+
+  const files = fileRows
+    .filter((file) => file.status !== "deleted")
+    .map((file) => ({
+      id: file.id,
+      title: file.title || file.id,
+      testDate: dateOnly(file.test_date || file.created_at),
+      products: productsByFile.get(file.id) || []
+    }));
+
+  return { files };
+}
+
+async function createMcpSessionCustomerTest(body) {
+  const sessionCustomerId = String(body.sessionCustomerId || body.session_customer_id || body.id || "").trim();
+  if (!sessionCustomerId) throw badRequest("session_customer_id_required");
+
+  const results = normalizeTestResults(body.results || body.items);
+  const fileId = String(body.fileId || body.file_id || "").trim();
+  const fileTitle = String(body.fileTitle || body.file_title || "").trim();
+  const note = String(body.note || "").trim();
+  const status = String(body.status || "tested").trim() || "tested";
+
+  return supabaseRpc("mcp_create_test_from_session_customer", {
+    p_session_customer_id: sessionCustomerId,
+    p_file_id: fileId || null,
+    p_file_title: fileTitle || null,
+    p_results: results,
     p_note: note || null,
     p_status: status
   });
@@ -721,6 +789,7 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/open-session") return wrap(await openMcpDaySession(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/status") return wrap(await updateMcpSessionCustomerStatus(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/order") return wrap(await createMcpSessionCustomerOrder(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-day/session-customer/test") return wrap(await createMcpSessionCustomerTest(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/result") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/add") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req), { action: "add" }));
   if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await proxySupabaseFunction("mcp-day-followup", await readJsonBody(req)));
@@ -738,6 +807,7 @@ async function handleGet(url) {
   if (url.pathname === "/api/routes/customers/data") return wrap(await getRouteCustomersData(url));
   if (url.pathname === "/api/mcp-day/current") return wrap(await getCurrentMcpDayRun(url));
   if (url.pathname === "/api/mcp-day/data") return wrap(await loadMcpDayData(url));
+  if (url.pathname === "/api/mcp-day/test-options") return wrap(await loadMcpTestOptions());
   if (url.pathname === "/api/orders") return wrap(await loadOrders(url));
   if (url.pathname === "/api/tests") return wrap(await getMarketChecksData(url));
   if (url.pathname === "/api/market-checks") return wrap((await loadMarketChecks(url)).map((check) => ({ id: check.id, date: check.date, routeName: check.routeName, accountName: check.accountName, productName: check.productName, status: check.status })));
