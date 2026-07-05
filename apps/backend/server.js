@@ -530,6 +530,99 @@ async function saveMcpFollowupTemplateSettings(body) {
   return supabaseRpc("mcp_save_route_followup_template", { p_route_id: routeId, p_title: String(body.title || "").trim() || "Mau follow-up", p_due_days: dueDays, p_priority: priority, p_owner: String(body.owner || "").trim() || null, p_note: String(body.note || "").trim() || null, p_followup_type: String(body.followupType || body.followup_type || "general").trim() || "general" });
 }
 
+function normalizeMcpSkipReasonItems(items) {
+  if (!Array.isArray(items) || items.length === 0) throw badRequest("skip_reason_items_required");
+
+  return items.map((item) => {
+    const reasonType = String(item.reasonType || item.reason_type || "skip").trim().toLowerCase() || "skip";
+    const reasonText = String(item.reasonText || item.reason_text || "").trim();
+
+    if (!["skip", "no_buy"].includes(reasonType)) throw badRequest("invalid_reason_type");
+    if (!reasonText) throw badRequest("reason_text_required");
+
+    return {
+      reasonType,
+      reasonText,
+      note: String(item.note || "").trim() || null
+    };
+  });
+}
+
+function emptySkipReasonTemplate(routeId) {
+  return {
+    routeId,
+    title: "Mẫu lý do bỏ qua/không mua",
+    note: "",
+    items: [
+      { reasonType: "skip", reasonText: "Khách đóng cửa", note: "" },
+      { reasonType: "skip", reasonText: "Không gặp người quyết định", note: "" },
+      { reasonType: "no_buy", reasonText: "Còn tồn hàng", note: "" },
+      { reasonType: "no_buy", reasonText: "Giá chưa phù hợp", note: "" }
+    ]
+  };
+}
+
+async function loadMcpSkipReasonTemplateSettings(url) {
+  const routes = await loadRoutes();
+  const routeId = String(url.searchParams.get("routeId") || routes[0]?.id || "").trim();
+  let template = routeId ? emptySkipReasonTemplate(routeId) : null;
+
+  if (routeId) {
+    const rows = await supabaseGet("mcp_route_skip_reason_templates", {
+      select: "id,route_id,title,note,status",
+      route_id: `eq.${routeId}`,
+      limit: 1
+    });
+
+    const row = rows[0] || null;
+    if (row) {
+      const items = await supabaseGet("mcp_route_skip_reason_template_items", {
+        select: "id,reason_type,reason_text,sort_order,note",
+        template_id: `eq.${row.id}`,
+        order: "sort_order.asc,created_at.asc",
+        limit: 200
+      });
+
+      template = {
+        routeId,
+        title: row.title || "Mẫu lý do bỏ qua/không mua",
+        note: row.note || "",
+        items: items.map((item) => ({
+          reasonType: item.reason_type || "skip",
+          reasonText: item.reason_text || "",
+          note: item.note || ""
+        }))
+      };
+    }
+  }
+
+  return {
+    routes: routes.map((route) => ({
+      id: route.id,
+      name: route.name,
+      area: route.area,
+      salesOwner: route.salesOwner,
+      status: route.status
+    })),
+    selectedRouteId: routeId,
+    skipReasonTemplate: template
+  };
+}
+
+async function saveMcpSkipReasonTemplateSettings(body) {
+  const routeId = String(body.routeId || body.route_id || "").trim();
+  if (!routeId) throw badRequest("route_id_required");
+
+  const items = normalizeMcpSkipReasonItems(body.items);
+
+  return supabaseRpc("mcp_save_route_skip_reason_template", {
+    p_route_id: routeId,
+    p_title: String(body.title || "").trim() || "Mau ly do bo qua khong mua",
+    p_note: String(body.note || "").trim() || null,
+    p_items: items
+  });
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -1064,6 +1157,7 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-settings/test-template") return wrap(await saveMcpTestTemplateSettings(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/report-template") return wrap(await saveMcpReportTemplateSettings(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/followup-template") return wrap(await saveMcpFollowupTemplateSettings(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-settings/skip-reason-template") return wrap(await saveMcpSkipReasonTemplateSettings(await readJsonBody(req)));
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
@@ -1081,6 +1175,7 @@ async function handleGet(url) {
   if (url.pathname === "/api/mcp-day/test-options") return wrap(await loadMcpTestOptions());
   if (url.pathname === "/api/mcp-settings/order-template") return wrap(await loadMcpOrderTemplateSettings(url));
   if (url.pathname === "/api/mcp-settings/templates") return wrap(await loadMcpTemplatesSettings(url));
+  if (url.pathname === "/api/mcp-settings/skip-reason-template") return wrap(await loadMcpSkipReasonTemplateSettings(url));
   if (url.pathname === "/api/orders") return wrap(await loadOrders(url));
   if (url.pathname === "/api/tests") return wrap(await getMarketChecksData(url));
   if (url.pathname === "/api/market-checks") return wrap((await loadMarketChecks(url)).map((check) => ({ id: check.id, date: check.date, routeName: check.routeName, accountName: check.accountName, productName: check.productName, status: check.status })));
