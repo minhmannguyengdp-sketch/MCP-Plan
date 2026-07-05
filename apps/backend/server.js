@@ -623,6 +623,68 @@ async function saveMcpSkipReasonTemplateSettings(body) {
   });
 }
 
+function normalizeMcpCustomerAddMode(value) {
+  const addMode = String(value || "session_only").trim().toLowerCase() || "session_only";
+  if (!["session_only", "route_only", "both"].includes(addMode)) throw badRequest("invalid_add_mode");
+  return addMode;
+}
+
+function emptyCustomerAddRule(routeId) {
+  return {
+    routeId,
+    addMode: "session_only",
+    note: ""
+  };
+}
+
+async function loadMcpCustomerAddRuleSettings(url) {
+  const routes = await loadRoutes();
+  const routeId = String(url.searchParams.get("routeId") || routes[0]?.id || "").trim();
+  let customerAddRule = routeId ? emptyCustomerAddRule(routeId) : null;
+
+  if (routeId) {
+    const rows = await supabaseGet("mcp_route_customer_add_rules", {
+      select: "id,route_id,add_mode,note,status",
+      route_id: `eq.${routeId}`,
+      limit: 1
+    });
+    const row = rows[0] || null;
+    if (row) {
+      customerAddRule = {
+        routeId,
+        addMode: row.add_mode || "session_only",
+        note: row.note || ""
+      };
+    }
+  }
+
+  return {
+    routes: routes.map((route) => ({
+      id: route.id,
+      name: route.name,
+      area: route.area,
+      salesOwner: route.salesOwner,
+      status: route.status
+    })),
+    selectedRouteId: routeId,
+    customerAddRule
+  };
+}
+
+async function saveMcpCustomerAddRuleSettings(body) {
+  const routeId = String(body.routeId || body.route_id || "").trim();
+  if (!routeId) throw badRequest("route_id_required");
+
+  const addMode = normalizeMcpCustomerAddMode(body.addMode || body.add_mode);
+  const note = String(body.note || "").trim();
+
+  return supabaseRpc("mcp_save_route_customer_add_rule", {
+    p_route_id: routeId,
+    p_add_mode: addMode,
+    p_note: note || null
+  });
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -1158,6 +1220,7 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-settings/report-template") return wrap(await saveMcpReportTemplateSettings(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/followup-template") return wrap(await saveMcpFollowupTemplateSettings(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/skip-reason-template") return wrap(await saveMcpSkipReasonTemplateSettings(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-settings/customer-add-rule") return wrap(await saveMcpCustomerAddRuleSettings(await readJsonBody(req)));
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
@@ -1176,6 +1239,7 @@ async function handleGet(url) {
   if (url.pathname === "/api/mcp-settings/order-template") return wrap(await loadMcpOrderTemplateSettings(url));
   if (url.pathname === "/api/mcp-settings/templates") return wrap(await loadMcpTemplatesSettings(url));
   if (url.pathname === "/api/mcp-settings/skip-reason-template") return wrap(await loadMcpSkipReasonTemplateSettings(url));
+  if (url.pathname === "/api/mcp-settings/customer-add-rule") return wrap(await loadMcpCustomerAddRuleSettings(url));
   if (url.pathname === "/api/orders") return wrap(await loadOrders(url));
   if (url.pathname === "/api/tests") return wrap(await getMarketChecksData(url));
   if (url.pathname === "/api/market-checks") return wrap((await loadMarketChecks(url)).map((check) => ({ id: check.id, date: check.date, routeName: check.routeName, accountName: check.accountName, productName: check.productName, status: check.status })));
