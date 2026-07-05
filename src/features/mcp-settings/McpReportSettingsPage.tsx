@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 
-const REPORT_SETTINGS_API = "/api/backend/mcp-report-settings";
+const REPORT_SETTINGS_API = "/api/mcp-report-settings";
 
 type SettingItem = {
   id: string;
