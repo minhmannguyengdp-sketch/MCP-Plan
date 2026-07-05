@@ -11,14 +11,14 @@ function sessionStatusLabel(status: string) {
 function lineStatusLabel(status: McpDayLine["status"]) {
   if (status === "pending") return "Chờ ghé";
   if (status === "visited") return "Đã ghé";
-  if (status === "skipped") return "Bỏ qua";
+  if (status === "skipped") return "Bỏ qua / không mua";
   return "Hủy";
 }
 
 function sourceLabel(source: McpDayLine["source"]) {
   if (source === "added") return "Phát sinh";
   if (source === "synced") return "Đồng bộ";
-  return "Khách theo tuyến";
+  return "Tuyến gốc";
 }
 
 function resultSummary(line: McpDayLine) {
@@ -37,18 +37,26 @@ export function McpSessionReadonlyView({ activeHref = "/visits", mcpDayData }: {
   const lockedLabel = sessionStatusLabel(run.status);
   const visitedCount = mcpDayData.lines.filter((line) => line.status === "visited").length;
   const pendingCount = mcpDayData.lines.filter((line) => line.status === "pending").length;
+  const skippedCount = mcpDayData.lines.filter((line) => line.status === "skipped").length;
+  const addedCount = mcpDayData.lines.filter((line) => line.source === "added").length;
+  const followupCount = mcpDayData.lines.filter((line) => Number(line.followupCount || 0) > 0).length;
 
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader eyebrow="Checklist phiên" title={run.routeName} subtitle={`${run.date} · ${run.owner} · ${mcpDayData.lines.length} khách`} />
+      <PageHeader eyebrow="Checklist phiên" title="Checklist phiên" subtitle={`Tuyến gốc: ${run.routeName} · Ngày: ${run.date} · Sale: ${run.owner}`} />
 
       <section className="mcp-gate-banner mcp-session-compact-head">
         <strong>{lockedLabel}</strong>
-        <span>Phiên chỉ xem · {visitedCount} đã ghé · {pendingCount} chờ ghé · mở lúc {run.openedAt}</span>
+        <span>Phiên chỉ xem · {visitedCount} đã ghé · {pendingCount} chờ ghé · {skippedCount} bỏ qua · mở lúc {run.openedAt}</span>
       </section>
 
-      <div className="grid cards">
-        {mcpDayData.kpis.map((item) => <article className="card" key={item.label}><div className="card-label">{item.label}</div><div className="card-value">{item.value}</div><p className="card-hint">{item.hint}</p></article>)}
+      <div className="mcp-status-chips" role="tablist" aria-label="Checklist phiên chỉ xem">
+        <button className="active" type="button">Tất cả khách <b>{mcpDayData.lines.length}</b></button>
+        <button type="button">Chờ ghé <b>{pendingCount}</b></button>
+        <button type="button">Đã ghé <b>{visitedCount}</b></button>
+        <button type="button">Bỏ qua <b>{skippedCount}</b></button>
+        <button type="button">Phát sinh <b>{addedCount}</b></button>
+        <button type="button">Có follow-up <b>{followupCount}</b></button>
       </div>
 
       <div className="mcp-line-list">
