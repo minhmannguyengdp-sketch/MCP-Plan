@@ -34,6 +34,13 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function mapsUrl(lat: number | null, lng: number | null, fallback?: unknown) {
+  const explicit = cleanText(fallback);
+  if (explicit) return explicit;
+  if (lat === null || lng === null) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -41,6 +48,9 @@ export async function POST(request: Request) {
     const customerName = cleanText(body.customerName || body.customer_name || body.accountName || body.name);
     if (!routeId) throw new Error("route_id_required");
     if (!customerName) throw new Error("customer_name_required");
+
+    const geoLat = numberOrNull(body.geoLat || body.geo_lat);
+    const geoLng = numberOrNull(body.geoLng || body.geo_lng);
 
     const data = await rpc("mcp_create_route_customer", {
       p_route_id: routeId,
@@ -51,8 +61,11 @@ export async function POST(request: Request) {
       p_sort_order: Number(body.sortOrder || body.sort_order || 0),
       p_note: cleanText(body.note),
       p_customer_id: cleanText(body.customerId || body.customer_id),
-      p_geo_lat: numberOrNull(body.geoLat || body.geo_lat),
-      p_geo_lng: numberOrNull(body.geoLng || body.geo_lng)
+      p_geo_lat: geoLat,
+      p_geo_lng: geoLng,
+      p_geo_accuracy: numberOrNull(body.geoAccuracy || body.geo_accuracy),
+      p_geo_source: cleanText(body.geoSource || body.geo_source) || (geoLat !== null && geoLng !== null ? "browser" : null),
+      p_google_maps_url: mapsUrl(geoLat, geoLng, body.googleMapsUrl || body.google_maps_url)
     });
 
     return Response.json({ data, receivedAt: new Date().toISOString() });
