@@ -10,7 +10,7 @@ const nextConfig = {
 
     return [
       {
-        source: "/api/backend/:path*",
+        source: "/api/backend/:path((?!mcp-report-settings|mcp-session-actions).*)",
         destination: `${backendBaseUrl.replace(/\/+$/, "")}/api/:path*`
       }
     ];
