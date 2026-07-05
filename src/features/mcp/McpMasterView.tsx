@@ -12,6 +12,8 @@ import { buildGoogleMapsUrl } from "@/features/mcp/route-customers.types";
 import type { RoutesData, RouteItem, RouteStatus } from "@/features/routes/routes.types";
 
 type MasterTab = "routes" | "customers" | "gps" | "open";
+type RouteEditorMode = "create" | "edit" | "delete";
+type RouteDraft = { routeName: string; area: string; weekday: string; note: string; active: boolean };
 
 function todayDateOnly() {
   const today = new Date();
@@ -19,6 +21,14 @@ function todayDateOnly() {
   const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function emptyRouteDraft(): RouteDraft {
+  return { routeName: "", area: "", weekday: "", note: "", active: true };
+}
+
+function routeToDraft(route: RouteItem): RouteDraft {
+  return { routeName: route.name, area: route.area === "-" ? "" : route.area, weekday: "", note: "", active: route.status !== "paused" };
 }
 
 function routeStatusLabel(status: RouteStatus) {
@@ -68,8 +78,37 @@ function CustomerSheet({ customer, onClose }: { customer: RouteCustomerItem | nu
   );
 }
 
-function RouteCard({ route, selected, saving, onSelect, onOpenSession }: { route: RouteItem; selected: boolean; saving: boolean; onSelect: (route: RouteItem) => void; onOpenSession: (route: RouteItem) => void }) {
-  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} - ${route.salesOwner}`} title={route.name} description={`${route.plannedCustomers} điểm bán - ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{selected ? "Đã chọn" : routeStatusLabel(route.status)}</span>} meta={[`Đã ghé ${route.visitedCustomers}/${route.plannedCustomers}`, `Lần cuối ${route.lastVisitDate}`]} actions={[{ label: selected ? "Xem khách" : "Chọn tuyến", tone: "primary", onClick: () => onSelect(route) }, { label: saving && selected ? "Đang mở..." : "Mở phiên hôm nay", tone: "primary", onClick: () => onOpenSession(route) }]} />;
+function RouteEditSheet({ mode, route, draft, saving, message, onDraftChange, onClose, onSubmit }: { mode: RouteEditorMode | null; route: RouteItem | null; draft: RouteDraft; saving: boolean; message: string | null; onDraftChange: (field: keyof RouteDraft, value: string | boolean) => void; onClose: () => void; onSubmit: () => void }) {
+  const open = Boolean(mode);
+  const isDelete = mode === "delete";
+  const title = mode === "create" ? "Tạo tuyến gốc" : mode === "edit" ? "Sửa tuyến gốc" : "Xóa dứt điểm tuyến";
+  const submitLabel = saving ? "Đang lưu..." : isDelete ? "Xóa dứt điểm" : mode === "create" ? "Tạo tuyến" : "Lưu tuyến";
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title={title} description={isDelete && route ? `${route.name} · xóa thật, không archive` : "Tuyến gốc là master data để mở phiên theo ngày."} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{submitLabel}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>
+      {isDelete ? (
+        <div className="visit-sheet-content">
+          <div className="visit-focus-card"><span>Cảnh báo</span><strong>Xóa thật khỏi DB</strong><small>Tuyến, khách tuyến, phiên, checklist, visits, follow-up và mẫu route-bound của tuyến này sẽ bị xóa theo RPC hard delete.</small></div>
+          <div className="metric-row"><span>Tuyến</span><strong>{route?.name}</strong></div>
+          <div className="metric-row"><span>Khu vực</span><strong>{route?.area}</strong></div>
+          {message ? <p className="page-subtitle">{message}</p> : null}
+        </div>
+      ) : (
+        <div className="visit-sheet-content">
+          <label className="form-field"><small>Tên tuyến</small><input value={draft.routeName} onChange={(event) => onDraftChange("routeName", event.target.value)} placeholder="VD: Tuyến Quận 5" /></label>
+          <label className="form-field"><small>Khu vực</small><input value={draft.area} onChange={(event) => onDraftChange("area", event.target.value)} placeholder="VD: Quận 5" /></label>
+          <label className="form-field"><small>Thứ trong tuần</small><select value={draft.weekday} onChange={(event) => onDraftChange("weekday", event.target.value)}><option value="">Chưa chọn</option><option value="1">Thứ 2</option><option value="2">Thứ 3</option><option value="3">Thứ 4</option><option value="4">Thứ 5</option><option value="5">Thứ 6</option><option value="6">Thứ 7</option><option value="0">Chủ nhật</option></select></label>
+          {mode === "edit" ? <label className="form-field"><small>Trạng thái</small><select value={draft.active ? "active" : "paused"} onChange={(event) => onDraftChange("active", event.target.value === "active")}><option value="active">Đang chạy</option><option value="paused">Tạm dừng</option></select></label> : null}
+          <label className="form-field"><small>Ghi chú</small><textarea value={draft.note} onChange={(event) => onDraftChange("note", event.target.value)} placeholder="Ghi chú tuyến" /></label>
+          {message ? <p className="page-subtitle">{message}</p> : null}
+        </div>
+      )}
+    </BottomSheet>
+  );
+}
+
+function RouteCard({ route, selected, saving, onSelect, onOpenSession, onEdit, onDelete }: { route: RouteItem; selected: boolean; saving: boolean; onSelect: (route: RouteItem) => void; onOpenSession: (route: RouteItem) => void; onEdit: (route: RouteItem) => void; onDelete: (route: RouteItem) => void }) {
+  return <OperationalListCard leading={<span>{routeCompletion(route)}</span>} eyebrow={`${route.area} - ${route.salesOwner}`} title={route.name} description={`${route.plannedCustomers} điểm bán - ${route.orderCount} đơn`} badge={<span className={routeStatusClass(route.status)}>{selected ? "Đã chọn" : routeStatusLabel(route.status)}</span>} meta={[`Đã ghé ${route.visitedCustomers}/${route.plannedCustomers}`, `Lần cuối ${route.lastVisitDate}`]} actions={[{ label: selected ? "Xem khách" : "Chọn tuyến", tone: "primary", onClick: () => onSelect(route) }, { label: saving && selected ? "Đang mở..." : "Mở phiên hôm nay", tone: "primary", onClick: () => onOpenSession(route) }, { label: "Sửa", onClick: () => onEdit(route) }, { label: "Xóa dứt điểm", onClick: () => onDelete(route) }]} />;
 }
 
 function CustomerCard({ customer, onSelect }: { customer: RouteCustomerItem; onSelect: (customer: RouteCustomerItem) => void }) {
@@ -81,6 +120,9 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
   const [tab, setTab] = useState<MasterTab>("routes");
   const [selectedRoute, setSelectedRoute] = useState<RouteItem | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<RouteCustomerItem | null>(null);
+  const [routeEditorMode, setRouteEditorMode] = useState<RouteEditorMode | null>(null);
+  const [routeEditorRoute, setRouteEditorRoute] = useState<RouteItem | null>(null);
+  const [routeDraft, setRouteDraft] = useState<RouteDraft>(emptyRouteDraft());
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
 
@@ -93,6 +135,68 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
     setSelectedCustomer(null);
     setMessage(null);
     setTab("customers");
+  }
+
+  function openRouteCreate() {
+    setRouteEditorMode("create");
+    setRouteEditorRoute(null);
+    setRouteDraft(emptyRouteDraft());
+    setMessage(null);
+  }
+
+  function openRouteEdit(route: RouteItem) {
+    setRouteEditorMode("edit");
+    setRouteEditorRoute(route);
+    setRouteDraft(routeToDraft(route));
+    setMessage(null);
+  }
+
+  function openRouteDelete(route: RouteItem) {
+    setRouteEditorMode("delete");
+    setRouteEditorRoute(route);
+    setRouteDraft(routeToDraft(route));
+    setMessage(null);
+  }
+
+  function closeRouteEditor() {
+    if (saving) return;
+    setRouteEditorMode(null);
+    setRouteEditorRoute(null);
+    setMessage(null);
+  }
+
+  function updateRouteDraft(field: keyof RouteDraft, value: string | boolean) {
+    setRouteDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function submitRouteEditor() {
+    if (!routeEditorMode) return;
+    startSaving(async () => {
+      try {
+        setMessage(null);
+        if (routeEditorMode === "create") {
+          if (!routeDraft.routeName.trim()) throw new Error("Cần nhập tên tuyến");
+          const response = await fetch("/api/routes", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(routeDraft) });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || "Không tạo được tuyến");
+        } else if (routeEditorMode === "edit" && routeEditorRoute) {
+          if (!routeDraft.routeName.trim()) throw new Error("Cần nhập tên tuyến");
+          const response = await fetch(`/api/routes/${encodeURIComponent(routeEditorRoute.id)}`, { method: "PATCH", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(routeDraft) });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || "Không sửa được tuyến");
+        } else if (routeEditorMode === "delete" && routeEditorRoute) {
+          const response = await fetch(`/api/routes/${encodeURIComponent(routeEditorRoute.id)}/archive`, { method: "POST", headers: { Accept: "application/json" } });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || "Không xóa được tuyến");
+          if (selectedRoute?.id === routeEditorRoute.id) setSelectedRoute(null);
+        }
+        setRouteEditorMode(null);
+        setRouteEditorRoute(null);
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Không lưu được tuyến");
+      }
+    });
   }
 
   function openSession(route: RouteItem) {
@@ -113,15 +217,16 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
 
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader eyebrow="Tuyến MCP" title="Tuyến MCP" subtitle="Chọn tuyến, xem khách rồi mở phiên hôm nay."><span className="badge">{routesData.routes.length} tuyến</span></PageHeader>
+      <PageHeader eyebrow="Tuyến gốc" title="Tuyến gốc" subtitle="Quản lý master tuyến: tạo, sửa, xóa dứt điểm, xem khách rồi mở phiên theo ngày."><button className="button primary" type="button" onClick={openRouteCreate}>Tạo tuyến</button></PageHeader>
       <FilterBar filters={[{ label: "Tuyến", value: String(routesData.routes.length) }, { label: "Đang chọn", value: selectedRoute?.name ?? "Chưa chọn" }, { label: "Khách tuyến", value: selectedRoute ? String(selectedCustomers.length) : "-" }, { label: "Cần GPS", value: selectedRoute ? String(gpsCustomers.length) : "-" }]} />
-      {message ? <section className="empty-inline"><strong>{message}</strong></section> : null}
-      <section className="dashboard-section"><div className="dashboard-section-head"><h2>Tuyến MCP</h2><span>{selectedRoute ? `Đã chọn: ${selectedRoute.name}` : "Chưa chọn tuyến"}</span></div><div className="mcp-status-chips" role="tablist" aria-label="Tuyến MCP"><button className={tab === "routes" ? "active" : ""} type="button" onClick={() => setTab("routes")}>Tuyến <b>{routesData.routes.length}</b></button><button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách tuyến <b>{selectedRoute ? selectedCustomers.length : 0}</b></button><button className={tab === "gps" ? "active" : ""} type="button" onClick={() => setTab("gps")}>Cần GPS <b>{selectedRoute ? gpsCustomers.length : 0}</b></button><button className={tab === "open" ? "active" : ""} type="button" onClick={() => setTab("open")}>Chuẩn bị phiên <b>{openRoutes.length}</b></button></div></section>
-      {tab === "routes" ? routesData.routes.length > 0 ? <div className="mcp-line-list">{routesData.routes.map((route) => <RouteCard key={route.id} route={route} selected={selectedRoute?.id === route.id} saving={saving} onSelect={chooseRoute} onOpenSession={openSession} />)}</div> : <EmptyPanel title="Chưa có tuyến" hint="Chưa có dữ liệu tuyến MCP." /> : null}
-      {tab === "customers" ? !selectedRoute ? <EmptyPanel title="Chọn một tuyến" hint="Anh chọn tuyến MCP trước, rồi hệ thống mới hiện khách thuộc tuyến đó." /> : selectedCustomers.length > 0 ? <div className="mcp-line-list">{selectedCustomers.map((customer) => <CustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}<button className="button primary" type="button" disabled={saving} onClick={() => openSession(selectedRoute)}>{saving ? "Đang mở phiên..." : "Mở phiên hôm nay"}</button></div> : <EmptyPanel title="Tuyến chưa có khách" hint="Tuyến đang chọn chưa có khách đang hoạt động." /> : null}
+      {message && !routeEditorMode ? <section className="empty-inline"><strong>{message}</strong></section> : null}
+      <section className="dashboard-section"><div className="dashboard-section-head"><h2>Tuyến gốc</h2><span>{selectedRoute ? `Đã chọn: ${selectedRoute.name}` : "Chưa chọn tuyến"}</span></div><div className="mcp-status-chips" role="tablist" aria-label="Tuyến gốc"><button className={tab === "routes" ? "active" : ""} type="button" onClick={() => setTab("routes")}>Tuyến <b>{routesData.routes.length}</b></button><button className={tab === "customers" ? "active" : ""} type="button" onClick={() => setTab("customers")}>Khách tuyến <b>{selectedRoute ? selectedCustomers.length : 0}</b></button><button className={tab === "gps" ? "active" : ""} type="button" onClick={() => setTab("gps")}>Cần GPS <b>{selectedRoute ? gpsCustomers.length : 0}</b></button><button className={tab === "open" ? "active" : ""} type="button" onClick={() => setTab("open")}>Chuẩn bị phiên <b>{openRoutes.length}</b></button></div></section>
+      {tab === "routes" ? routesData.routes.length > 0 ? <div className="mcp-line-list">{routesData.routes.map((route) => <RouteCard key={route.id} route={route} selected={selectedRoute?.id === route.id} saving={saving} onSelect={chooseRoute} onOpenSession={openSession} onEdit={openRouteEdit} onDelete={openRouteDelete} />)}</div> : <EmptyPanel title="Chưa có tuyến" hint="Bấm Tạo tuyến để thêm tuyến gốc mới." /> : null}
+      {tab === "customers" ? !selectedRoute ? <EmptyPanel title="Chọn một tuyến" hint="Anh chọn tuyến gốc trước, rồi hệ thống mới hiện khách thuộc tuyến đó." /> : selectedCustomers.length > 0 ? <div className="mcp-line-list">{selectedCustomers.map((customer) => <CustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}<button className="button primary" type="button" disabled={saving} onClick={() => openSession(selectedRoute)}>{saving ? "Đang mở phiên..." : "Mở phiên hôm nay"}</button></div> : <EmptyPanel title="Tuyến chưa có khách" hint="Tuyến đang chọn chưa có khách đang hoạt động." /> : null}
       {tab === "gps" ? !selectedRoute ? <EmptyPanel title="Chọn một tuyến" hint="Anh chọn tuyến trước để xem khách cần GPS." /> : gpsCustomers.length > 0 ? <div className="mcp-line-list">{gpsCustomers.map((customer) => <CustomerCard key={customer.id} customer={customer} onSelect={setSelectedCustomer} />)}</div> : <EmptyPanel title="GPS đã ổn" hint="Tuyến đang chọn không có khách cần bổ sung GPS." /> : null}
-      {tab === "open" ? openRoutes.length > 0 ? <div className="mcp-line-list">{openRoutes.map((route) => <RouteCard key={route.id} route={route} selected={selectedRoute?.id === route.id} saving={saving} onSelect={chooseRoute} onOpenSession={openSession} />)}</div> : <EmptyPanel title="Không có tuyến đang chạy" hint="Chỉ tuyến đang chạy hoặc cần theo dõi mới dùng để chuẩn bị phiên." /> : null}
+      {tab === "open" ? openRoutes.length > 0 ? <div className="mcp-line-list">{openRoutes.map((route) => <RouteCard key={route.id} route={route} selected={selectedRoute?.id === route.id} saving={saving} onSelect={chooseRoute} onOpenSession={openSession} onEdit={openRouteEdit} onDelete={openRouteDelete} />)}</div> : <EmptyPanel title="Không có tuyến đang chạy" hint="Chỉ tuyến đang chạy hoặc cần theo dõi mới dùng để chuẩn bị phiên." /> : null}
       <CustomerSheet customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />
+      <RouteEditSheet mode={routeEditorMode} route={routeEditorRoute} draft={routeDraft} saving={saving} message={message} onDraftChange={updateRouteDraft} onClose={closeRouteEditor} onSubmit={submitRouteEditor} />
     </AppShell>
   );
 }
