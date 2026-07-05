@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const API = "/api/mcp-report-settings";
+const API = "/api/backend/mcp-report-settings";
 
 type ApiItem = { id: string; key?: string; label: string; value?: string; category?: string; brandName?: string; productId?: string };
 type ApiGroup = { id: string; key: string; title: string; items: ApiItem[] };
@@ -23,9 +23,7 @@ const FIELD_DEFS: Array<{ key: keyof MarketReportFieldValues; label: string }> =
 const EMPTY_FIELDS: MarketReportFieldValues = { priceSummary: "", displaySummary: "", stockSummary: "", demandSummary: "", opportunitySummary: "", riskSummary: "", nextAction: "", note: "" };
 let cachedGroups: ApiGroup[] | null = null;
 
-export function emptyMarketReportDraft(): MarketReportDraft {
-  return { fields: { ...EMPTY_FIELDS }, selectedCompetitors: [], selectedUsedProducts: [], selectedSettingItems: [] };
-}
+export function emptyMarketReportDraft(): MarketReportDraft { return { fields: { ...EMPTY_FIELDS }, selectedCompetitors: [], selectedUsedProducts: [], selectedSettingItems: [] }; }
 function norm(value: string) { return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/đ/g, "d"); }
 function isFieldGroup(group: Pick<ApiGroup, "key" | "title">) { const text = norm(`${group.key} ${group.title}`); return text.includes("report_fields") || text.includes("field"); }
 function isCompetitorGroup(group: Pick<ApiGroup, "key" | "title"> | ReportSettingSelection) { const text = "groupKey" in group ? norm(`${group.groupKey} ${group.groupTitle}`) : norm(`${group.key} ${group.title}`); return text.includes("doi thu") || text.includes("competitor"); }
@@ -40,15 +38,7 @@ export function buildMarketReportContent(draft: MarketReportDraft) {
   return lines.join("\n");
 }
 export function marketReportHasInput(draft: MarketReportDraft) { return buildMarketReportContent(draft).trim().length > 0; }
-
-async function loadGroups() {
-  if (cachedGroups) return cachedGroups;
-  const response = await fetch(`${API}?groupType=market_report`, { cache: "no-store", headers: { Accept: "application/json" } });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Không tải được MCP Setting");
-  cachedGroups = Array.isArray(payload.data?.groups) ? payload.data.groups : [];
-  return cachedGroups;
-}
+async function loadGroups() { if (cachedGroups) return cachedGroups; const response = await fetch(`${API}?groupType=market_report`, { cache: "no-store", headers: { Accept: "application/json" } }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.error || "Không tải được MCP Setting"); cachedGroups = Array.isArray(payload.data?.groups) ? payload.data.groups : []; return cachedGroups; }
 
 export function McpMarketReportFields({ value, onChange, saving }: { value: MarketReportDraft; onChange: (value: MarketReportDraft) => void; saving: boolean }) {
   const [groups, setGroups] = useState<ApiGroup[]>(cachedGroups || []);
