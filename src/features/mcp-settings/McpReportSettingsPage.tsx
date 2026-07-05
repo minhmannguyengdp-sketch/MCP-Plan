@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 
+const REPORT_SETTINGS_API = "/api/backend/mcp-report-settings";
+
 type SettingItem = {
   id: string;
   key: string;
@@ -67,7 +69,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
     setLoading(true);
     setMessage(null);
     try {
-      const payload = await requestJson("/api/mcp-report-settings?groupType=market_report&includeInactive=1");
+      const payload = await requestJson(`${REPORT_SETTINGS_API}?groupType=market_report&includeInactive=1`);
       const nextGroups = (payload.data?.groups || []) as SettingGroup[];
       setGroups(nextGroups);
       setActiveGroupId((current) => current || nextGroups[0]?.id || "");
@@ -113,7 +115,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
             brandName: draft.brandName,
             sortOrder: Number(draft.sortOrder || 0)
           };
-          await requestJson("/api/mcp-report-settings", { method: editId ? "PATCH" : "POST", body: JSON.stringify(body) });
+          await requestJson(REPORT_SETTINGS_API, { method: editId ? "PATCH" : "POST", body: JSON.stringify(body) });
           setMessage(editId ? "Đã cập nhật mẫu." : "Đã thêm mẫu mới.");
           resetForm();
           await loadSettings();
@@ -128,7 +130,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
     startTransition(() => {
       void (async () => {
         try {
-          await requestJson("/api/mcp-report-settings", {
+          await requestJson(REPORT_SETTINGS_API, {
             method: "PATCH",
             body: JSON.stringify({ itemId: item.id, status: item.status === "active" ? "inactive" : "active" })
           });
