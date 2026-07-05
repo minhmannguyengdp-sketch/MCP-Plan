@@ -10,6 +10,7 @@ import "./safe-area.css";
 import "./mcp-popup-compact.css";
 import "./mcp-order-tea-filter.css";
 import "./mcp-order-selected-compact.css";
+import "./mcp-order-mobile-workbench.css";
 import "./mcp-sessions-compact.css";
 import "./mcp-sessions-color.css";
 import "./mcp-compact-ui.css";
