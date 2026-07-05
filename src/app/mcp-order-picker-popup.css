@@ -7,9 +7,9 @@
     font-weight: 850 !important;
   }
 
-  .order-action-content .order-builder-compact:not(.product-picker-popup-open) .order-picker-head,
-  .order-action-content .order-builder-compact:not(.product-picker-popup-open) .catalog-strip,
-  .order-action-content .order-builder-compact:not(.product-picker-popup-open) .order-main-grid {
+  .order-action-content:not(.product-picker-popup-open) .order-picker-head,
+  .order-action-content:not(.product-picker-popup-open) .catalog-strip,
+  .order-action-content:not(.product-picker-popup-open) .order-main-grid {
     display: none !important;
   }
 
@@ -98,6 +98,7 @@
   }
 
   .order-action-content.product-picker-popup-open .product-card-list.compact {
+    display: grid !important;
     height: 100% !important;
     max-height: none !important;
     overflow: auto !important;
