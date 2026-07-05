@@ -224,6 +224,18 @@ select {
   color: #ffffff;
 }
 
+.button.danger {
+  background: #fff5f5;
+  border-color: rgba(180, 35, 24, 0.24);
+  color: var(--danger);
+}
+
+.button.danger:hover:not(:disabled) {
+  background: #fee4e2;
+  border-color: rgba(180, 35, 24, 0.36);
+  color: var(--danger);
+}
+
 .filter-bar {
   display: flex;
   align-items: center;
@@ -384,6 +396,29 @@ th {
   font-size: 13px;
 }
 
+.mcp-session-card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: min(100%, 360px);
+}
+
+.mcp-session-card-actions .button {
+  flex: 1 1 112px;
+}
+
+.order-summary-row {
+  gap: 14px;
+}
+
+.order-summary-row > .button,
+.order-summary-row button:last-child {
+  margin-left: 14px;
+  min-width: 52px;
+}
+
 .loading-page {
   display: grid;
   gap: 18px;
@@ -482,6 +517,11 @@ th {
 
   .action-card {
     display: grid;
+  }
+
+  .mcp-session-card-actions {
+    justify-content: stretch;
+    min-width: 0;
   }
 }
 
