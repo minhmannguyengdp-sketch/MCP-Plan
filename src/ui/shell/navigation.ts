@@ -7,23 +7,24 @@ export type NavItem = {
 };
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
-  { label: "T\u1ed5ng quan", shortLabel: "T\u1ed5ng", href: "/", description: "T\u1ed5ng quan NPP", icon: "\u2302" },
-  { label: "MCP", shortLabel: "MCP", href: "/mcp", description: "Tuy\u1ebfn, phi\u00ean v\u00e0 c\u00e0i \u0111\u1eb7t MCP", icon: "\u25c7" },
-  { label: "\u0110\u01a1n h\u00e0ng", shortLabel: "\u0110\u01a1n", href: "/orders", description: "Doanh s\u1ed1 v\u00e0 SKU", icon: "+" },
-  { label: "Test s\u1ea3n ph\u1ea9m", shortLabel: "Test", href: "/field-checks", description: "File test v\u00e0 k\u1ebft qu\u1ea3", icon: "\u25cc" },
-  { label: "MCP-Plan", shortLabel: "Plan", href: "/plans", description: "K\u1ebf ho\u1ea1ch h\u00e0nh \u0111\u1ed9ng", icon: "\u2713" }
+  { label: "Tổng quan", shortLabel: "Tổng", href: "/", description: "Tổng quan NPP", icon: "⌂" },
+  { label: "MCP", shortLabel: "MCP", href: "/mcp", description: "Tuyến, phiên và cài đặt MCP", icon: "◇" },
+  { label: "Đơn hàng", shortLabel: "Đơn", href: "/orders", description: "Doanh số và SKU", icon: "+" },
+  { label: "Test sản phẩm", shortLabel: "Test", href: "/field-checks", description: "File test và kết quả", icon: "◌" },
+  { label: "MCP-Plan", shortLabel: "Plan", href: "/plans", description: "Kế hoạch hành động", icon: "✓" }
 ];
 
 export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   PRIMARY_NAV_ITEMS[0],
   PRIMARY_NAV_ITEMS[1],
-  { label: "Tuy\u1ebfn g\u1ed1c", shortLabel: "Tuy\u1ebfn", href: "/routes", description: "Tuy\u1ebfn g\u1ed1c v\u00e0 kh\u00e1ch tuy\u1ebfn", icon: "\u25ce" },
-  { label: "MCP h\u00f4m nay", shortLabel: "H\u00f4m nay", href: "/visits", description: "Checklist phi\u00ean \u0111ang ch\u1ea1y", icon: "\u25c7" },
-  { label: "Phi\u00ean", shortLabel: "Phi\u00ean", href: "/mcp/sessions", description: "L\u1ecbch s\u1eed phi\u00ean ch\u1ea1y tuy\u1ebfn", icon: "\u25a4" },
-  { label: "Kh\u00e1ch h\u00e0ng", shortLabel: "Kh\u00e1ch", href: "/customers", description: "H\u1ed3 s\u01a1 \u0111i\u1ec3m b\u00e1n", icon: "\u25a1" },
+  { label: "Tuyến gốc", shortLabel: "Tuyến", href: "/routes", description: "Tuyến gốc và khách tuyến", icon: "◎" },
+  { label: "MCP hôm nay", shortLabel: "Hôm nay", href: "/visits", description: "Checklist phiên đang chạy", icon: "◇" },
+  { label: "Phiên", shortLabel: "Phiên", href: "/mcp/sessions", description: "Lịch sử phiên chạy tuyến", icon: "▤" },
+  { label: "MCP Setting", shortLabel: "Mẫu", href: "/mcp-setting", description: "Mẫu dùng chung cho báo cáo thị trường", icon: "⚙" },
+  { label: "Khách hàng", shortLabel: "Khách", href: "/customers", description: "Hồ sơ điểm bán", icon: "□" },
   PRIMARY_NAV_ITEMS[2],
   PRIMARY_NAV_ITEMS[3],
-  { label: "B\u00e1o c\u00e1o th\u1ecb tr\u01b0\u1eddng", shortLabel: "BC", href: "/reports", description: "Gi\u00e1, \u0111\u1ed1i th\u1ee7, tr\u01b0ng b\u00e0y, t\u1ed3n kho", icon: "\u25a3" },
+  { label: "Báo cáo thị trường", shortLabel: "BC", href: "/reports", description: "Giá, đối thủ, trưng bày, tồn kho", icon: "▣" },
   PRIMARY_NAV_ITEMS[4]
 ];
 
