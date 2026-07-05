@@ -7,8 +7,6 @@ import { McpSessionCompactView } from "./McpSessionCompactView";
 import { McpSessionReadonlyView } from "./McpSessionReadonlyView";
 import { McpMasterView } from "./McpMasterView";
 import { RouteCustomerLocationEnhancer } from "./RouteCustomerLocationEnhancer";
-import { ReportQuickFormEnhancer } from "./ReportQuickFormEnhancer";
-import { ReportRichSaveEnhancer } from "./ReportRichSaveEnhancer";
 
 type MCPPageProps = {
   activeHref?: string;
@@ -25,7 +23,7 @@ export function MCPPage({ activeHref = "/visits", routesData, mcpDayData, routeC
   if (activeHref === "/visits") {
     if (!mcpDayData) throw new Error("mcpDayData is required for visits");
     if (locked(mcpDayData)) return <McpSessionReadonlyView activeHref={activeHref} mcpDayData={mcpDayData} />;
-    return <><ReportQuickFormEnhancer /><ReportRichSaveEnhancer /><McpSessionCompactView activeHref={activeHref} routesData={routesData} mcpDayData={mcpDayData} routeCustomersData={routeCustomersData} /></>;
+    return <McpSessionCompactView activeHref={activeHref} routesData={routesData} mcpDayData={mcpDayData} routeCustomersData={routeCustomersData} />;
   }
   return <><RouteCustomerLocationEnhancer /><McpMasterView activeHref={activeHref} routesData={routesData} routeCustomersData={routeCustomersData} /></>;
 }
