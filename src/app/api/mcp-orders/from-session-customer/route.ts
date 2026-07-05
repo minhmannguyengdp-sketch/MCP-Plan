@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 const DEFAULT_SUPABASE_URL = "https://noiadkpkvdohljgopgfb.supabase.co";
+const ORDER_EDGE_URL = `${DEFAULT_SUPABASE_URL}/functions/v1/mcp-order-save`;
 
 type OrderItemPayload = {
   productId?: string;
@@ -14,7 +15,7 @@ type OrderItemPayload = {
   note?: string | null;
 };
 
-function env() {
+function supabaseEnv() {
   const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
   const key = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -25,21 +26,39 @@ function env() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     ""
   ).trim();
-  if (!url || !key) throw new Error("missing_supabase_config: cần SUPABASE_ANON_KEY hoặc NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY cho API lưu đơn");
-  return { url: url.replace(/\/+$/, ""), key };
+  return key ? { url: url.replace(/\/+$/, ""), key } : null;
 }
 
 async function rpc(name: string, args: Record<string, unknown>) {
-  const { url, key } = env();
-  const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
+  const env = supabaseEnv();
+  if (!env) return fetchEdgeOrderSave(args);
+
+  const response = await fetch(`${env.url}/rest/v1/rpc/${name}`, {
     method: "POST",
     cache: "no-store",
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json" },
+    headers: { apikey: env.key, Authorization: `Bearer ${env.key}`, Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(args)
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message || payload.error || `supabase_${response.status}`);
   return payload;
+}
+
+async function fetchEdgeOrderSave(args: Record<string, unknown>) {
+  const response = await fetch(ORDER_EDGE_URL, {
+    method: "POST",
+    cache: "no-store",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionCustomerId: args.p_session_customer_id,
+      items: args.p_items,
+      note: args.p_note,
+      status: args.p_status
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `edge_order_save_${response.status}`);
+  return payload.data;
 }
 
 function cleanItem(item: OrderItemPayload) {
