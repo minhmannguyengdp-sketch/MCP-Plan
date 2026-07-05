@@ -1,3 +1,3 @@
 "use client";
 
-export { McpSessionCompactView } from "./McpSessionCompactViewFinal";
+export { McpSessionCompactView } from "./McpSessionCompactViewFinal2";
