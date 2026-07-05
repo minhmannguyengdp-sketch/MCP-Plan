@@ -16,8 +16,16 @@ type OrderItemPayload = {
 
 function env() {
   const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
-  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "").trim();
-  if (!url || !key) throw new Error("missing_supabase_config");
+  const key = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    ""
+  ).trim();
+  if (!url || !key) throw new Error("missing_supabase_config: cần SUPABASE_ANON_KEY hoặc NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY cho API lưu đơn");
   return { url: url.replace(/\/+$/, ""), key };
 }
 
