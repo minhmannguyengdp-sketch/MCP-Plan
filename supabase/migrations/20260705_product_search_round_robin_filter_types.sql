@@ -33,7 +33,7 @@ begin
     ), limited as (
       select * from matched order by type_rank, public.mcp_catalog_filter_order(filter_type), name, variant_name, variant_id limit v_limit
     )
-    select jsonb_agg(jsonb_build_object('productId', product_id, 'variantId', variant_id, 'name', name, 'brand', brand, 'category', filter_type, 'rawCategory', raw_category, 'sku', sku, 'variantName', variant_name, 'sizeLabel', size_label, 'sellUnit', sell_unit, 'packUnit', pack_quantity, 'price', base_price) order by type_rank, public.mcp_catalog_filter_order(filter_type), name, variant_name, variant_id)
+    select jsonb_agg(jsonb_build_object('productId', product_id, 'variantId', variant_id, 'name', name, 'brand', brand, 'category', filter_type, 'rawCategory', raw_category, 'sku', sku, 'variantName', variant_name, 'sizeLabel', size_label, 'sellUnit', sell_unit, 'packUnit', pack_unit, 'packQuantity', pack_quantity, 'price', base_price) order by type_rank, public.mcp_catalog_filter_order(filter_type), name, variant_name, variant_id)
     from limited
   ), '[]'::jsonb);
 end;
