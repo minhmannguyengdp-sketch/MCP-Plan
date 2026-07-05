@@ -100,7 +100,7 @@ function CustomerActionSheet({ selection, saving, message, onClose, onSubmit }: 
 
 function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; onClose: () => void; onAction: (line: McpDayLine, action: McpCustomerAction) => void }) {
   return (
-    <BottomSheet open={Boolean(line)} onClose={onClose} title={line ? line.accountName : "Xử lý điểm bán"} description={line ? `${line.area} · ${sourceLabel(line.source)}` : undefined} footer={line ? <div className="sheet-action-grid"><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Ghi có đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Ghi có test</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Ghi báo cáo</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Tạo follow-up</button><button className="button" type="button" onClick={onClose}>Đóng</button></div> : undefined}>
+    <BottomSheet open={Boolean(line)} onClose={onClose} title={line ? line.accountName : "Xử lý điểm bán"} description={line ? `${line.area} · ${sourceLabel(line.source)}` : undefined} footer={line ? <div className="sheet-action-grid"><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Ghi có đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Ghi có test</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Ghi báo cáo</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Tạo follow-up</button><button className="button" type="button" onClick={() => onAction(line, "skip")}>Bỏ qua / không mua</button><button className="button" type="button" onClick={onClose}>Đóng</button></div> : undefined}>
       {line ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Session Customer Snapshot</span><strong>{lineStatusLabel(line.status)}</strong><small>{line.sessionCustomerId || line.id}</small></div><div className="grid"><div className="metric-row"><span>Thứ tự ghé</span><strong>{line.sortOrder}</strong></div><div className="metric-row"><span>Nguồn</span><strong>{sourceLabel(line.source)}</strong></div><div className="metric-row"><span>Đơn</span><strong>{line.hasOrder ? "Đã có" : "Chưa có"}</strong></div><div className="metric-row"><span>Test</span><strong>{line.hasTest ? "Đã có" : "Chưa có"}</strong></div><div className="metric-row"><span>Báo cáo</span><strong>{line.hasReport ? "Đã có" : "Chưa có"}</strong></div><div className="metric-row"><span>Follow-up</span><strong>{Number(line.followupCount || 0)}</strong></div><div className="metric-row"><span>Kết quả</span><strong>{line.result ?? "Chưa ghi"}</strong></div></div><div className="sheet-note-card"><h3>Logic MCP</h3><p>Thao tác ở đây ghi vào phiên ngày. Không sửa dữ liệu tuyến master.</p></div></div> : null}
     </BottomSheet>
   );
@@ -152,8 +152,20 @@ export function MCPPage({ activeHref = "/visits", routesData, mcpDayData, routeC
         setActionMessage(null);
         if (selectedAction.action === "follow_up") {
           await api.createMcpDayFollowup({ sessionCustomerId, title: `Theo dõi ${selectedAction.line.accountName}`, followupType: "general", priority: "medium", owner: run.owner, note: `Tạo việc từ MCP Day cho ${selectedAction.line.accountName}` });
+        } else if (selectedAction.action === "skip") {
+          const response = await fetch("/api/backend/mcp-day/session-customer/status", {
+            method: "POST",
+            cache: "no-store",
+            headers: { Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionCustomerId, visitStatus: "skipped", statusReason: "other", note: mcpCustomerActionDescription(selectedAction.action) })
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const errorPayload = payload as { error?: string; detail?: string };
+            throw new Error(errorPayload.error || errorPayload.detail || "Không lưu được bỏ qua / không mua");
+          }
         } else {
-          const resultType = selectedAction.action === "market_report" ? "report" : selectedAction.action;
+          const resultType: "order" | "test" | "report" = selectedAction.action === "market_report" ? "report" : selectedAction.action;
           await api.createMcpDayResult({ sessionCustomerId, resultType, note: mcpCustomerActionDescription(selectedAction.action), hasOrder: resultType === "order" ? true : undefined, hasTest: resultType === "test" ? true : undefined, hasReport: resultType === "report" ? true : undefined });
         }
         setSelectedAction(null);
