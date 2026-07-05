@@ -306,6 +306,37 @@ async function createMcpSessionCustomerReport(body) {
   });
 }
 
+function normalizeFollowupPriority(value) {
+  const priority = String(value || "medium").trim().toLowerCase() || "medium";
+  const allowed = new Set(["low", "medium", "high", "urgent"]);
+  if (!allowed.has(priority)) throw badRequest("invalid_priority");
+  return priority;
+}
+
+async function createMcpSessionCustomerFollowup(body) {
+  const sessionCustomerId = String(body.sessionCustomerId || body.session_customer_id || body.id || "").trim();
+  if (!sessionCustomerId) throw badRequest("session_customer_id_required");
+
+  const title = String(body.title || body.followupTitle || body.followup_title || "").trim();
+  if (!title) throw badRequest("followup_title_required");
+
+  const dueDate = String(body.dueDate || body.due_date || "").trim();
+  const priority = normalizeFollowupPriority(body.priority);
+  const owner = String(body.owner || "").trim();
+  const note = String(body.note || "").trim();
+  const followupType = String(body.followupType || body.followup_type || body.type || "general").trim() || "general";
+
+  return supabaseRpc("mcp_create_followup_from_session_customer", {
+    p_session_customer_id: sessionCustomerId,
+    p_title: title,
+    p_due_date: dueDate || null,
+    p_priority: priority,
+    p_owner: owner || null,
+    p_note: note || null,
+    p_followup_type: followupType
+  });
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -835,7 +866,7 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/session-customer/report") return wrap(await createMcpSessionCustomerReport(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/result") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/add") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req), { action: "add" }));
-  if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await proxySupabaseFunction("mcp-day-followup", await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await createMcpSessionCustomerFollowup(await readJsonBody(req)));
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
