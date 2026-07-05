@@ -37,6 +37,39 @@ type ActionDraft = {
   selectedProductIds: string[];
 };
 
+type ProductCatalogItem = {
+  productId: string;
+  variantId: string;
+  name: string;
+  brand?: string | null;
+  category?: string | null;
+  sku?: string | null;
+  variantName?: string | null;
+  sizeLabel?: string | null;
+  sellUnit?: string | null;
+  packUnit?: string | null;
+  packQuantity?: number | null;
+  price?: number | null;
+};
+
+type ProductSearchState = {
+  q: string;
+  loading: boolean;
+  variantsLoading: boolean;
+  results: ProductCatalogItem[];
+  variants: ProductCatalogItem[];
+  selectedProductId: string;
+  selectedVariant: ProductCatalogItem | null;
+  error: string | null;
+};
+
+type OrderDraftItem = ProductCatalogItem & {
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  lineTotal: number;
+};
+
 type ReportTemplate = {
   id: string;
   title: string;
@@ -103,6 +136,10 @@ function emptyDraft(owner = ""): ActionDraft {
   };
 }
 
+function emptyProductSearchState(): ProductSearchState {
+  return { q: "", loading: false, variantsLoading: false, results: [], variants: [], selectedProductId: "", selectedVariant: null, error: null };
+}
+
 function emptyReportContext(): ReportContext {
   return { loading: false, competitors: [], usedProducts: [], templates: [] };
 }
@@ -153,6 +190,40 @@ function reportTemplateMatches(template: ReportTemplate, reportType: string) {
   return !template.reportType || template.reportType === reportType;
 }
 
+function toNumber(value: string | number | null | undefined, fallback = 0) {
+  const parsed = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatMoney(value: number) {
+  return `${Math.round(value || 0).toLocaleString("vi-VN")}đ`;
+}
+
+function variantLabel(item: ProductCatalogItem) {
+  return [item.variantName, item.sizeLabel, item.packUnit && item.packQuantity ? `${item.packUnit} ${item.packQuantity}` : ""].filter(Boolean).join(" · ") || item.sku || item.variantId;
+}
+
+function normalizeCatalogItems(value: unknown): ProductCatalogItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => item as Partial<ProductCatalogItem>)
+    .filter((item) => item.productId && item.variantId && item.name)
+    .map((item) => ({
+      productId: String(item.productId),
+      variantId: String(item.variantId),
+      name: String(item.name),
+      brand: item.brand ?? null,
+      category: item.category ?? null,
+      sku: item.sku ?? null,
+      variantName: item.variantName ?? null,
+      sizeLabel: item.sizeLabel ?? null,
+      sellUnit: item.sellUnit ?? null,
+      packUnit: item.packUnit ?? null,
+      packQuantity: item.packQuantity ?? null,
+      price: Number(item.price || 0)
+    }));
+}
+
 async function postMcpBackend(path: string, body: unknown) {
   const response = await fetch(path, {
     method: "POST",
@@ -166,6 +237,26 @@ async function postMcpBackend(path: string, body: unknown) {
     throw new Error(errorPayload.error || errorPayload.detail || "Không lưu được hành động MCP");
   }
   return payload;
+}
+
+async function fetchProductSearch(q: string): Promise<ProductCatalogItem[]> {
+  const response = await fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=60`, { cache: "no-store", headers: { Accept: "application/json" } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errorPayload = payload as { error?: string; detail?: string };
+    throw new Error(errorPayload.error || errorPayload.detail || "Không tìm được sản phẩm");
+  }
+  return normalizeCatalogItems((payload as { data?: unknown }).data);
+}
+
+async function fetchProductVariants(productId: string): Promise<ProductCatalogItem[]> {
+  const response = await fetch(`/api/products/${encodeURIComponent(productId)}/variants`, { cache: "no-store", headers: { Accept: "application/json" } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errorPayload = payload as { error?: string; detail?: string };
+    throw new Error(errorPayload.error || errorPayload.detail || "Không tải được quy cách sản phẩm");
+  }
+  return normalizeCatalogItems((payload as { data?: unknown }).data);
 }
 
 async function fetchReportContext(sessionCustomerId: string): Promise<ReportContext> {
@@ -225,6 +316,119 @@ function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; o
         </div>
       </div>
     </BottomSheet>
+  );
+}
+
+function OrderFields({
+  draft,
+  productSearch,
+  orderItems,
+  orderTotal,
+  saving,
+  onChange,
+  onSearchChange,
+  onRunSearch,
+  onPickProduct,
+  onPickVariant,
+  onAddItem,
+  onRemoveItem
+}: {
+  draft: ActionDraft;
+  productSearch: ProductSearchState;
+  orderItems: OrderDraftItem[];
+  orderTotal: number;
+  saving: boolean;
+  onChange: (field: keyof ActionDraft, value: string) => void;
+  onSearchChange: (value: string) => void;
+  onRunSearch: () => void;
+  onPickProduct: (productId: string) => void;
+  onPickVariant: (variant: ProductCatalogItem) => void;
+  onAddItem: () => void;
+  onRemoveItem: (variantId: string) => void;
+}) {
+  const products = productSearch.results.filter((item, index, values) => values.findIndex((candidate) => candidate.productId === item.productId) === index);
+  const selectedVariant = productSearch.selectedVariant;
+
+  return (
+    <div className="order-builder">
+      <div className="order-step">
+        <span>1</span>
+        <strong>Tìm sản phẩm</strong>
+      </div>
+      <div className="order-search-row">
+        <label className="form-field">
+          <small>Tên / SKU / ngành / thương hiệu</small>
+          <input
+            value={productSearch.q}
+            onChange={(event) => onSearchChange(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); onRunSearch(); } }}
+            placeholder="VD: siro gold, trân châu, Koreno..."
+            disabled={saving || productSearch.loading}
+          />
+        </label>
+        <button className="button primary" type="button" onClick={onRunSearch} disabled={saving || productSearch.loading}>{productSearch.loading ? "Đang tìm..." : "Tìm"}</button>
+      </div>
+      {productSearch.error ? <p className="page-subtitle">{productSearch.error}</p> : null}
+
+      <div className="order-step">
+        <span>2</span>
+        <strong>Chọn sản phẩm</strong>
+      </div>
+      <div className="product-card-list">
+        {products.length === 0 && !productSearch.loading ? <small className="page-subtitle">Chưa có kết quả. Nhập từ khóa rồi bấm Tìm. Nếu vẫn trống là catalog chưa import sản phẩm thật.</small> : null}
+        {products.map((item) => (
+          <button className={productSearch.selectedProductId === item.productId ? "product-card active" : "product-card"} type="button" key={item.productId} onClick={() => onPickProduct(item.productId)} disabled={saving || productSearch.variantsLoading}>
+            <strong>{item.name}</strong>
+            <span>{item.brand || "Chưa brand"} · {item.category || "Chưa ngành"}</span>
+            <small>{productSearch.results.filter((variant) => variant.productId === item.productId).length} quy cách</small>
+          </button>
+        ))}
+      </div>
+
+      <div className="order-step">
+        <span>3</span>
+        <strong>Chọn quy cách</strong>
+      </div>
+      <div className="variant-grid">
+        {productSearch.variantsLoading ? <small className="page-subtitle">Đang tải quy cách...</small> : null}
+        {!productSearch.variantsLoading && productSearch.selectedProductId && productSearch.variants.length === 0 ? <small className="page-subtitle">Sản phẩm này chưa có biến thể active.</small> : null}
+        {productSearch.variants.map((variant) => (
+          <button className={selectedVariant?.variantId === variant.variantId ? "variant-chip active" : "variant-chip"} type="button" key={variant.variantId} onClick={() => onPickVariant(variant)} disabled={saving}>
+            <strong>{variantLabel(variant)}</strong>
+            <span>{variant.sellUnit || "đv"} · {formatMoney(Number(variant.price || 0))}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="order-edit-grid">
+        <label className="form-field"><small>Số lượng</small><input inputMode="decimal" value={draft.quantity} onChange={(event) => onChange("quantity", event.target.value)} disabled={saving || !selectedVariant} /></label>
+        <label className="form-field"><small>Đơn vị tự động</small><input value={draft.unit} readOnly placeholder="Chọn quy cách" /></label>
+        <label className="form-field"><small>Giá tự động</small><input inputMode="decimal" value={draft.unitPrice} onChange={(event) => onChange("unitPrice", event.target.value)} disabled={saving || !selectedVariant} /></label>
+        <button className="button primary" type="button" onClick={onAddItem} disabled={saving || !selectedVariant}>+ Thêm vào đơn</button>
+      </div>
+
+      <div className="order-step">
+        <span>8</span>
+        <strong>Danh sách item</strong>
+      </div>
+      <div className="order-summary-list">
+        {orderItems.length === 0 ? <small className="page-subtitle">Chưa có item trong đơn.</small> : null}
+        {orderItems.map((item) => (
+          <div className="order-summary-row" key={item.variantId}>
+            <div>
+              <strong>{item.name}</strong>
+              <small>{variantLabel(item)} · {item.sku || item.variantId}</small>
+            </div>
+            <span>{item.quantity} {item.unit} × {formatMoney(item.unitPrice)}</span>
+            <b>{formatMoney(item.lineTotal)}</b>
+            <button className="button" type="button" onClick={() => onRemoveItem(item.variantId)} disabled={saving}>Xóa</button>
+          </div>
+        ))}
+      </div>
+
+      <label className="form-field"><small>Ghi chú giao hàng</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} placeholder="Ghi chú giao hàng / công nợ / thời gian giao" /></label>
+      <div className="order-total-row"><span>Tổng tiền</span><strong>{formatMoney(orderTotal)}</strong></div>
+    </div>
   );
 }
 
@@ -307,17 +511,9 @@ function ReportContextFields({
   );
 }
 
-function ActionFields({ action, draft, reportContext, saving, onChange, onToggleCompetitor, onToggleProduct, onApplyTemplate }: { action: McpCustomerAction; draft: ActionDraft; reportContext: ReportContext; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void }) {
+function ActionFields({ action, draft, productSearch, orderItems, orderTotal, reportContext, saving, onChange, onSearchChange, onRunSearch, onPickProduct, onPickVariant, onAddOrderItem, onRemoveOrderItem, onToggleCompetitor, onToggleProduct, onApplyTemplate }: { action: McpCustomerAction; draft: ActionDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; reportContext: ReportContext; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void; onSearchChange: (value: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onPickVariant: (variant: ProductCatalogItem) => void; onAddOrderItem: () => void; onRemoveOrderItem: (variantId: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void }) {
   if (action === "order") {
-    return (
-      <div className="grid">
-        <label className="form-field"><small>Tên sản phẩm</small><input value={draft.productName} onChange={(event) => onChange("productName", event.target.value)} placeholder="VD: Trà sữa truyền thống" /></label>
-        <label className="form-field"><small>Số lượng</small><input inputMode="decimal" value={draft.quantity} onChange={(event) => onChange("quantity", event.target.value)} /></label>
-        <label className="form-field"><small>Giá</small><input inputMode="decimal" value={draft.unitPrice} onChange={(event) => onChange("unitPrice", event.target.value)} /></label>
-        <label className="form-field"><small>Đơn vị</small><input value={draft.unit} onChange={(event) => onChange("unit", event.target.value)} placeholder="ly / gói / thùng" /></label>
-        <label className="form-field"><small>Ghi chú đơn</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} /></label>
-      </div>
-    );
+    return <OrderFields draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} onChange={onChange} onSearchChange={onSearchChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onPickVariant={onPickVariant} onAddItem={onAddOrderItem} onRemoveItem={onRemoveOrderItem} />;
   }
 
   if (action === "test") {
@@ -354,10 +550,16 @@ function ActionFields({ action, draft, reportContext, saving, onChange, onToggle
   );
 }
 
-function CustomerActionSheet({ selection, draft, reportContext, saving, message, onChange, onToggleCompetitor, onToggleProduct, onApplyTemplate, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; draft: ActionDraft; reportContext: ReportContext; saving: boolean; message: string | null; onChange: (field: keyof ActionDraft, value: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void; onClose: () => void; onSubmit: () => void }) {
+function CustomerActionSheet({ selection, draft, productSearch, orderItems, orderTotal, reportContext, saving, message, onChange, onSearchChange, onRunSearch, onPickProduct, onPickVariant, onAddOrderItem, onRemoveOrderItem, onToggleCompetitor, onToggleProduct, onApplyTemplate, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; draft: ActionDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; reportContext: ReportContext; saving: boolean; message: string | null; onChange: (field: keyof ActionDraft, value: string) => void; onSearchChange: (value: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onPickVariant: (variant: ProductCatalogItem) => void; onAddOrderItem: () => void; onRemoveOrderItem: (variantId: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void; onClose: () => void; onSubmit: () => void }) {
   return (
-    <BottomSheet open={Boolean(selection)} onClose={onClose} title={selection ? actionTitle(selection.action) : "Hành động checklist"} description={selection ? selection.line.accountName : undefined} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : actionSaveLabel(selection?.action)}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>
-      {selection ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} reportContext={reportContext} saving={saving} onChange={onChange} onToggleCompetitor={onToggleCompetitor} onToggleProduct={onToggleProduct} onApplyTemplate={onApplyTemplate} />{message ? <p className="page-subtitle">{message}</p> : null}</div> : null}
+    <BottomSheet
+      open={Boolean(selection)}
+      onClose={onClose}
+      title={selection ? actionTitle(selection.action) : "Hành động checklist"}
+      description={selection ? selection.line.accountName : undefined}
+      footer={<div className="sheet-action-grid">{selection?.action === "order" ? <div className="order-footer-total">Tổng: <strong>{formatMoney(orderTotal)}</strong></div> : null}<button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : actionSaveLabel(selection?.action)}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}
+    >
+      {selection ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} reportContext={reportContext} saving={saving} onChange={onChange} onSearchChange={onSearchChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onPickVariant={onPickVariant} onAddOrderItem={onAddOrderItem} onRemoveOrderItem={onRemoveOrderItem} onToggleCompetitor={onToggleCompetitor} onToggleProduct={onToggleProduct} onApplyTemplate={onApplyTemplate} />{message ? <p className="page-subtitle">{message}</p> : null}</div> : null}
     </BottomSheet>
   );
 }
@@ -367,6 +569,8 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   const [selectedLine, setSelectedLine] = useState<McpDayLine | null>(null);
   const [selectedAction, setSelectedAction] = useState<{ line: McpDayLine; action: McpCustomerAction } | null>(null);
   const [draft, setDraft] = useState<ActionDraft>(emptyDraft());
+  const [productSearch, setProductSearch] = useState<ProductSearchState>(emptyProductSearchState());
+  const [orderItems, setOrderItems] = useState<OrderDraftItem[]>([]);
   const [reportContext, setReportContext] = useState<ReportContext>(emptyReportContext());
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
@@ -381,9 +585,19 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   const followupLines = allLines.filter((line) => Number(line.followupCount || 0) > 0);
   const counters = { all: allLines.length, pending: pendingLines.length, visited: visitedLines.length, skipped: skippedLines.length, added: addedLines.length, followups: followupLines.length };
   const linesByTab: Record<SessionTab, McpDayLine[]> = { all: allLines, pending: pendingLines, visited: visitedLines, skipped: skippedLines, added: addedLines, followups: followupLines };
+  const orderTotal = orderItems.reduce((total, item) => total + item.lineTotal, 0);
 
   function updateDraft(field: keyof ActionDraft, value: string) {
     setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function applyVariantToDraft(variant: ProductCatalogItem) {
+    setDraft((current) => ({
+      ...current,
+      productName: variant.name,
+      unit: variant.sellUnit || current.unit,
+      unitPrice: String(variant.price ?? 0)
+    }));
   }
 
   function toggleDraftList(field: "selectedCompetitorIds" | "selectedProductIds", id: string) {
@@ -416,6 +630,72 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
     }));
   }
 
+  async function runProductSearch() {
+    setMessage(null);
+    setProductSearch((current) => ({ ...current, loading: true, error: null, results: [], variants: [], selectedProductId: "", selectedVariant: null }));
+    try {
+      const results = await fetchProductSearch(productSearch.q.trim());
+      setProductSearch((current) => ({ ...current, loading: false, results, error: null }));
+    } catch (error) {
+      setProductSearch((current) => ({ ...current, loading: false, error: error instanceof Error ? error.message : "Không tìm được sản phẩm" }));
+    }
+  }
+
+  async function pickProduct(productId: string) {
+    const fallbackVariants = productSearch.results.filter((item) => item.productId === productId);
+    setMessage(null);
+    setProductSearch((current) => ({ ...current, selectedProductId: productId, selectedVariant: null, variants: fallbackVariants, variantsLoading: true, error: null }));
+    try {
+      const variants = await fetchProductVariants(productId);
+      const nextVariants = variants.length > 0 ? variants : fallbackVariants;
+      const autoVariant = nextVariants.length === 1 ? nextVariants[0] : null;
+      setProductSearch((current) => ({ ...current, variantsLoading: false, variants: nextVariants, selectedVariant: autoVariant }));
+      if (autoVariant) applyVariantToDraft(autoVariant);
+    } catch (error) {
+      setProductSearch((current) => ({ ...current, variantsLoading: false, error: error instanceof Error ? error.message : "Không tải được quy cách sản phẩm" }));
+    }
+  }
+
+  function pickVariant(variant: ProductCatalogItem) {
+    setMessage(null);
+    setProductSearch((current) => ({ ...current, selectedVariant: variant }));
+    applyVariantToDraft(variant);
+  }
+
+  function addOrderItem() {
+    const variant = productSearch.selectedVariant;
+    if (!variant) {
+      setMessage("Cần chọn sản phẩm và quy cách trước khi thêm vào đơn");
+      return;
+    }
+
+    const quantity = toNumber(draft.quantity, 1);
+    const unitPrice = toNumber(draft.unitPrice, Number(variant.price || 0));
+    if (quantity <= 0) {
+      setMessage("Số lượng phải lớn hơn 0");
+      return;
+    }
+    if (unitPrice < 0) {
+      setMessage("Giá không hợp lệ");
+      return;
+    }
+
+    const unit = draft.unit || variant.sellUnit || "";
+    setOrderItems((current) => {
+      const existed = current.find((item) => item.variantId === variant.variantId && item.unitPrice === unitPrice);
+      if (existed) {
+        return current.map((item) => item === existed ? { ...item, quantity: item.quantity + quantity, lineTotal: (item.quantity + quantity) * item.unitPrice } : item);
+      }
+      return [...current, { ...variant, quantity, unit, unitPrice, lineTotal: quantity * unitPrice }];
+    });
+    setDraft((current) => ({ ...current, quantity: "1" }));
+    setMessage(null);
+  }
+
+  function removeOrderItem(variantId: string) {
+    setOrderItems((current) => current.filter((item) => item.variantId !== variantId));
+  }
+
   async function loadReportContextForLine(line: McpDayLine) {
     const sessionCustomerId = line.sessionCustomerId || line.id;
     setReportContext({ ...emptyReportContext(), loading: true });
@@ -431,6 +711,8 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
     setMessage(null);
     setSelectedLine(null);
     setDraft(emptyDraft(run.owner || ""));
+    setProductSearch(emptyProductSearchState());
+    setOrderItems([]);
     setReportContext(emptyReportContext());
     setSelectedAction({ line, action });
     if (action === "market_report") void loadReportContextForLine(line);
@@ -451,8 +733,22 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       try {
         setMessage(null);
         if (selectedAction.action === "order") {
-          if (!draft.productName.trim()) throw new Error("Cần nhập sản phẩm");
-          await postMcpBackend("/api/backend/mcp-day/session-customer/order", { sessionCustomerId, items: [{ productName: draft.productName, quantity: Number(draft.quantity || 1), unitPrice: Number(draft.unitPrice || 0), unit: draft.unit, note: draft.note }], note: draft.note, status: "confirmed" });
+          if (orderItems.length === 0) throw new Error("Cần thêm ít nhất 1 sản phẩm vào đơn");
+          await postMcpBackend("/api/mcp-orders/from-session-customer", {
+            sessionCustomerId,
+            items: orderItems.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              productName: item.name,
+              sku: item.sku,
+              unit: item.unit,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              note: variantLabel(item)
+            })),
+            note: draft.note,
+            status: "confirmed"
+          });
         } else if (selectedAction.action === "test") {
           if (!draft.productName.trim()) throw new Error("Cần nhập sản phẩm test");
           await postMcpBackend("/api/backend/mcp-day/session-customer/test", { sessionCustomerId, fileTitle: "Test nhanh từ checklist", results: [{ productName: draft.productName, status: draft.priority || "tested", note: draft.note }], note: draft.note, status: "tested" });
@@ -487,7 +783,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       <div className="mcp-status-chips" role="tablist" aria-label="Checklist phiên"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>Tất cả khách <b>{counters.all}</b></button><button className={tab === "pending" ? "active" : ""} type="button" onClick={() => setTab("pending")}>Chờ ghé <b>{counters.pending}</b></button><button className={tab === "visited" ? "active" : ""} type="button" onClick={() => setTab("visited")}>Đã ghé <b>{counters.visited}</b></button><button className={tab === "skipped" ? "active" : ""} type="button" onClick={() => setTab("skipped")}>Bỏ qua <b>{counters.skipped}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Có follow-up <b>{counters.followups}</b></button></div>
       <LineList lines={linesByTab[tab]} onOpen={setSelectedLine} onAction={openCustomerAction} />
       <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} />
-      <CustomerActionSheet selection={selectedAction} draft={draft} reportContext={reportContext} saving={saving} message={message} onChange={updateDraft} onToggleCompetitor={(id) => toggleDraftList("selectedCompetitorIds", id)} onToggleProduct={(id) => toggleDraftList("selectedProductIds", id)} onApplyTemplate={applyReportTemplate} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
+      <CustomerActionSheet selection={selectedAction} draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} reportContext={reportContext} saving={saving} message={message} onChange={updateDraft} onSearchChange={(value) => setProductSearch((current) => ({ ...current, q: value }))} onRunSearch={runProductSearch} onPickProduct={pickProduct} onPickVariant={pickVariant} onAddOrderItem={addOrderItem} onRemoveOrderItem={removeOrderItem} onToggleCompetitor={(id) => toggleDraftList("selectedCompetitorIds", id)} onToggleProduct={(id) => toggleDraftList("selectedProductIds", id)} onApplyTemplate={applyReportTemplate} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
     </AppShell>
   );
 }
