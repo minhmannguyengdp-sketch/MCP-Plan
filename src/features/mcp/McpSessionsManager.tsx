@@ -30,6 +30,10 @@ function toDraft(session: SessionRow): EditDraft {
   return { sessionDate: session.sessionDate, status: session.status === "completed" ? "done" : session.status || "active", note: session.note || "" };
 }
 
+function sessionActionPath(id: string) {
+  return `/api/mcp-session-actions/${encodeURIComponent(id)}`;
+}
+
 async function requestJson(path: string, init: RequestInit) {
   const response = await fetch(path, { cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json", ...(init.headers || {}) }, ...init });
   const payload = await response.json().catch(() => ({}));
@@ -70,7 +74,7 @@ export function McpSessionsManager({ data, filters }: { data: SessionsPayload; f
     startTransition(async () => {
       try {
         setMessage(null);
-        await requestJson(`/api/mcp-sessions/${encodeURIComponent(editing.id)}`, { method: "PATCH", body: JSON.stringify(draft) });
+        await requestJson(sessionActionPath(editing.id), { method: "PATCH", body: JSON.stringify(draft) });
         setEditing(null);
         router.refresh();
       } catch (error) {
@@ -84,7 +88,7 @@ export function McpSessionsManager({ data, filters }: { data: SessionsPayload; f
     startTransition(async () => {
       try {
         setMessage(null);
-        await requestJson(`/api/mcp-sessions/${encodeURIComponent(deleting.id)}`, { method: "DELETE" });
+        await requestJson(sessionActionPath(deleting.id), { method: "DELETE" });
         setDeleting(null);
         router.refresh();
       } catch (error) {
