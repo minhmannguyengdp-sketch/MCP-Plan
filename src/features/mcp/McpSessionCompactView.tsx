@@ -54,6 +54,7 @@ type ProductCatalogItem = {
 
 type ProductSearchState = {
   q: string;
+  category: string;
   loading: boolean;
   variantsLoading: boolean;
   results: ProductCatalogItem[];
@@ -137,7 +138,7 @@ function emptyDraft(owner = ""): ActionDraft {
 }
 
 function emptyProductSearchState(): ProductSearchState {
-  return { q: "", loading: false, variantsLoading: false, results: [], variants: [], selectedProductId: "", selectedVariant: null, error: null };
+  return { q: "", category: "", loading: false, variantsLoading: false, results: [], variants: [], selectedProductId: "", selectedVariant: null, error: null };
 }
 
 function emptyReportContext(): ReportContext {
@@ -203,6 +204,10 @@ function variantLabel(item: ProductCatalogItem) {
   return [item.variantName, item.sizeLabel, item.packUnit && item.packQuantity ? `${item.packUnit} ${item.packQuantity}` : ""].filter(Boolean).join(" · ") || item.sku || item.variantId;
 }
 
+function productKey(item: ProductCatalogItem) {
+  return `${item.name} ${item.brand || ""} ${item.category || ""} ${item.sku || ""}`.toLowerCase();
+}
+
 function normalizeCatalogItems(value: unknown): ProductCatalogItem[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -239,8 +244,12 @@ async function postMcpBackend(path: string, body: unknown) {
   return payload;
 }
 
-async function fetchProductSearch(q: string): Promise<ProductCatalogItem[]> {
-  const response = await fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=60`, { cache: "no-store", headers: { Accept: "application/json" } });
+async function fetchProductSearch(q: string, category = ""): Promise<ProductCatalogItem[]> {
+  const params = new URLSearchParams();
+  params.set("q", q);
+  params.set("limit", "100");
+  if (category) params.set("category", category);
+  const response = await fetch(`/api/products/search?${params.toString()}`, { cache: "no-store", headers: { Accept: "application/json" } });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const errorPayload = payload as { error?: string; detail?: string };
@@ -327,6 +336,7 @@ function OrderFields({
   saving,
   onChange,
   onSearchChange,
+  onCategoryChange,
   onRunSearch,
   onPickProduct,
   onPickVariant,
@@ -340,6 +350,7 @@ function OrderFields({
   saving: boolean;
   onChange: (field: keyof ActionDraft, value: string) => void;
   onSearchChange: (value: string) => void;
+  onCategoryChange: (category: string) => void;
   onRunSearch: () => void;
   onPickProduct: (productId: string) => void;
   onPickVariant: (variant: ProductCatalogItem) => void;
@@ -347,71 +358,70 @@ function OrderFields({
   onRemoveItem: (variantId: string) => void;
 }) {
   const products = productSearch.results.filter((item, index, values) => values.findIndex((candidate) => candidate.productId === item.productId) === index);
+  const categories = Array.from(new Set(productSearch.results.map((item) => item.category).filter(Boolean) as string[])).slice(0, 12);
   const selectedVariant = productSearch.selectedVariant;
 
   return (
-    <div className="order-builder">
-      <div className="order-step">
-        <span>1</span>
-        <strong>Tìm sản phẩm</strong>
-      </div>
-      <div className="order-search-row">
-        <label className="form-field">
-          <small>Tên / SKU / ngành / thương hiệu</small>
+    <div className="order-builder order-builder-compact">
+      <div className="order-picker-head">
+        <label className="form-field order-search-field">
+          <small>Gõ để lọc nhanh</small>
           <input
             value={productSearch.q}
             onChange={(event) => onSearchChange(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); onRunSearch(); } }}
-            placeholder="VD: siro gold, trân châu, Koreno..."
+            placeholder="Không biết tên thì bấm nhóm bên dưới"
             disabled={saving || productSearch.loading}
           />
         </label>
-        <button className="button primary" type="button" onClick={onRunSearch} disabled={saving || productSearch.loading}>{productSearch.loading ? "Đang tìm..." : "Tìm"}</button>
-      </div>
-      {productSearch.error ? <p className="page-subtitle">{productSearch.error}</p> : null}
-
-      <div className="order-step">
-        <span>2</span>
-        <strong>Chọn sản phẩm</strong>
-      </div>
-      <div className="product-card-list">
-        {products.length === 0 && !productSearch.loading ? <small className="page-subtitle">Chưa có kết quả. Nhập từ khóa rồi bấm Tìm. Nếu vẫn trống là catalog chưa import sản phẩm thật.</small> : null}
-        {products.map((item) => (
-          <button className={productSearch.selectedProductId === item.productId ? "product-card active" : "product-card"} type="button" key={item.productId} onClick={() => onPickProduct(item.productId)} disabled={saving || productSearch.variantsLoading}>
-            <strong>{item.name}</strong>
-            <span>{item.brand || "Chưa brand"} · {item.category || "Chưa ngành"}</span>
-            <small>{productSearch.results.filter((variant) => variant.productId === item.productId).length} quy cách</small>
-          </button>
-        ))}
+        <button className="button primary order-search-button" type="button" onClick={onRunSearch} disabled={saving || productSearch.loading}>{productSearch.loading ? "Đang tải..." : "Lọc"}</button>
       </div>
 
-      <div className="order-step">
-        <span>3</span>
-        <strong>Chọn quy cách</strong>
-      </div>
-      <div className="variant-grid">
-        {productSearch.variantsLoading ? <small className="page-subtitle">Đang tải quy cách...</small> : null}
-        {!productSearch.variantsLoading && productSearch.selectedProductId && productSearch.variants.length === 0 ? <small className="page-subtitle">Sản phẩm này chưa có biến thể active.</small> : null}
-        {productSearch.variants.map((variant) => (
-          <button className={selectedVariant?.variantId === variant.variantId ? "variant-chip active" : "variant-chip"} type="button" key={variant.variantId} onClick={() => onPickVariant(variant)} disabled={saving}>
-            <strong>{variantLabel(variant)}</strong>
-            <span>{variant.sellUnit || "đv"} · {formatMoney(Number(variant.price || 0))}</span>
-          </button>
-        ))}
+      <div className="catalog-strip" aria-label="Nhóm sản phẩm">
+        <button className={!productSearch.category ? "catalog-chip active" : "catalog-chip"} type="button" onClick={() => onCategoryChange("")} disabled={saving || productSearch.loading}>Tất cả</button>
+        {categories.map((category) => <button className={productSearch.category === category ? "catalog-chip active" : "catalog-chip"} type="button" key={category} onClick={() => onCategoryChange(category)} disabled={saving || productSearch.loading}>{category}</button>)}
       </div>
 
-      <div className="order-edit-grid">
-        <label className="form-field"><small>Số lượng</small><input inputMode="decimal" value={draft.quantity} onChange={(event) => onChange("quantity", event.target.value)} disabled={saving || !selectedVariant} /></label>
-        <label className="form-field"><small>Đơn vị tự động</small><input value={draft.unit} readOnly placeholder="Chọn quy cách" /></label>
-        <label className="form-field"><small>Giá tự động</small><input inputMode="decimal" value={draft.unitPrice} onChange={(event) => onChange("unitPrice", event.target.value)} disabled={saving || !selectedVariant} /></label>
-        <button className="button primary" type="button" onClick={onAddItem} disabled={saving || !selectedVariant}>+ Thêm vào đơn</button>
+      {productSearch.error ? <p className="page-subtitle order-message">{productSearch.error}</p> : null}
+
+      <div className="order-main-grid">
+        <div className="order-product-pane">
+          <div className="order-section-title"><strong>Chọn sản phẩm</strong><span>{productSearch.loading ? "Đang tải..." : `${products.length} mục`}</span></div>
+          <div className="product-card-list compact">
+            {products.length === 0 && !productSearch.loading ? <small className="page-subtitle">Chưa có sản phẩm. Bấm Tất cả hoặc nhập từ khóa khác.</small> : null}
+            {products.map((item) => (
+              <button className={productSearch.selectedProductId === item.productId ? "product-card active" : "product-card"} type="button" key={item.productId} onClick={() => onPickProduct(item.productId)} disabled={saving || productSearch.variantsLoading}>
+                <strong>{item.name}</strong>
+                <span>{item.brand || "Chưa brand"} · {item.category || "Chưa ngành"}</span>
+                <small>{productSearch.results.filter((variant) => variant.productId === item.productId).length} quy cách · {item.sku}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="order-variant-pane">
+          <div className="order-section-title"><strong>Quy cách</strong><span>{productSearch.variantsLoading ? "Đang tải..." : `${productSearch.variants.length}`}</span></div>
+          <div className="variant-grid compact">
+            {productSearch.variantsLoading ? <small className="page-subtitle">Đang tải quy cách...</small> : null}
+            {!productSearch.variantsLoading && productSearch.selectedProductId && productSearch.variants.length === 0 ? <small className="page-subtitle">Sản phẩm này chưa có biến thể active.</small> : null}
+            {productSearch.variants.map((variant) => (
+              <button className={selectedVariant?.variantId === variant.variantId ? "variant-chip active" : "variant-chip"} type="button" key={variant.variantId} onClick={() => onPickVariant(variant)} disabled={saving}>
+                <strong>{variantLabel(variant)}</strong>
+                <span>{variant.sellUnit || "đv"} · {formatMoney(Number(variant.price || 0))}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="order-step">
-        <span>8</span>
-        <strong>Danh sách item</strong>
+      <div className="order-edit-grid compact">
+        <label className="form-field"><small>SL</small><input inputMode="decimal" value={draft.quantity} onChange={(event) => onChange("quantity", event.target.value)} disabled={saving || !selectedVariant} /></label>
+        <label className="form-field"><small>ĐVT</small><input value={draft.unit} readOnly placeholder="—" /></label>
+        <label className="form-field"><small>Giá</small><input inputMode="decimal" value={draft.unitPrice} onChange={(event) => onChange("unitPrice", event.target.value)} disabled={saving || !selectedVariant} /></label>
+        <button className="button primary" type="button" onClick={onAddItem} disabled={saving || !selectedVariant}>+ Thêm</button>
       </div>
-      <div className="order-summary-list">
+
+      <div className="order-summary-list compact">
         {orderItems.length === 0 ? <small className="page-subtitle">Chưa có item trong đơn.</small> : null}
         {orderItems.map((item) => (
           <div className="order-summary-row" key={item.variantId}>
@@ -426,8 +436,8 @@ function OrderFields({
         ))}
       </div>
 
-      <label className="form-field"><small>Ghi chú giao hàng</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} placeholder="Ghi chú giao hàng / công nợ / thời gian giao" /></label>
-      <div className="order-total-row"><span>Tổng tiền</span><strong>{formatMoney(orderTotal)}</strong></div>
+      <label className="form-field order-note-field"><small>Ghi chú</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} placeholder="Giao hàng / công nợ / thời gian giao" /></label>
+      <div className="order-total-row"><span>Tổng</span><strong>{formatMoney(orderTotal)}</strong></div>
     </div>
   );
 }
@@ -511,9 +521,9 @@ function ReportContextFields({
   );
 }
 
-function ActionFields({ action, draft, productSearch, orderItems, orderTotal, reportContext, saving, onChange, onSearchChange, onRunSearch, onPickProduct, onPickVariant, onAddOrderItem, onRemoveOrderItem, onToggleCompetitor, onToggleProduct, onApplyTemplate }: { action: McpCustomerAction; draft: ActionDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; reportContext: ReportContext; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void; onSearchChange: (value: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onPickVariant: (variant: ProductCatalogItem) => void; onAddOrderItem: () => void; onRemoveOrderItem: (variantId: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void }) {
+function ActionFields({ action, draft, productSearch, orderItems, orderTotal, reportContext, saving, onChange, onSearchChange, onCategoryChange, onRunSearch, onPickProduct, onPickVariant, onAddOrderItem, onRemoveOrderItem, onToggleCompetitor, onToggleProduct, onApplyTemplate }: { action: McpCustomerAction; draft: ActionDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; reportContext: ReportContext; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void; onSearchChange: (value: string) => void; onCategoryChange: (category: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onPickVariant: (variant: ProductCatalogItem) => void; onAddOrderItem: () => void; onRemoveOrderItem: (variantId: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void }) {
   if (action === "order") {
-    return <OrderFields draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} onChange={onChange} onSearchChange={onSearchChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onPickVariant={onPickVariant} onAddItem={onAddOrderItem} onRemoveItem={onRemoveOrderItem} />;
+    return <OrderFields draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} onChange={onChange} onSearchChange={onSearchChange} onCategoryChange={onCategoryChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onPickVariant={onPickVariant} onAddItem={onAddOrderItem} onRemoveItem={onRemoveOrderItem} />;
   }
 
   if (action === "test") {
@@ -550,16 +560,17 @@ function ActionFields({ action, draft, productSearch, orderItems, orderTotal, re
   );
 }
 
-function CustomerActionSheet({ selection, draft, productSearch, orderItems, orderTotal, reportContext, saving, message, onChange, onSearchChange, onRunSearch, onPickProduct, onPickVariant, onAddOrderItem, onRemoveOrderItem, onToggleCompetitor, onToggleProduct, onApplyTemplate, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; draft: ActionDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; reportContext: ReportContext; saving: boolean; message: string | null; onChange: (field: keyof ActionDraft, value: string) => void; onSearchChange: (value: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onPickVariant: (variant: ProductCatalogItem) => void; onAddOrderItem: () => void; onRemoveOrderItem: (variantId: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void; onClose: () => void; onSubmit: () => void }) {
+function CustomerActionSheet({ selection, draft, productSearch, orderItems, orderTotal, reportContext, saving, message, onChange, onSearchChange, onCategoryChange, onRunSearch, onPickProduct, onPickVariant, onAddOrderItem, onRemoveOrderItem, onToggleCompetitor, onToggleProduct, onApplyTemplate, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; draft: ActionDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; reportContext: ReportContext; saving: boolean; message: string | null; onChange: (field: keyof ActionDraft, value: string) => void; onSearchChange: (value: string) => void; onCategoryChange: (category: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onPickVariant: (variant: ProductCatalogItem) => void; onAddOrderItem: () => void; onRemoveOrderItem: (variantId: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void; onClose: () => void; onSubmit: () => void }) {
+  const isOrder = selection?.action === "order";
   return (
     <BottomSheet
       open={Boolean(selection)}
       onClose={onClose}
       title={selection ? actionTitle(selection.action) : "Hành động checklist"}
       description={selection ? selection.line.accountName : undefined}
-      footer={<div className="sheet-action-grid">{selection?.action === "order" ? <div className="order-footer-total">Tổng: <strong>{formatMoney(orderTotal)}</strong></div> : null}<button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : actionSaveLabel(selection?.action)}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}
+      footer={<div className={isOrder ? "sheet-action-grid order-sheet-footer" : "sheet-action-grid"}>{isOrder ? <div className="order-footer-total">Tổng: <strong>{formatMoney(orderTotal)}</strong></div> : null}<button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : actionSaveLabel(selection?.action)}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}
     >
-      {selection ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} reportContext={reportContext} saving={saving} onChange={onChange} onSearchChange={onSearchChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onPickVariant={onPickVariant} onAddOrderItem={onAddOrderItem} onRemoveOrderItem={onRemoveOrderItem} onToggleCompetitor={onToggleCompetitor} onToggleProduct={onToggleProduct} onApplyTemplate={onApplyTemplate} />{message ? <p className="page-subtitle">{message}</p> : null}</div> : null}
+      {selection ? <div className={isOrder ? "visit-sheet-content order-action-content" : "visit-sheet-content"}><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} reportContext={reportContext} saving={saving} onChange={onChange} onSearchChange={onSearchChange} onCategoryChange={onCategoryChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onPickVariant={onPickVariant} onAddOrderItem={onAddOrderItem} onRemoveOrderItem={onRemoveOrderItem} onToggleCompetitor={onToggleCompetitor} onToggleProduct={onToggleProduct} onApplyTemplate={onApplyTemplate} />{message ? <p className="page-subtitle order-message">{message}</p> : null}</div> : null}
     </BottomSheet>
   );
 }
@@ -592,12 +603,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   }
 
   function applyVariantToDraft(variant: ProductCatalogItem) {
-    setDraft((current) => ({
-      ...current,
-      productName: variant.name,
-      unit: variant.sellUnit || current.unit,
-      unitPrice: String(variant.price ?? 0)
-    }));
+    setDraft((current) => ({ ...current, productName: variant.name, unit: variant.sellUnit || current.unit, unitPrice: String(variant.price ?? 0) }));
   }
 
   function toggleDraftList(field: "selectedCompetitorIds" | "selectedProductIds", id: string) {
@@ -613,32 +619,26 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       setDraft((current) => ({ ...current, templateId: "" }));
       return;
     }
+    setDraft((current) => ({ ...current, templateId: template.id, reportType: template.reportType || current.reportType, note: template.content ?? current.note, priceSummary: template.priceSummary ?? current.priceSummary, competitorSummary: template.competitorSummary ?? current.competitorSummary, displaySummary: template.displaySummary ?? current.displaySummary, stockSummary: template.stockSummary ?? current.stockSummary, demandSummary: template.demandSummary ?? current.demandSummary, opportunitySummary: template.opportunitySummary ?? current.opportunitySummary, riskSummary: template.riskSummary ?? current.riskSummary, nextAction: template.nextAction ?? current.nextAction }));
+  }
 
-    setDraft((current) => ({
-      ...current,
-      templateId: template.id,
-      reportType: template.reportType || current.reportType,
-      note: template.content ?? current.note,
-      priceSummary: template.priceSummary ?? current.priceSummary,
-      competitorSummary: template.competitorSummary ?? current.competitorSummary,
-      displaySummary: template.displaySummary ?? current.displaySummary,
-      stockSummary: template.stockSummary ?? current.stockSummary,
-      demandSummary: template.demandSummary ?? current.demandSummary,
-      opportunitySummary: template.opportunitySummary ?? current.opportunitySummary,
-      riskSummary: template.riskSummary ?? current.riskSummary,
-      nextAction: template.nextAction ?? current.nextAction
-    }));
+  async function loadProducts(q: string, category: string) {
+    setMessage(null);
+    setProductSearch((current) => ({ ...current, q, category, loading: true, error: null, results: [], variants: [], selectedProductId: "", selectedVariant: null }));
+    try {
+      const results = await fetchProductSearch(q.trim(), category);
+      setProductSearch((current) => ({ ...current, q, category, loading: false, results, error: null }));
+    } catch (error) {
+      setProductSearch((current) => ({ ...current, q, category, loading: false, error: error instanceof Error ? error.message : "Không tìm được sản phẩm" }));
+    }
   }
 
   async function runProductSearch() {
-    setMessage(null);
-    setProductSearch((current) => ({ ...current, loading: true, error: null, results: [], variants: [], selectedProductId: "", selectedVariant: null }));
-    try {
-      const results = await fetchProductSearch(productSearch.q.trim());
-      setProductSearch((current) => ({ ...current, loading: false, results, error: null }));
-    } catch (error) {
-      setProductSearch((current) => ({ ...current, loading: false, error: error instanceof Error ? error.message : "Không tìm được sản phẩm" }));
-    }
+    await loadProducts(productSearch.q, productSearch.category);
+  }
+
+  function changeProductCategory(category: string) {
+    void loadProducts(productSearch.q, category);
   }
 
   async function pickProduct(productId: string) {
@@ -668,7 +668,6 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       setMessage("Cần chọn sản phẩm và quy cách trước khi thêm vào đơn");
       return;
     }
-
     const quantity = toNumber(draft.quantity, 1);
     const unitPrice = toNumber(draft.unitPrice, Number(variant.price || 0));
     if (quantity <= 0) {
@@ -679,13 +678,10 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       setMessage("Giá không hợp lệ");
       return;
     }
-
     const unit = draft.unit || variant.sellUnit || "";
     setOrderItems((current) => {
       const existed = current.find((item) => item.variantId === variant.variantId && item.unitPrice === unitPrice);
-      if (existed) {
-        return current.map((item) => item === existed ? { ...item, quantity: item.quantity + quantity, lineTotal: (item.quantity + quantity) * item.unitPrice } : item);
-      }
+      if (existed) return current.map((item) => item === existed ? { ...item, quantity: item.quantity + quantity, lineTotal: (item.quantity + quantity) * item.unitPrice } : item);
       return [...current, { ...variant, quantity, unit, unitPrice, lineTotal: quantity * unitPrice }];
     });
     setDraft((current) => ({ ...current, quantity: "1" }));
@@ -715,6 +711,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
     setOrderItems([]);
     setReportContext(emptyReportContext());
     setSelectedAction({ line, action });
+    if (action === "order") void loadProducts("", "");
     if (action === "market_report") void loadReportContextForLine(line);
   }
 
@@ -734,21 +731,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
         setMessage(null);
         if (selectedAction.action === "order") {
           if (orderItems.length === 0) throw new Error("Cần thêm ít nhất 1 sản phẩm vào đơn");
-          await postMcpBackend("/api/mcp-orders/from-session-customer", {
-            sessionCustomerId,
-            items: orderItems.map((item) => ({
-              productId: item.productId,
-              variantId: item.variantId,
-              productName: item.name,
-              sku: item.sku,
-              unit: item.unit,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              note: variantLabel(item)
-            })),
-            note: draft.note,
-            status: "confirmed"
-          });
+          await postMcpBackend("/api/mcp-orders/from-session-customer", { sessionCustomerId, items: orderItems.map((item) => ({ productId: item.productId, variantId: item.variantId, productName: item.name, sku: item.sku, unit: item.unit, quantity: item.quantity, unitPrice: item.unitPrice, note: variantLabel(item) })), note: draft.note, status: "confirmed" });
         } else if (selectedAction.action === "test") {
           if (!draft.productName.trim()) throw new Error("Cần nhập sản phẩm test");
           await postMcpBackend("/api/backend/mcp-day/session-customer/test", { sessionCustomerId, fileTitle: "Test nhanh từ checklist", results: [{ productName: draft.productName, status: draft.priority || "tested", note: draft.note }], note: draft.note, status: "tested" });
@@ -783,7 +766,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       <div className="mcp-status-chips" role="tablist" aria-label="Checklist phiên"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>Tất cả khách <b>{counters.all}</b></button><button className={tab === "pending" ? "active" : ""} type="button" onClick={() => setTab("pending")}>Chờ ghé <b>{counters.pending}</b></button><button className={tab === "visited" ? "active" : ""} type="button" onClick={() => setTab("visited")}>Đã ghé <b>{counters.visited}</b></button><button className={tab === "skipped" ? "active" : ""} type="button" onClick={() => setTab("skipped")}>Bỏ qua <b>{counters.skipped}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Có follow-up <b>{counters.followups}</b></button></div>
       <LineList lines={linesByTab[tab]} onOpen={setSelectedLine} onAction={openCustomerAction} />
       <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} />
-      <CustomerActionSheet selection={selectedAction} draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} reportContext={reportContext} saving={saving} message={message} onChange={updateDraft} onSearchChange={(value) => setProductSearch((current) => ({ ...current, q: value }))} onRunSearch={runProductSearch} onPickProduct={pickProduct} onPickVariant={pickVariant} onAddOrderItem={addOrderItem} onRemoveOrderItem={removeOrderItem} onToggleCompetitor={(id) => toggleDraftList("selectedCompetitorIds", id)} onToggleProduct={(id) => toggleDraftList("selectedProductIds", id)} onApplyTemplate={applyReportTemplate} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
+      <CustomerActionSheet selection={selectedAction} draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} reportContext={reportContext} saving={saving} message={message} onChange={updateDraft} onSearchChange={(value) => setProductSearch((current) => ({ ...current, q: value }))} onCategoryChange={changeProductCategory} onRunSearch={runProductSearch} onPickProduct={pickProduct} onPickVariant={pickVariant} onAddOrderItem={addOrderItem} onRemoveOrderItem={removeOrderItem} onToggleCompetitor={(id) => toggleDraftList("selectedCompetitorIds", id)} onToggleProduct={(id) => toggleDraftList("selectedProductIds", id)} onApplyTemplate={applyReportTemplate} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
     </AppShell>
   );
 }
