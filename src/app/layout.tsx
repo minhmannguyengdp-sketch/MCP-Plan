@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { OrderPickerPopupBridge } from "@/ui/shell/OrderPickerPopupBridge";
 import "./globals.css";
 import "./mobile.css";
 import "./order-popups.css";
@@ -12,6 +13,7 @@ import "./mcp-order-tea-filter.css";
 import "./mcp-order-selected-compact.css";
 import "./mcp-order-mobile-workbench.css";
 import "./mcp-order-tree-readable.css";
+import "./mcp-order-picker-popup.css";
 import "./mcp-sessions-compact.css";
 import "./mcp-sessions-color.css";
 import "./mcp-compact-ui.css";
@@ -42,5 +44,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="vi"><body>{children}</body></html>;
+  return <html lang="vi"><body><OrderPickerPopupBridge />{children}</body></html>;
 }
