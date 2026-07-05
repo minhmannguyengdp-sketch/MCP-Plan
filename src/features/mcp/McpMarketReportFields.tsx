@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const API = "/api/backend/mcp-report-settings";
+const API = "/api/mcp-report-settings";
 
 type ApiItem = { id: string; key?: string; label: string; value?: string; category?: string; brandName?: string; productId?: string };
 type ApiGroup = { id: string; key: string; title: string; items: ApiItem[] };
