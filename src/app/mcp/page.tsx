@@ -26,6 +26,14 @@ const MCP_MODULES = [
     cta: "Mở phiên"
   },
   {
+    href: "/mcp/sessions",
+    tone: "session",
+    icon: "▤",
+    title: "Phiên",
+    description: "Xem lại lịch sử chạy tuyến theo ngày, tuần hoặc tháng.",
+    cta: "Xem lịch sử"
+  },
+  {
     href: "/mcp/settings",
     tone: "settings",
     icon: "⚙",
@@ -37,7 +45,7 @@ const MCP_MODULES = [
 
 function renderModuleCard(item: (typeof MCP_MODULES)[number]) {
   return (
-    <Link className={`${styles.card} ${styles[item.tone]}`} href={item.href} key={item.href} prefetch>
+    <Link className={`${styles.card} ${styles[item.tone]}`} href={item.href} key={`${item.href}-${item.title}`} prefetch>
       <span className={styles.icon} aria-hidden="true">{item.icon}</span>
       <span className={styles.content}>
         <strong>{item.title}</strong>
@@ -127,10 +135,10 @@ export default async function McpPage() {
           <article className="action-card dashboard-action-card">
             <div>
               <span className="dashboard-priority priority-low">Bước 3</span>
-              <h3>Chốt luật MCP</h3>
-              <p>Cài luật thêm khách vào tuyến gốc, phiên hôm nay hoặc cả hai.</p>
+              <h3>Xem lại phiên</h3>
+              <p>Mở lịch sử phiên để xem hôm qua, tuần trước hoặc tháng trước.</p>
             </div>
-            <Link href="/mcp/settings" prefetch>Cài đặt</Link>
+            <Link href="/mcp/sessions" prefetch>Vào Phiên</Link>
           </article>
         </div>
       </section>
