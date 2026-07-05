@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic";
 
+const DEFAULT_SUPABASE_URL = "https://noiadkpkvdohljgopgfb.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_n6LXv-fd-ImF3XzeU2mrjg_G7tBGy66";
+
 function env() {
-  const url = (process.env.SUPABASE_URL || "").trim();
-  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
   if (!url || !key) throw new Error("missing_supabase_config");
   return { url: url.replace(/\/+$/, ""), key };
 }
@@ -63,22 +66,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     const deletedVisits = await removeRows("mcp_visits", { route_customer_id: `eq.${routeCustomerId}` });
     const deletedRouteCustomers = await removeRows("mcp_route_customers", { id: `eq.${routeCustomerId}` });
 
-    return Response.json({
-      data: {
-        deleted: deletedRouteCustomers > 0,
-        mode: "hard_delete",
-        routeCustomerId,
-        routeId: routeCustomer.route_id,
-        customerName: routeCustomer.customer_name,
-        deletedCounts: {
-          followups: followupsByRouteCustomer + followupsBySessionCustomer + followupsByVisit,
-          sessionCustomers: deletedSessionCustomers,
-          visits: deletedVisits,
-          routeCustomers: deletedRouteCustomers
-        }
-      },
-      receivedAt: new Date().toISOString()
-    });
+    return Response.json({ data: { deleted: deletedRouteCustomers > 0, mode: "hard_delete", routeCustomerId, routeId: routeCustomer.route_id, customerName: routeCustomer.customer_name, deletedCounts: { followups: followupsByRouteCustomer + followupsBySessionCustomer + followupsByVisit, sessionCustomers: deletedSessionCustomers, visits: deletedVisits, routeCustomers: deletedRouteCustomers } }, receivedAt: new Date().toISOString() });
   } catch (error) {
     return Response.json({ ok: false, error: error instanceof Error ? error.message : "route_customer_hard_delete_failed" }, { status: 400 });
   }
