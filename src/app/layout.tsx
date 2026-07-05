@@ -8,6 +8,7 @@ import "./polish.css";
 import "./compact-operational.css";
 import "./safe-area.css";
 import "./mcp-popup-compact.css";
+import "./mcp-sessions-compact.css";
 import "./mcp-compact-ui.css";
 
 export const metadata: Metadata = {
