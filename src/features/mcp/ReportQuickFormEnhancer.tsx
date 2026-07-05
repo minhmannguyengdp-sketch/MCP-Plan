@@ -56,21 +56,18 @@ function fieldName(label: string) {
 function renderPanel(groups: ApiGroup[], textarea: HTMLTextAreaElement) {
   const host = textarea.closest(".visit-sheet-content");
   if (!host || host.querySelector(".report-quick-panel")) return;
-
   const panel = document.createElement("section");
   panel.className = "card report-quick-panel";
   panel.style.padding = "10px";
   panel.style.display = "grid";
   panel.style.gap = "10px";
   panel.innerHTML = `<div><strong>Tick nhanh báo cáo</strong><p class="page-subtitle" style="margin:4px 0 0">Dữ liệu lấy từ MCP Setting dùng chung.</p></div>`;
-
   groups.forEach((group) => {
     const box = document.createElement("div");
     box.className = "report-quick-group";
     const title = document.createElement("strong");
     title.textContent = group.title;
     box.appendChild(title);
-
     const isFieldGroup = group.key === "report_fields" || group.title.toLowerCase().includes("field");
     if (isFieldGroup) {
       group.items.forEach((item) => {
@@ -107,16 +104,15 @@ function renderPanel(groups: ApiGroup[], textarea: HTMLTextAreaElement) {
     }
     panel.appendChild(box);
   });
-
   host.insertBefore(panel, textarea.closest("label.form-field"));
 }
 
-async function loadGroups() {
+async function loadGroups(): Promise<ApiGroup[]> {
   if (cachedGroups) return cachedGroups;
   const res = await fetch("/api/mcp-report-settings?groupType=market_report", { cache: "no-store", headers: { Accept: "application/json" } });
   const payload = await res.json().catch(() => ({}));
   cachedGroups = payload.data?.groups || [];
-  return cachedGroups;
+  return cachedGroups || [];
 }
 
 async function enhanceReportForm() {
