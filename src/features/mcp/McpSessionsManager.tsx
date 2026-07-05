@@ -31,7 +31,7 @@ function toDraft(session: SessionRow): EditDraft {
 }
 
 function sessionActionPath(id: string) {
-  return `/api/backend/mcp-session-actions/${encodeURIComponent(id)}`;
+  return `/api/mcp-session-actions/${encodeURIComponent(id)}`;
 }
 
 async function requestJson(path: string, init: RequestInit) {
