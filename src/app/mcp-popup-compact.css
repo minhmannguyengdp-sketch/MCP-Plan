@@ -103,7 +103,8 @@
   font-weight: 800;
 }
 
-.order-search-row {
+.order-search-row,
+.order-picker-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
@@ -149,7 +150,8 @@
 }
 
 .product-card.active,
-.variant-chip.active {
+.variant-chip.active,
+.catalog-chip.active {
   border-color: var(--brand);
   background: var(--brand-soft);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -230,6 +232,189 @@
   grid-column: 1 / -1;
 }
 
+/* Gate 7F: order popup is a working screen, not a decorative sheet. */
+.sheet-backdrop:has(.order-action-content) {
+  align-items: stretch !important;
+  padding: 6px !important;
+}
+
+.bottom-sheet:has(.order-action-content) {
+  width: min(860px, calc(100vw - 10px)) !important;
+  max-height: calc(100dvh - 12px) !important;
+  min-height: calc(100dvh - 12px) !important;
+  border-radius: 18px !important;
+}
+
+.bottom-sheet:has(.order-action-content) .sheet-handle {
+  height: 4px !important;
+  margin: 6px 0 2px !important;
+}
+
+.bottom-sheet:has(.order-action-content) .sheet-header {
+  align-items: center !important;
+  min-height: 52px !important;
+  padding: 9px 14px !important;
+}
+
+.bottom-sheet:has(.order-action-content) .sheet-header h2 {
+  font-size: 18px !important;
+}
+
+.bottom-sheet:has(.order-action-content) .sheet-header p {
+  margin-top: 2px !important;
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+}
+
+.bottom-sheet:has(.order-action-content) .sheet-close {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.bottom-sheet:has(.order-action-content) .sheet-body {
+  padding: 8px 10px !important;
+}
+
+.bottom-sheet:has(.order-action-content) .sheet-footer {
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) !important;
+}
+
+.order-action-content > .visit-focus-card:first-child {
+  display: none !important;
+}
+
+.order-action-content {
+  gap: 8px !important;
+}
+
+.order-builder-compact {
+  gap: 8px;
+}
+
+.order-picker-head .form-field input,
+.order-edit-grid.compact .form-field input,
+.order-note-field textarea {
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 10px;
+}
+
+.order-note-field textarea {
+  min-height: 44px;
+}
+
+.order-search-button,
+.order-edit-grid.compact .button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 10px;
+}
+
+.catalog-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 1px 1px 4px;
+  scrollbar-width: thin;
+}
+
+.catalog-chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
+.order-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  gap: 8px;
+  min-height: 0;
+}
+
+.order-product-pane,
+.order-variant-pane {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.order-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.order-section-title strong {
+  color: var(--text);
+}
+
+.product-card-list.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: 38dvh;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.product-card-list.compact .product-card,
+.variant-grid.compact .variant-chip {
+  border-radius: 11px;
+  padding: 7px 8px;
+}
+
+.variant-grid.compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-height: 38dvh;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.order-edit-grid.compact {
+  grid-template-columns: 76px 82px minmax(96px, 1fr) auto;
+}
+
+.order-summary-list.compact {
+  max-height: 18dvh;
+  overflow: auto;
+}
+
+.order-summary-list.compact .order-summary-row {
+  border-radius: 11px;
+  padding: 6px 8px;
+}
+
+.order-sheet-footer {
+  gap: 6px !important;
+}
+
+.order-sheet-footer .button {
+  min-height: 38px;
+  padding: 7px 12px;
+  border-radius: 11px;
+}
+
+.order-sheet-footer .order-footer-total {
+  min-height: 38px;
+  padding: 7px 12px;
+  border-radius: 11px;
+}
+
+.order-message {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 @media (min-width: 720px) {
   .bottom-sheet:has(.sheet-footer .sheet-action-grid > .button:nth-child(2):last-child) .visit-focus-card {
     display: grid;
@@ -264,5 +449,42 @@
 
   .variant-chip {
     min-width: calc(50% - 4px);
+  }
+
+  .bottom-sheet:has(.order-action-content) {
+    width: 100% !important;
+    max-height: 100dvh !important;
+    min-height: 100dvh !important;
+    border-radius: 14px 14px 0 0 !important;
+  }
+
+  .bottom-sheet:has(.order-action-content) .sheet-body {
+    padding: 7px 8px !important;
+  }
+
+  .order-picker-head {
+    grid-template-columns: minmax(0, 1fr) 64px;
+  }
+
+  .order-main-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-card-list.compact {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: 25dvh;
+  }
+
+  .variant-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 17dvh;
+  }
+
+  .order-edit-grid.compact {
+    grid-template-columns: 68px 74px minmax(82px, 1fr) 74px;
+  }
+
+  .order-summary-list.compact {
+    max-height: 15dvh;
   }
 }
