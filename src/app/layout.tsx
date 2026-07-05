@@ -12,6 +12,7 @@ import "./mcp-order-tea-filter.css";
 import "./mcp-order-selected-compact.css";
 import "./mcp-order-mobile-workbench.css";
 import "./mcp-order-tree-readable.css";
+import "./mcp-order-report-style.css";
 import "./mcp-sessions-compact.css";
 import "./mcp-sessions-color.css";
 import "./mcp-compact-ui.css";
