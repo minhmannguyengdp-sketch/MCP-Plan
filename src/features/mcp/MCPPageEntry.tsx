@@ -7,6 +7,7 @@ import { McpSessionCompactView } from "./McpSessionCompactView";
 import { McpSessionReadonlyView } from "./McpSessionReadonlyView";
 import { McpMasterView } from "./McpMasterView";
 import { RouteCustomerLocationEnhancer } from "./RouteCustomerLocationEnhancer";
+import { ReportQuickFormEnhancer } from "./ReportQuickFormEnhancer";
 
 type MCPPageProps = {
   activeHref?: string;
@@ -29,7 +30,7 @@ export function MCPPage({ activeHref = "/visits", routesData, mcpDayData, routeC
       return <McpSessionReadonlyView activeHref={activeHref} mcpDayData={mcpDayData} />;
     }
 
-    return <McpSessionCompactView activeHref={activeHref} routesData={routesData} mcpDayData={mcpDayData} routeCustomersData={routeCustomersData} />;
+    return <><ReportQuickFormEnhancer /><McpSessionCompactView activeHref={activeHref} routesData={routesData} mcpDayData={mcpDayData} routeCustomersData={routeCustomersData} /></>;
   }
 
   return <><RouteCustomerLocationEnhancer /><McpMasterView activeHref={activeHref} routesData={routesData} routeCustomersData={routeCustomersData} /></>;
