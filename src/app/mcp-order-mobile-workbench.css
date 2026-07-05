@@ -1,0 +1,189 @@
+/* Gate 7I: mobile order popup must be a usable workbench, not a squeezed desktop form. */
+@media (max-width: 640px) {
+  .bottom-sheet:has(.order-action-content) .sheet-body {
+    overflow: hidden !important;
+  }
+
+  .order-action-content {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .order-builder-compact {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    gap: 6px !important;
+    height: calc(100dvh - 148px);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .order-picker-head {
+    grid-template-columns: minmax(0, 1fr) 58px !important;
+    gap: 6px !important;
+  }
+
+  .order-picker-head .form-field small {
+    display: none;
+  }
+
+  .order-picker-head .form-field input,
+  .order-search-button {
+    min-height: 34px !important;
+    padding: 6px 9px !important;
+  }
+
+  .order-builder-compact .catalog-strip {
+    flex-wrap: nowrap !important;
+    max-height: 42px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 6px !important;
+    border-radius: 12px !important;
+  }
+
+  .order-builder-compact .catalog-strip::before {
+    display: none !important;
+  }
+
+  .order-builder-compact .catalog-strip:hover,
+  .order-builder-compact .catalog-strip:focus-within {
+    max-height: 42px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    box-shadow: none !important;
+  }
+
+  .order-builder-compact .catalog-chip {
+    min-height: 28px !important;
+    padding: 4px 9px !important;
+    white-space: nowrap;
+  }
+
+  .order-main-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    gap: 6px !important;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .order-section-title {
+    min-height: 18px;
+    font-size: 11px !important;
+  }
+
+  .order-product-pane,
+  .order-variant-pane {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .product-card-list.compact {
+    grid-template-columns: minmax(0, 1fr) !important;
+    max-height: none !important;
+    height: 100% !important;
+    min-height: 220px;
+    overflow: auto !important;
+  }
+
+  .product-card-list.compact .product-card {
+    min-height: 58px;
+    padding: 8px 10px !important;
+  }
+
+  .product-card-list.compact .product-card strong {
+    font-size: 13px !important;
+  }
+
+  .product-card-list.compact .product-card span,
+  .product-card-list.compact .product-card small {
+    font-size: 11px !important;
+  }
+
+  .variant-grid.compact {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    max-height: 74px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  .variant-grid.compact .variant-chip {
+    flex: 0 0 158px;
+    min-width: 158px !important;
+    min-height: 58px;
+    padding: 8px 9px !important;
+  }
+
+  .order-edit-grid.compact {
+    grid-template-columns: 54px 66px minmax(0, 1fr) 62px !important;
+    gap: 6px !important;
+  }
+
+  .order-edit-grid.compact .form-field small {
+    font-size: 10px !important;
+  }
+
+  .order-edit-grid.compact .form-field input,
+  .order-edit-grid.compact .button {
+    min-height: 34px !important;
+    padding: 6px 7px !important;
+  }
+
+  .order-summary-list.compact {
+    display: flex !important;
+    gap: 6px !important;
+    max-height: 54px !important;
+    min-height: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 0 2px 2px 0 !important;
+  }
+
+  .order-summary-list.compact > small {
+    align-self: center;
+    white-space: nowrap;
+  }
+
+  .order-summary-list.compact .order-summary-row {
+    flex: 0 0 178px;
+    width: 178px;
+    min-height: 50px !important;
+    padding: 6px 32px 6px 8px !important;
+  }
+
+  .order-summary-list.compact .order-summary-row strong {
+    font-size: 11.5px !important;
+  }
+
+  .order-summary-list.compact .order-summary-row small,
+  .order-summary-list.compact .order-summary-row span {
+    font-size: 9.5px !important;
+  }
+
+  .order-summary-list.compact .order-summary-row b {
+    font-size: 11px !important;
+  }
+
+  .order-summary-list.compact .order-summary-row .button {
+    top: 5px !important;
+    right: 5px !important;
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .order-summary-list.compact .order-summary-row .button::before {
+    font-size: 16px !important;
+  }
+
+  .order-note-field {
+    display: none !important;
+  }
+
+  .order-message {
+    margin: 0 !important;
+  }
+}
