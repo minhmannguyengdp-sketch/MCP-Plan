@@ -9,13 +9,8 @@ function cleanBase(value?: string) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
 
-function backendBase(request: Request) {
-  const base = cleanBase(process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL);
-  if (!base) return "";
-  const current = new URL(request.url);
-  const target = new URL(base);
-  if (current.host === target.host) return "";
-  return base;
+function backendBase(_request: Request) {
+  return "";
 }
 
 async function proxyBackend(request: Request, init?: RequestInit) {
@@ -34,7 +29,7 @@ async function proxyBackend(request: Request, init?: RequestInit) {
 
 function supabaseEnv() {
   const url = cleanBase(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL);
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "").trim();
+  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "").trim();
   if (!url || !key) throw new Error("missing_backend_or_supabase_config");
   return { url, key };
 }
