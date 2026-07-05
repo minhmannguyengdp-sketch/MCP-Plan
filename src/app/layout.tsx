@@ -8,6 +8,7 @@ import "./polish.css";
 import "./compact-operational.css";
 import "./safe-area.css";
 import "./mcp-popup-compact.css";
+import "./mcp-order-tea-filter.css";
 import "./mcp-sessions-compact.css";
 import "./mcp-sessions-color.css";
 import "./mcp-compact-ui.css";
@@ -26,9 +27,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "MCP-Plan"
   },
-  formatDetection: {
-    telephone: false
-  }
+  formatDetection: { telephone: false }
 };
 
 export const viewport: Viewport = {
@@ -40,9 +39,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="vi">
-      <body>{children}</body>
-    </html>
-  );
+  return <html lang="vi"><body>{children}</body></html>;
 }
