@@ -337,6 +337,104 @@ async function createMcpSessionCustomerFollowup(body) {
   });
 }
 
+function normalizeMcpOrderTemplateItems(items) {
+  if (!Array.isArray(items) || items.length === 0) throw badRequest("template_items_required");
+
+  return items.map((item) => {
+    const productName = String(item.productName || item.product_name || "").trim();
+    const quantity = Number(item.quantity || 0);
+    const unitPrice = Number(item.unitPrice ?? item.unit_price ?? 0);
+    const discount = Number(item.discount || 0);
+
+    if (!productName) throw badRequest("product_name_required");
+    if (!Number.isFinite(quantity) || quantity <= 0) throw badRequest("quantity_required");
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) throw badRequest("invalid_unit_price");
+    if (!Number.isFinite(discount) || discount < 0) throw badRequest("invalid_discount");
+
+    return {
+      productId: String(item.productId || item.product_id || "").trim() || null,
+      productName,
+      sku: String(item.sku || "").trim() || null,
+      unit: String(item.unit || "").trim() || null,
+      quantity,
+      unitPrice,
+      discount,
+      note: String(item.note || "").trim() || null
+    };
+  });
+}
+
+async function loadMcpOrderTemplateSettings(url) {
+  const routes = await loadRoutes();
+  const routeId = String(url.searchParams.get("routeId") || routes[0]?.id || "").trim();
+
+  let template = null;
+  if (routeId) {
+    const templates = await supabaseGet("mcp_route_order_templates", {
+      select: "id,route_id,title,note,status,updated_at",
+      route_id: `eq.${routeId}`,
+      limit: 1
+    });
+
+    const row = templates[0] || null;
+    if (row) {
+      const items = await supabaseGet("mcp_route_order_template_items", {
+        select: "id,product_id,product_name,sku,unit,quantity,unit_price,discount,sort_order,note",
+        template_id: `eq.${row.id}`,
+        order: "sort_order.asc,created_at.asc",
+        limit: 200
+      });
+
+      template = {
+        id: row.id,
+        routeId: row.route_id,
+        title: row.title || "Mau don hang",
+        note: row.note || "",
+        items: items.map((item) => ({
+          id: item.id,
+          productId: item.product_id || "",
+          productName: item.product_name || "",
+          sku: item.sku || "",
+          unit: item.unit || "",
+          quantity: String(item.quantity ?? 1),
+          unitPrice: String(item.unit_price ?? 0),
+          discount: String(item.discount ?? 0),
+          sortOrder: item.sort_order || 0,
+          note: item.note || ""
+        }))
+      };
+    }
+  }
+
+  return {
+    routes: routes.map((route) => ({
+      id: route.id,
+      name: route.name,
+      area: route.area,
+      salesOwner: route.salesOwner,
+      status: route.status
+    })),
+    selectedRouteId: routeId,
+    template
+  };
+}
+
+async function saveMcpOrderTemplateSettings(body) {
+  const routeId = String(body.routeId || body.route_id || "").trim();
+  if (!routeId) throw badRequest("route_id_required");
+
+  const title = String(body.title || "").trim();
+  const note = String(body.note || "").trim();
+  const items = normalizeMcpOrderTemplateItems(body.items);
+
+  return supabaseRpc("mcp_save_route_order_template", {
+    p_route_id: routeId,
+    p_title: title || "Mau don hang",
+    p_note: note || null,
+    p_items: items
+  });
+}
+
 function randomId(prefix) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
@@ -867,6 +965,7 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/session-customer/result") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/add") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req), { action: "add" }));
   if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await createMcpSessionCustomerFollowup(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-settings/order-template") return wrap(await saveMcpOrderTemplateSettings(await readJsonBody(req)));
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
@@ -882,6 +981,7 @@ async function handleGet(url) {
   if (url.pathname === "/api/mcp-day/current") return wrap(await getCurrentMcpDayRun(url));
   if (url.pathname === "/api/mcp-day/data") return wrap(await loadMcpDayData(url));
   if (url.pathname === "/api/mcp-day/test-options") return wrap(await loadMcpTestOptions());
+  if (url.pathname === "/api/mcp-settings/order-template") return wrap(await loadMcpOrderTemplateSettings(url));
   if (url.pathname === "/api/orders") return wrap(await loadOrders(url));
   if (url.pathname === "/api/tests") return wrap(await getMarketChecksData(url));
   if (url.pathname === "/api/market-checks") return wrap((await loadMarketChecks(url)).map((check) => ({ id: check.id, date: check.date, routeName: check.routeName, accountName: check.accountName, productName: check.productName, status: check.status })));
