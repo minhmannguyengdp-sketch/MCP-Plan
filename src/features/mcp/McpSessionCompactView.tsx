@@ -20,10 +20,61 @@ type ActionDraft = {
   unit: string;
   note: string;
   reportType: string;
+  templateId: string;
+  priceSummary: string;
+  competitorSummary: string;
+  displaySummary: string;
+  stockSummary: string;
+  demandSummary: string;
+  opportunitySummary: string;
+  riskSummary: string;
+  nextAction: string;
   dueDate: string;
   priority: string;
   owner: string;
   skipReason: string;
+  selectedCompetitorIds: string[];
+  selectedProductIds: string[];
+};
+
+type ReportTemplate = {
+  id: string;
+  title: string;
+  reportType?: string;
+  scopeType?: string;
+  content?: string;
+  priceSummary?: string;
+  competitorSummary?: string;
+  displaySummary?: string;
+  stockSummary?: string;
+  demandSummary?: string;
+  opportunitySummary?: string;
+  riskSummary?: string;
+  nextAction?: string;
+};
+
+type ReportCompetitor = {
+  id: string;
+  competitorName: string;
+  brandName?: string | null;
+  category?: string | null;
+  area?: string | null;
+};
+
+type ReportProduct = {
+  id: string;
+  productId?: string | null;
+  productName: string;
+  brandName?: string | null;
+  source?: string | null;
+  note?: string | null;
+};
+
+type ReportContext = {
+  loading: boolean;
+  competitors: ReportCompetitor[];
+  usedProducts: ReportProduct[];
+  templates: ReportTemplate[];
 };
 
 function emptyDraft(owner = ""): ActionDraft {
@@ -34,11 +85,26 @@ function emptyDraft(owner = ""): ActionDraft {
     unit: "",
     note: "",
     reportType: "price",
+    templateId: "",
+    priceSummary: "",
+    competitorSummary: "",
+    displaySummary: "",
+    stockSummary: "",
+    demandSummary: "",
+    opportunitySummary: "",
+    riskSummary: "",
+    nextAction: "",
     dueDate: "",
     priority: "medium",
     owner,
-    skipReason: ""
+    skipReason: "",
+    selectedCompetitorIds: [],
+    selectedProductIds: []
   };
+}
+
+function emptyReportContext(): ReportContext {
+  return { loading: false, competitors: [], usedProducts: [], templates: [] };
 }
 
 function sourceLabel(source: McpDayLine["source"]) {
@@ -71,6 +137,22 @@ function actionSaveLabel(action?: McpCustomerAction) {
   return "Lưu kết quả";
 }
 
+function productSourceLabel(source?: string | null) {
+  if (source === "bought") return "Đã mua";
+  if (source === "tested") return "Đã test";
+  if (source === "competitor") return "Đối thủ";
+  if (source === "manual") return "Nhập tay";
+  return "Đang dùng";
+}
+
+function joinUnique(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).join("; ");
+}
+
+function reportTemplateMatches(template: ReportTemplate, reportType: string) {
+  return !template.reportType || template.reportType === reportType;
+}
+
 async function postMcpBackend(path: string, body: unknown) {
   const response = await fetch(path, {
     method: "POST",
@@ -84,6 +166,22 @@ async function postMcpBackend(path: string, body: unknown) {
     throw new Error(errorPayload.error || errorPayload.detail || "Không lưu được hành động MCP");
   }
   return payload;
+}
+
+async function fetchReportContext(sessionCustomerId: string): Promise<ReportContext> {
+  const response = await fetch(`/api/mcp-report-context?sessionCustomerId=${encodeURIComponent(sessionCustomerId)}`, { cache: "no-store", headers: { Accept: "application/json" } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errorPayload = payload as { error?: string; detail?: string };
+    throw new Error(errorPayload.error || errorPayload.detail || "Không tải được ngữ cảnh báo cáo");
+  }
+  const data = (payload as { data?: Partial<ReportContext> }).data || {};
+  return {
+    loading: false,
+    competitors: Array.isArray(data.competitors) ? data.competitors : [],
+    usedProducts: Array.isArray(data.usedProducts) ? data.usedProducts : [],
+    templates: Array.isArray(data.templates) ? data.templates : []
+  };
 }
 
 function EmptyPanel({ title, hint }: { title: string; hint: string }) {
@@ -130,7 +228,86 @@ function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; o
   );
 }
 
-function ActionFields({ action, draft, saving, onChange }: { action: McpCustomerAction; draft: ActionDraft; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void }) {
+function ReportContextFields({
+  draft,
+  reportContext,
+  saving,
+  onChange,
+  onToggleCompetitor,
+  onToggleProduct,
+  onApplyTemplate
+}: {
+  draft: ActionDraft;
+  reportContext: ReportContext;
+  saving: boolean;
+  onChange: (field: keyof ActionDraft, value: string) => void;
+  onToggleCompetitor: (id: string) => void;
+  onToggleProduct: (id: string) => void;
+  onApplyTemplate: (id: string) => void;
+}) {
+  const templates = reportContext.templates.filter((template) => reportTemplateMatches(template, draft.reportType));
+
+  return (
+    <div className="grid">
+      <label className="form-field">
+        <small>Loại báo cáo</small>
+        <select value={draft.reportType} onChange={(event) => onChange("reportType", event.target.value)} disabled={saving}>
+          <option value="price">Giá</option>
+          <option value="competitor">Đối thủ</option>
+          <option value="display">Trưng bày</option>
+          <option value="stock">Tồn kho</option>
+          <option value="demand">Nhu cầu</option>
+        </select>
+      </label>
+
+      <label className="form-field">
+        <small>Chọn mẫu báo cáo</small>
+        <select value={draft.templateId} onChange={(event) => onApplyTemplate(event.target.value)} disabled={saving || reportContext.loading}>
+          <option value="">{reportContext.loading ? "Đang tải mẫu..." : "Không dùng mẫu"}</option>
+          {templates.map((template) => <option key={template.id} value={template.id}>{template.title} · {template.scopeType || "global"}</option>)}
+        </select>
+      </label>
+
+      <label className="form-field"><small>Nội dung báo cáo</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} placeholder="Nội dung chính của báo cáo" /></label>
+      <label className="form-field"><small>Giá</small><input value={draft.priceSummary} onChange={(event) => onChange("priceSummary", event.target.value)} placeholder="Giá hiện tại / ưu đãi / chênh lệch" /></label>
+      <label className="form-field"><small>Đối thủ</small><input value={draft.competitorSummary} onChange={(event) => onChange("competitorSummary", event.target.value)} placeholder="Ghi chú đối thủ bổ sung" /></label>
+      <label className="form-field"><small>Trưng bày</small><input value={draft.displaySummary} onChange={(event) => onChange("displaySummary", event.target.value)} /></label>
+      <label className="form-field"><small>Tồn kho</small><input value={draft.stockSummary} onChange={(event) => onChange("stockSummary", event.target.value)} /></label>
+      <label className="form-field"><small>Nhu cầu</small><input value={draft.demandSummary} onChange={(event) => onChange("demandSummary", event.target.value)} /></label>
+      <label className="form-field"><small>Cơ hội</small><input value={draft.opportunitySummary} onChange={(event) => onChange("opportunitySummary", event.target.value)} /></label>
+      <label className="form-field"><small>Rủi ro</small><input value={draft.riskSummary} onChange={(event) => onChange("riskSummary", event.target.value)} /></label>
+      <label className="form-field"><small>Next action</small><input value={draft.nextAction} onChange={(event) => onChange("nextAction", event.target.value)} /></label>
+
+      <div className="visit-focus-card">
+        <span>Đối thủ chọn nhanh</span>
+        <strong>{reportContext.loading ? "Đang tải..." : `${reportContext.competitors.length} lựa chọn`}</strong>
+        <div className="sheet-action-grid">
+          {reportContext.competitors.length === 0 && !reportContext.loading ? <small>Chưa có đối thủ master.</small> : null}
+          {reportContext.competitors.map((item) => (
+            <label className="button" key={item.id}>
+              <input type="checkbox" checked={draft.selectedCompetitorIds.includes(item.id)} onChange={() => onToggleCompetitor(item.id)} disabled={saving} /> {item.competitorName}{item.category ? ` · ${item.category}` : ""}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="visit-focus-card">
+        <span>Sản phẩm đang dùng / đã mua / đã test</span>
+        <strong>{reportContext.loading ? "Đang tải..." : `${reportContext.usedProducts.length} sản phẩm`}</strong>
+        <div className="sheet-action-grid">
+          {reportContext.usedProducts.length === 0 && !reportContext.loading ? <small>Chưa có sản phẩm theo ngữ cảnh khách.</small> : null}
+          {reportContext.usedProducts.map((item) => (
+            <label className="button" key={item.id}>
+              <input type="checkbox" checked={draft.selectedProductIds.includes(item.id)} onChange={() => onToggleProduct(item.id)} disabled={saving} /> {item.productName} · {productSourceLabel(item.source)}
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionFields({ action, draft, reportContext, saving, onChange, onToggleCompetitor, onToggleProduct, onApplyTemplate }: { action: McpCustomerAction; draft: ActionDraft; reportContext: ReportContext; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void }) {
   if (action === "order") {
     return (
       <div className="grid">
@@ -154,12 +331,7 @@ function ActionFields({ action, draft, saving, onChange }: { action: McpCustomer
   }
 
   if (action === "market_report") {
-    return (
-      <div className="grid">
-        <label className="form-field"><small>Loại báo cáo</small><select value={draft.reportType} onChange={(event) => onChange("reportType", event.target.value)} disabled={saving}><option value="price">Giá</option><option value="competitor">Đối thủ</option><option value="display">Trưng bày</option><option value="stock">Tồn kho</option><option value="demand">Nhu cầu</option></select></label>
-        <label className="form-field"><small>Nội dung báo cáo</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} placeholder="Nội dung chính của báo cáo" /></label>
-      </div>
-    );
+    return <ReportContextFields draft={draft} reportContext={reportContext} saving={saving} onChange={onChange} onToggleCompetitor={onToggleCompetitor} onToggleProduct={onToggleProduct} onApplyTemplate={onApplyTemplate} />;
   }
 
   if (action === "follow_up") {
@@ -182,10 +354,10 @@ function ActionFields({ action, draft, saving, onChange }: { action: McpCustomer
   );
 }
 
-function CustomerActionSheet({ selection, draft, saving, message, onChange, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; draft: ActionDraft; saving: boolean; message: string | null; onChange: (field: keyof ActionDraft, value: string) => void; onClose: () => void; onSubmit: () => void }) {
+function CustomerActionSheet({ selection, draft, reportContext, saving, message, onChange, onToggleCompetitor, onToggleProduct, onApplyTemplate, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; draft: ActionDraft; reportContext: ReportContext; saving: boolean; message: string | null; onChange: (field: keyof ActionDraft, value: string) => void; onToggleCompetitor: (id: string) => void; onToggleProduct: (id: string) => void; onApplyTemplate: (id: string) => void; onClose: () => void; onSubmit: () => void }) {
   return (
     <BottomSheet open={Boolean(selection)} onClose={onClose} title={selection ? actionTitle(selection.action) : "Hành động checklist"} description={selection ? selection.line.accountName : undefined} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : actionSaveLabel(selection?.action)}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>
-      {selection ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} saving={saving} onChange={onChange} />{message ? <p className="page-subtitle">{message}</p> : null}</div> : null}
+      {selection ? <div className="visit-sheet-content"><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} reportContext={reportContext} saving={saving} onChange={onChange} onToggleCompetitor={onToggleCompetitor} onToggleProduct={onToggleProduct} onApplyTemplate={onApplyTemplate} />{message ? <p className="page-subtitle">{message}</p> : null}</div> : null}
     </BottomSheet>
   );
 }
@@ -195,6 +367,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   const [selectedLine, setSelectedLine] = useState<McpDayLine | null>(null);
   const [selectedAction, setSelectedAction] = useState<{ line: McpDayLine; action: McpCustomerAction } | null>(null);
   const [draft, setDraft] = useState<ActionDraft>(emptyDraft());
+  const [reportContext, setReportContext] = useState<ReportContext>(emptyReportContext());
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const router = useRouter();
@@ -213,11 +386,62 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
     setDraft((current) => ({ ...current, [field]: value }));
   }
 
+  function toggleDraftList(field: "selectedCompetitorIds" | "selectedProductIds", id: string) {
+    setDraft((current) => {
+      const values = current[field];
+      return { ...current, [field]: values.includes(id) ? values.filter((value) => value !== id) : [...values, id] };
+    });
+  }
+
+  function applyReportTemplate(id: string) {
+    const template = reportContext.templates.find((item) => item.id === id);
+    if (!template) {
+      setDraft((current) => ({ ...current, templateId: "" }));
+      return;
+    }
+
+    setDraft((current) => ({
+      ...current,
+      templateId: template.id,
+      reportType: template.reportType || current.reportType,
+      note: template.content ?? current.note,
+      priceSummary: template.priceSummary ?? current.priceSummary,
+      competitorSummary: template.competitorSummary ?? current.competitorSummary,
+      displaySummary: template.displaySummary ?? current.displaySummary,
+      stockSummary: template.stockSummary ?? current.stockSummary,
+      demandSummary: template.demandSummary ?? current.demandSummary,
+      opportunitySummary: template.opportunitySummary ?? current.opportunitySummary,
+      riskSummary: template.riskSummary ?? current.riskSummary,
+      nextAction: template.nextAction ?? current.nextAction
+    }));
+  }
+
+  async function loadReportContextForLine(line: McpDayLine) {
+    const sessionCustomerId = line.sessionCustomerId || line.id;
+    setReportContext({ ...emptyReportContext(), loading: true });
+    try {
+      setReportContext(await fetchReportContext(sessionCustomerId));
+    } catch (error) {
+      setReportContext(emptyReportContext());
+      setMessage(error instanceof Error ? error.message : "Không tải được ngữ cảnh báo cáo");
+    }
+  }
+
   function openCustomerAction(line: McpDayLine, action: McpCustomerAction) {
     setMessage(null);
     setSelectedLine(null);
     setDraft(emptyDraft(run.owner || ""));
+    setReportContext(emptyReportContext());
     setSelectedAction({ line, action });
+    if (action === "market_report") void loadReportContextForLine(line);
+  }
+
+  function selectedReportCompetitors() {
+    return reportContext.competitors.filter((item) => draft.selectedCompetitorIds.includes(item.id));
+  }
+
+  function selectedReportProducts() {
+    return reportContext.usedProducts.filter((item) => draft.selectedProductIds.includes(item.id));
   }
 
   function submitAction() {
@@ -233,8 +457,13 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
           if (!draft.productName.trim()) throw new Error("Cần nhập sản phẩm test");
           await postMcpBackend("/api/backend/mcp-day/session-customer/test", { sessionCustomerId, fileTitle: "Test nhanh từ checklist", results: [{ productName: draft.productName, status: draft.priority || "tested", note: draft.note }], note: draft.note, status: "tested" });
         } else if (selectedAction.action === "market_report") {
-          if (!draft.note.trim()) throw new Error("Cần nhập nội dung báo cáo");
-          await postMcpBackend("/api/backend/mcp-day/session-customer/report", { sessionCustomerId, reportType: draft.reportType, content: draft.note, nextAction: draft.note });
+          const competitorNames = selectedReportCompetitors().map((item) => item.competitorName);
+          const productNames = selectedReportProducts().map((item) => `${item.productName} (${productSourceLabel(item.source)})`);
+          const content = joinUnique([draft.note, productNames.length ? `Sản phẩm liên quan: ${productNames.join(", ")}` : "", competitorNames.length ? `Đối thủ liên quan: ${competitorNames.join(", ")}` : ""]);
+          const competitorSummary = joinUnique([draft.competitorSummary, ...competitorNames]);
+          const demandSummary = joinUnique([draft.demandSummary, productNames.length ? `Sản phẩm đã tick: ${productNames.join(", ")}` : ""]);
+          if (!content && !draft.priceSummary && !competitorSummary && !draft.displaySummary && !draft.stockSummary && !demandSummary && !draft.opportunitySummary && !draft.riskSummary && !draft.nextAction) throw new Error("Cần nhập nội dung, chọn mẫu hoặc tick dữ liệu báo cáo");
+          await postMcpBackend("/api/backend/mcp-day/session-customer/report", { sessionCustomerId, reportType: draft.reportType, content, priceSummary: draft.priceSummary, competitorSummary, displaySummary: draft.displaySummary, stockSummary: draft.stockSummary, demandSummary, opportunitySummary: draft.opportunitySummary, riskSummary: draft.riskSummary, nextAction: draft.nextAction || content, templateId: draft.templateId || undefined, selectedCompetitors: selectedReportCompetitors(), selectedProducts: selectedReportProducts() });
         } else if (selectedAction.action === "follow_up") {
           if (!draft.productName.trim()) throw new Error("Cần nhập tiêu đề follow-up");
           await postMcpBackend("/api/backend/mcp-day/session-customer/followup", { sessionCustomerId, title: draft.productName, dueDate: draft.dueDate || undefined, priority: draft.priority, owner: draft.owner, note: draft.note, followupType: "general" });
@@ -258,7 +487,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
       <div className="mcp-status-chips" role="tablist" aria-label="Checklist phiên"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>Tất cả khách <b>{counters.all}</b></button><button className={tab === "pending" ? "active" : ""} type="button" onClick={() => setTab("pending")}>Chờ ghé <b>{counters.pending}</b></button><button className={tab === "visited" ? "active" : ""} type="button" onClick={() => setTab("visited")}>Đã ghé <b>{counters.visited}</b></button><button className={tab === "skipped" ? "active" : ""} type="button" onClick={() => setTab("skipped")}>Bỏ qua <b>{counters.skipped}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Có follow-up <b>{counters.followups}</b></button></div>
       <LineList lines={linesByTab[tab]} onOpen={setSelectedLine} onAction={openCustomerAction} />
       <CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} />
-      <CustomerActionSheet selection={selectedAction} draft={draft} saving={saving} message={message} onChange={updateDraft} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
+      <CustomerActionSheet selection={selectedAction} draft={draft} reportContext={reportContext} saving={saving} message={message} onChange={updateDraft} onToggleCompetitor={(id) => toggleDraftList("selectedCompetitorIds", id)} onToggleProduct={(id) => toggleDraftList("selectedProductIds", id)} onApplyTemplate={applyReportTemplate} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} />
     </AppShell>
   );
 }
