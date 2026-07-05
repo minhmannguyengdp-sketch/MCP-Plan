@@ -1,36 +1,26 @@
-import { randomUUID } from "node:crypto";
-
 export const dynamic = "force-dynamic";
 
+const DEFAULT_SUPABASE_URL = "https://noiadkpkvdohljgopgfb.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_n6LXv-fd-ImF3XzeU2mrjg_G7tBGy66";
+
 function env() {
-  const url = (process.env.SUPABASE_URL || "").trim();
-  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
   if (!url || !key) throw new Error("missing_supabase_config");
   return { url: url.replace(/\/+$/, ""), key };
 }
 
-function tableUrl(table: string, params: Record<string, string> = {}) {
-  const { url } = env();
-  const target = new URL(`/rest/v1/${table}`, url);
-  Object.entries(params).forEach(([key, value]) => target.searchParams.set(key, value));
-  return target;
-}
-
-function headers(extra: Record<string, string> = {}) {
-  const { key } = env();
-  return { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", ...extra };
-}
-
-async function insertRow(table: string, row: Record<string, unknown>) {
-  const response = await fetch(tableUrl(table), {
+async function rpc(name: string, args: Record<string, unknown>) {
+  const { url, key } = env();
+  const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
     method: "POST",
     cache: "no-store",
-    headers: headers({ "Content-Type": "application/json", Prefer: "return=representation" }),
-    body: JSON.stringify(row)
+    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(args)
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message || payload.error || `supabase_${response.status}`);
-  return Array.isArray(payload) ? payload[0] : payload;
+  return payload;
 }
 
 function cleanText(value: unknown) {
@@ -52,30 +42,20 @@ export async function POST(request: Request) {
     if (!routeId) throw new Error("route_id_required");
     if (!customerName) throw new Error("customer_name_required");
 
-    const geoLat = numberOrNull(body.geoLat || body.geo_lat);
-    const geoLng = numberOrNull(body.geoLng || body.geo_lng);
-    const now = new Date().toISOString();
-    const row = await insertRow("mcp_route_customers", {
-      id: `mrc_${randomUUID().replaceAll("-", "")}`,
-      route_id: routeId,
-      customer_id: cleanText(body.customerId || body.customer_id),
-      customer_name: customerName,
-      phone: cleanText(body.phone),
-      area: cleanText(body.area),
-      address: cleanText(body.address),
-      sort_order: Number(body.sortOrder || body.sort_order || 0),
-      active: true,
-      note: cleanText(body.note),
-      geo_lat: geoLat,
-      geo_lng: geoLng,
-      geo_captured_at: geoLat !== null && geoLng !== null ? now : null,
-      geo_source: geoLat !== null && geoLng !== null ? "manual" : null,
-      created_at: now,
-      updated_at: now,
-      raw_payload: { source: "route_customer_create_api" }
+    const data = await rpc("mcp_create_route_customer", {
+      p_route_id: routeId,
+      p_customer_name: customerName,
+      p_phone: cleanText(body.phone),
+      p_area: cleanText(body.area),
+      p_address: cleanText(body.address),
+      p_sort_order: Number(body.sortOrder || body.sort_order || 0),
+      p_note: cleanText(body.note),
+      p_customer_id: cleanText(body.customerId || body.customer_id),
+      p_geo_lat: numberOrNull(body.geoLat || body.geo_lat),
+      p_geo_lng: numberOrNull(body.geoLng || body.geo_lng)
     });
 
-    return Response.json({ data: row, receivedAt: now });
+    return Response.json({ data, receivedAt: new Date().toISOString() });
   } catch (error) {
     return Response.json({ ok: false, error: error instanceof Error ? error.message : "route_customer_create_failed" }, { status: 400 });
   }
