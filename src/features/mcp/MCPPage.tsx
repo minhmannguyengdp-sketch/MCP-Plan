@@ -1,1 +1,1 @@
-export { MCPPage } from "./MCPPageEntry";
+export { MCPPage } from "./MCPPageEntryReportReady";
