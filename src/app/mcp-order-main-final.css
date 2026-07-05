@@ -39,10 +39,16 @@
     overflow: hidden !important;
   }
 
+  .order-action-content > .visit-focus-card {
+    flex: 0 0 auto !important;
+    margin-bottom: 5px !important;
+    padding: 7px 9px !important;
+  }
+
   .order-builder-report-style {
-    display: grid !important;
+    display: flex !important;
     flex: 1 1 auto !important;
-    grid-template-rows: auto minmax(0, 1fr) !important;
+    flex-direction: column !important;
     width: 100% !important;
     max-width: none !important;
     min-width: 0 !important;
@@ -56,67 +62,82 @@
   }
 
   .mcp-order-open-picker {
-    min-height: 34px !important;
-    border-radius: 11px !important;
+    flex: 0 0 auto !important;
+    min-height: 32px !important;
+    border-radius: 10px !important;
     font-size: 13px !important;
-    padding: 6px 10px !important;
+    padding: 5px 10px !important;
   }
 
   .order-builder-report-style .order-summary-list.report-style {
-    display: grid !important;
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    align-content: flex-start !important;
+    align-items: stretch !important;
     gap: 4px !important;
     width: 100% !important;
     max-height: none !important;
     min-height: 0 !important;
-    overflow: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-right: 2px !important;
   }
 
   .order-builder-report-style .order-summary-row {
-    grid-template-columns: minmax(0, 1fr) 52px 26px !important;
+    display: grid !important;
+    flex: 0 0 52px !important;
+    grid-template-columns: minmax(0, 1fr) 50px 25px !important;
     grid-template-areas: "info qty del" "price total del" !important;
-    gap: 2px 5px !important;
+    gap: 1px 5px !important;
     width: 100% !important;
-    min-height: 56px !important;
-    border-radius: 10px !important;
-    padding: 5px 6px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    border-radius: 9px !important;
+    padding: 4px 6px !important;
   }
 
   .order-builder-report-style .order-summary-row strong {
-    font-size: 12px !important;
-    line-height: 1.12 !important;
+    font-size: 11.5px !important;
+    line-height: 1.08 !important;
   }
 
   .order-builder-report-style .order-summary-row small {
-    font-size: 9.5px !important;
-    line-height: 1.1 !important;
+    font-size: 9px !important;
+    line-height: 1.05 !important;
   }
 
   .order-builder-report-style .order-summary-row span {
-    font-size: 9.5px !important;
+    font-size: 9px !important;
+    line-height: 1.05 !important;
   }
 
   .order-builder-report-style .order-summary-row b {
-    font-size: 11.5px !important;
+    font-size: 11px !important;
+    line-height: 1.05 !important;
   }
 
   .order-builder-report-style .order-summary-row label small {
-    font-size: 8.5px !important;
+    font-size: 8px !important;
+    line-height: 1 !important;
   }
 
   .order-builder-report-style .order-summary-row input {
-    min-height: 26px !important;
+    min-height: 24px !important;
+    height: 24px !important;
     border-radius: 8px !important;
     font-size: 12px !important;
-    padding: 3px 5px !important;
+    padding: 2px 5px !important;
   }
 
   .order-builder-report-style .order-summary-row .button {
-    width: 24px !important;
-    min-height: 24px !important;
+    width: 23px !important;
+    min-height: 23px !important;
+    height: 23px !important;
   }
 
   .order-builder-report-style .order-summary-row .button::before {
-    font-size: 15px !important;
+    font-size: 14px !important;
   }
 
   .order-note-field {
@@ -130,8 +151,8 @@
   }
 
   .order-footer-total {
-    min-height: 38px !important;
-    border-radius: 11px !important;
-    padding: 7px 10px !important;
+    min-height: 36px !important;
+    border-radius: 10px !important;
+    padding: 6px 10px !important;
   }
 }
