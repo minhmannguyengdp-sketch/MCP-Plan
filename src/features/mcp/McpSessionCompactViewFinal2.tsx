@@ -21,6 +21,18 @@ type OrderDraftItem = ProductCatalogItem & { quantity: number; unit: string; uni
 type ActionDraft = { productName: string; note: string; skipReason: string; dueDate: string; priority: string; owner: string };
 
 const DEFAULT_FILTERS = ["Trà", "Sữa", "Siro", "Bột", "Topping", "Đường & ngọt", "Sinh tố", "Trái cây / mứt", "Kem / Milk foam", "Phụ gia", "Bao bì", "Mì cay", "Đông lạnh", "Bánh tráng"];
+const TEST_PRODUCT_CHIPS = ["Siro Carisa", "Sinh tố Berrino", "Trà Cozy", "Trà GTP", "Topping Bibi", "Topping Ok", "Bột sữa Frima", "Bột sữa HP"];
+const TEST_NOTE_CHIPS = ["Khách muốn thử", "Gửi mẫu", "Test vị mới", "Đạt", "Chưa đạt", "Báo giá sau test"];
+const FOLLOWUP_CHIPS = ["Gửi báo giá", "Gọi lại", "Mang mẫu test", "Chốt đơn sau", "Kiểm tra tồn", "Nhắc công nợ"];
+const SKIP_REASONS = [
+  { value: "closed", label: "Đóng cửa" },
+  { value: "busy", label: "Khách bận" },
+  { value: "no_demand", label: "Không nhu cầu" },
+  { value: "price", label: "Chê giá" },
+  { value: "competitor", label: "Đang dùng đối thủ" },
+  { value: "stock_enough", label: "Còn tồn hàng" },
+  { value: "other", label: "Khác" }
+];
 
 function emptyDraft(owner = ""): ActionDraft {
   return { productName: "", note: "", skipReason: "", dueDate: "", priority: "medium", owner };
@@ -80,6 +92,17 @@ function normalizeCatalogItems(value: unknown): ProductCatalogItem[] {
           price: Number(item.price || 0)
         }))
     : [];
+}
+
+function appendToken(current: string, token: string) {
+  const parts = current.split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
+  return parts.includes(token) ? parts.filter((item) => item !== token).join(", ") : [...parts, token].join(", ");
+}
+
+function addDays(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 async function postJson(path: string, body: unknown) {
@@ -160,12 +183,28 @@ function OrderFields({ draft, productSearch, orderItems, orderTotal, saving, onC
   return <div className="order-builder order-builder-report-style"><button className="button primary mcp-order-open-picker" type="button" onClick={() => setPickerOpen(true)} disabled={saving}>+ Chọn sản phẩm</button><div className="order-summary-list report-style">{orderItems.length === 0 ? <small className="page-subtitle">Chưa có item trong đơn. Bấm + Chọn sản phẩm để thêm nhiều mã một lần.</small> : null}{orderItems.map((item) => <div className="order-summary-row" key={item.variantId}><div><strong>{item.name}</strong><small>{variantLabel(item)} · {item.sku || item.variantId}</small></div><label><small>SL</small><input inputMode="decimal" value={item.quantity} onChange={(event) => onChangeItemQuantity(item.variantId, toNumber(event.target.value, item.quantity))} disabled={saving} /></label><span>{item.unit || item.sellUnit || "đv"} × {formatMoney(item.unitPrice)}</span><b>{formatMoney(item.lineTotal)}</b><button className="button" type="button" onClick={() => onRemoveItem(item.variantId)} disabled={saving}>Xóa</button></div>)}</div><label className="form-field order-note-field"><small>Ghi chú giao hàng</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} placeholder="Giao hàng / công nợ / thời gian giao" /></label><div className="order-total-row"><span>Tổng</span><strong>{formatMoney(orderTotal)}</strong></div>{pickerOpen ? <ProductPickerPanel productSearch={productSearch} selected={pickerSelected} saving={saving} onSelectedChange={setPickerSelected} onSearchChange={onSearchChange} onCategoryChange={onCategoryChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onCommit={(entries) => { onCommitPickerItems(entries); setPickerSelected({}); setPickerOpen(false); }} onClose={() => setPickerOpen(false)} /> : null}</div>;
 }
 
+function QuickChip({ active, children, onClick, disabled }: { active?: boolean; children: string; onClick: () => void; disabled?: boolean }) {
+  return <button className={active ? "report-chip selected" : "report-chip"} type="button" onClick={onClick} disabled={disabled}>{children}</button>;
+}
+
+function TestFields({ draft, saving, onChange }: { draft: ActionDraft; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void }) {
+  return <div className="report-popup-grid"><section className="report-quick-panel"><div className="report-section-head"><strong>Test nhanh</strong><small>Sales chỉ cần tick sản phẩm/ý chính, không phải gõ dài ngoài đường.</small></div><div className="report-quick-group"><strong>Sản phẩm thường test</strong><div className="report-chip-grid">{TEST_PRODUCT_CHIPS.map((label) => <QuickChip key={label} active={draft.productName === label} disabled={saving} onClick={() => onChange("productName", draft.productName === label ? "" : label)}>{label}</QuickChip>)}</div></div><label className="form-field report-field"><small>Sản phẩm test khác</small><input value={draft.productName} onChange={(event) => onChange("productName", event.target.value)} disabled={saving} placeholder="Nhập nhanh nếu chưa có chip" /></label><div className="report-quick-group"><strong>Kết quả / việc cần làm</strong><div className="report-chip-grid">{TEST_NOTE_CHIPS.map((label) => <QuickChip key={label} active={draft.note.includes(label)} disabled={saving} onClick={() => onChange("note", appendToken(draft.note, label))}>{label}</QuickChip>)}</div></div><label className="form-field report-field"><small>Ghi chú test</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} disabled={saving} /></label></section></div>;
+}
+
+function FollowUpFields({ draft, saving, onChange }: { draft: ActionDraft; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void }) {
+  return <div className="report-popup-grid"><section className="report-quick-panel"><div className="report-section-head"><strong>Follow-up nhanh</strong><small>Chọn việc cần làm và ngày hẹn, ghi chú thêm nếu cần.</small></div><div className="report-quick-group"><strong>Việc cần làm</strong><div className="report-chip-grid">{FOLLOWUP_CHIPS.map((label) => <QuickChip key={label} active={draft.productName === label} disabled={saving} onClick={() => onChange("productName", draft.productName === label ? "" : label)}>{label}</QuickChip>)}</div></div><label className="form-field report-field"><small>Tiêu đề khác</small><input value={draft.productName} onChange={(event) => onChange("productName", event.target.value)} disabled={saving} placeholder="VD: Hẹn chốt đơn siro" /></label><div className="report-quick-group"><strong>Ngày hẹn nhanh</strong><div className="report-chip-grid"><QuickChip active={draft.dueDate === addDays(1)} disabled={saving} onClick={() => onChange("dueDate", addDays(1))}>Mai</QuickChip><QuickChip active={draft.dueDate === addDays(3)} disabled={saving} onClick={() => onChange("dueDate", addDays(3))}>3 ngày</QuickChip><QuickChip active={draft.dueDate === addDays(7)} disabled={saving} onClick={() => onChange("dueDate", addDays(7))}>Tuần sau</QuickChip></div></div><label className="form-field report-field"><small>Ngày hẹn</small><input type="date" value={draft.dueDate} onChange={(event) => onChange("dueDate", event.target.value)} disabled={saving} /></label><label className="form-field report-field"><small>Ghi chú</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} disabled={saving} /></label></section></div>;
+}
+
+function SkipFields({ draft, saving, onChange }: { draft: ActionDraft; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void }) {
+  return <div className="report-popup-grid"><section className="report-quick-panel"><div className="report-section-head"><strong>Lý do bỏ qua</strong><small>Tick lý do chính, ghi chú thêm khi cần.</small></div><div className="report-chip-grid">{SKIP_REASONS.map((item) => <QuickChip key={item.value} active={draft.skipReason === item.value} disabled={saving} onClick={() => onChange("skipReason", draft.skipReason === item.value ? "" : item.value)}>{item.label}</QuickChip>)}</div><label className="form-field report-field"><small>Ghi chú</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} disabled={saving} placeholder="VD: khách còn tồn nhiều, hẹn tuần sau quay lại" /></label></section></div>;
+}
+
 function ActionFields({ action, draft, marketReport, productSearch, orderItems, orderTotal, saving, onChange, onMarketReportChange, onSearchChange, onCategoryChange, onRunSearch, onPickProduct, onCommitPickerItems, onRemoveOrderItem, onChangeItemQuantity }: { action: McpCustomerAction; draft: ActionDraft; marketReport: MarketReportDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; saving: boolean; onChange: (field: keyof ActionDraft, value: string) => void; onMarketReportChange: (value: MarketReportDraft) => void; onSearchChange: (value: string) => void; onCategoryChange: (category: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onCommitPickerItems: (entries: PickerEntry[]) => void; onRemoveOrderItem: (variantId: string) => void; onChangeItemQuantity: (variantId: string, quantity: number) => void }) {
   if (action === "order") return <OrderFields draft={draft} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} onChange={onChange} onSearchChange={onSearchChange} onCategoryChange={onCategoryChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onCommitPickerItems={onCommitPickerItems} onRemoveItem={onRemoveOrderItem} onChangeItemQuantity={onChangeItemQuantity} />;
   if (action === "market_report") return <McpMarketReportFields value={marketReport} onChange={onMarketReportChange} saving={saving} />;
-  if (action === "test") return <div className="grid"><label className="form-field"><small>Sản phẩm test</small><input value={draft.productName} onChange={(event) => onChange("productName", event.target.value)} /></label><label className="form-field"><small>Ghi chú test</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} /></label></div>;
-  if (action === "follow_up") return <div className="grid"><label className="form-field"><small>Tiêu đề</small><input value={draft.productName} onChange={(event) => onChange("productName", event.target.value)} /></label><label className="form-field"><small>Ngày hẹn</small><input type="date" value={draft.dueDate} onChange={(event) => onChange("dueDate", event.target.value)} /></label><label className="form-field"><small>Ghi chú</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} /></label></div>;
-  if (action === "skip") return <div className="grid"><label className="form-field"><small>Lý do bỏ qua / không mua</small><select value={draft.skipReason} onChange={(event) => onChange("skipReason", event.target.value)} disabled={saving}><option value="">Chọn lý do</option><option value="closed">Đóng cửa</option><option value="busy">Khách bận</option><option value="no_demand">Không có nhu cầu</option><option value="price">Chê giá</option><option value="competitor">Đang dùng đối thủ</option><option value="stock_enough">Còn tồn hàng</option><option value="other">Lý do khác</option></select></label><label className="form-field"><small>Ghi chú</small><textarea value={draft.note} onChange={(event) => onChange("note", event.target.value)} /></label></div>;
+  if (action === "test") return <TestFields draft={draft} saving={saving} onChange={onChange} />;
+  if (action === "follow_up") return <FollowUpFields draft={draft} saving={saving} onChange={onChange} />;
+  if (action === "skip") return <SkipFields draft={draft} saving={saving} onChange={onChange} />;
   return null;
 }
 
@@ -222,7 +261,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
             if (!marketReportHasInput(marketReport)) throw new Error("Cần tick hoặc nhập ít nhất 1 nội dung báo cáo");
             await postJson("/api/backend/mcp-day/session-customer/report", { sessionCustomerId, reportType: "market_report", content: buildMarketReportContent(marketReport), fields: marketReport.fields, selected: { competitors: marketReport.selectedCompetitors, usedProducts: marketReport.selectedUsedProducts, settingItems: marketReport.selectedSettingItems }, context: { routeId: run.routeId || null, routeName: run.routeName, sessionDate: run.date, sales: run.owner, customerName: selectedAction.line.accountName, area: selectedAction.line.area, routeCustomerId: selectedAction.line.routeCustomerId || null } });
           } else if (selectedAction.action === "follow_up") {
-            await postJson("/api/backend/mcp-day/session-customer/followup", { sessionCustomerId, title: draft.productName, dueDate: draft.dueDate || undefined, priority: draft.priority, owner: draft.owner, note: draft.note, followupType: "general" });
+            await postJson("/api/backend/mcp-day/session-customer/followup", { sessionCustomerId, title: draft.productName || "Follow-up khách", dueDate: draft.dueDate || undefined, priority: draft.priority, owner: draft.owner, note: draft.note, followupType: "general" });
           } else if (selectedAction.action === "skip") {
             await postJson("/api/backend/mcp-day/session-customer/status", { sessionCustomerId, visitStatus: "skipped", statusReason: draft.skipReason || "other", note: draft.note || draft.skipReason });
           }
