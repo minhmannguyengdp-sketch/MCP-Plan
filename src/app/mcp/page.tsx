@@ -6,7 +6,7 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
-import { ExportLinksPanel } from "@/features/exports/ExportLinks";
+import { ExportMenu } from "@/features/exports/ExportLinks";
 import styles from "./McpHome.module.css";
 
 const MCP_MODULES = [
@@ -30,8 +30,7 @@ export default async function McpPage() {
   const visitedCustomers = routes.reduce((sum, route) => sum + Number(route.visitedCustomers || 0), 0);
 
   return <AppShell activeHref="/mcp">
-    <PageHeader eyebrow="MCP" title="MCP" subtitle="Tuyến gốc là dữ liệu nền; Phiên MCP hôm nay là phiên làm việc được mở từ tuyến gốc đã chọn."><SourceBadge source={routesResult.source} /></PageHeader>
-    <ExportLinksPanel title="Xuất file MCP" subtitle="Tải Excel nền hoặc mở bản in PDF vận hành." />
+    <PageHeader eyebrow="MCP" title="MCP" subtitle="Tuyến gốc là dữ liệu nền; Phiên MCP hôm nay là phiên làm việc được mở từ tuyến gốc đã chọn."><div className="sheet-action-grid"><SourceBadge source={routesResult.source} /><ExportMenu label="Xuất" primary /></div></PageHeader>
     <TodaySummaryCard eyebrow="Quy trình MCP" value="Chọn tuyến gốc trước" description={`${activeRoutes} tuyến gốc có thể đi · ${plannedCustomers} khách trong tuyến gốc`} pills={[{ label: "tuyến gốc", value: routes.length }, { label: "có thể đi", value: activeRoutes }, { label: "đã ghé", value: visitedCustomers }]} />
     <section className={styles.grid} aria-label="MCP nhanh">{MCP_MODULES.map(renderModuleCard)}</section>
     <FilterBar title="Tóm tắt vận hành" filters={[{ label: "Tuyến gốc", value: String(routes.length) }, { label: "Có thể đi", value: String(activeRoutes) }, { label: "Tạm dừng", value: String(pausedRoutes) }, { label: "Khách tuyến", value: String(plannedCustomers) }]} />
