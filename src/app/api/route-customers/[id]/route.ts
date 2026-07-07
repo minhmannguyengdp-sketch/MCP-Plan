@@ -36,12 +36,23 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function mapsUrl(lat: number | null | undefined, lng: number | null | undefined, fallback: unknown) {
+  const explicit = cleanText(fallback);
+  if (explicit !== undefined && explicit !== null) return explicit;
+  if (lat === undefined || lng === undefined) return undefined;
+  if (lat === null || lng === null) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
+
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
     const body = await request.json().catch(() => ({}));
     const customerName = cleanText(body.customerName ?? body.customer_name ?? body.accountName ?? body.name);
     const geoLat = numberOrNull(body.geoLat ?? body.geo_lat);
     const geoLng = numberOrNull(body.geoLng ?? body.geo_lng);
+    const geoAccuracy = numberOrNull(body.geoAccuracy ?? body.geo_accuracy);
+    const geoSource = cleanText(body.geoSource ?? body.geo_source) ?? (geoLat !== undefined && geoLng !== undefined && geoLat !== null && geoLng !== null ? "browser" : undefined);
+    const googleMapsUrl = mapsUrl(geoLat, geoLng, body.googleMapsUrl ?? body.google_maps_url);
 
     const data = await rpc("mcp_update_route_customer", {
       p_route_customer_id: params.id,
@@ -53,7 +64,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       p_note: body.note === undefined ? null : cleanText(body.note),
       p_active: body.active === undefined ? null : Boolean(body.active),
       p_geo_lat: geoLat === undefined ? null : geoLat,
-      p_geo_lng: geoLng === undefined ? null : geoLng
+      p_geo_lng: geoLng === undefined ? null : geoLng,
+      p_geo_accuracy: geoAccuracy === undefined ? null : geoAccuracy,
+      p_geo_source: geoSource === undefined ? null : geoSource,
+      p_google_maps_url: googleMapsUrl === undefined ? null : googleMapsUrl
     });
 
     return Response.json({ data, receivedAt: new Date().toISOString() });
