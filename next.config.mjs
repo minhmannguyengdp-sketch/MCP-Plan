@@ -1,4 +1,15 @@
 /** @type {import('next').NextConfig} */
+const localBackendRoutes = [
+  "mcp-report-settings",
+  "mcp-session-actions",
+  "mcp-day/open-session",
+  "mcp-day/session-customer/report"
+];
+
+const backendRoutePattern = localBackendRoutes
+  .map((route) => route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+  .join("|");
+
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
@@ -10,7 +21,7 @@ const nextConfig = {
 
     return [
       {
-        source: "/api/backend/:path((?!mcp-report-settings|mcp-session-actions).*)",
+        source: `/api/backend/:path((?!${backendRoutePattern}).*)`,
         destination: `${backendBaseUrl.replace(/\/+$/, "")}/api/:path*`
       }
     ];
