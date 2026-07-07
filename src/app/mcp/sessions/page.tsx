@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { McpSessionsManagerSafe } from "@/features/mcp/McpSessionsManagerSafe";
-import { ExportLinksPanel, buildExportLink } from "@/features/exports/ExportLinks";
+import { ExportMenu, buildExportLink } from "@/features/exports/ExportLinks";
 
 type SessionRow = { id: string; routeId: string; routeName: string; sessionDate: string; status: string; note?: string; plannedCustomers: number; visitedCustomers: number };
 type RouteOption = { id: string; name: string };
@@ -30,5 +30,6 @@ export default async function McpSessionsPage({ searchParams }: { searchParams: 
   const query = new URLSearchParams();
   if (filters.routeId) query.set("routeId", filters.routeId);
   if (filters.status) query.set("visitStatus", filters.status);
-  return <AppShell activeHref="/mcp/sessions"><div className="mcp-sessions-page"><PageHeader eyebrow="MCP" title="Phiên chạy tuyến" subtitle="Lịch sử phiên theo ngày. Tạm khóa thao tác phụ trong lúc chuẩn hóa form và dữ liệu report." /><ExportLinksPanel title="Xuất phiên MCP" subtitle="Tải checklist phiên hoặc mở PDF dashboard." excelLinks={[buildExportLink("Excel phiên/checklist", `/api/backend/exports/mcp-sessions.csv${query.toString() ? `?${query.toString()}` : ""}`, "primary"), buildExportLink("Excel đơn hàng", "/api/backend/exports/orders.csv"), buildExportLink("Excel BC thị trường", "/api/backend/exports/market-reports.csv"), buildExportLink("Excel follow-up", "/api/backend/exports/followups.csv")]} pdfLinks={[buildExportLink("PDF dashboard", "/api/backend/pdf/dashboard", "primary"), buildExportLink("PDF BC thị trường", "/api/backend/pdf/market-report")]} /><McpSessionsManagerSafe data={data} filters={filters} /></div></AppShell>;
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return <AppShell activeHref="/mcp/sessions"><div className="mcp-sessions-page"><PageHeader eyebrow="MCP" title="Phiên chạy tuyến" subtitle="Lịch sử phiên theo ngày. Xuất file nằm trong menu, không rải nút trên hero."><ExportMenu label="Xuất danh sách" primary groups={[{ title: "Excel theo bộ lọc", links: [buildExportLink("Phiên/checklist", `/api/backend/exports/mcp-sessions.csv${suffix}`, "primary", "Theo tuyến/trạng thái đang lọc"), buildExportLink("Đơn hàng", "/api/backend/exports/orders.csv"), buildExportLink("BC thị trường", "/api/backend/exports/market-reports.csv"), buildExportLink("Follow-up", "/api/backend/exports/followups.csv")] }, { title: "PDF tổng hợp", links: [buildExportLink("Dashboard", "/api/backend/pdf/dashboard", "primary"), buildExportLink("BC thị trường", "/api/backend/pdf/market-report")] }]} /></PageHeader><McpSessionsManagerSafe data={data} filters={filters} /></div></AppShell>;
 }
