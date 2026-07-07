@@ -2,8 +2,7 @@
 const localBackendRoutes = [
   "mcp-report-settings",
   "mcp-session-actions",
-  "mcp-day/open-session",
-  "mcp-day/session-customer/report"
+  "mcp-day/open-session"
 ];
 
 const backendRoutePattern = localBackendRoutes
