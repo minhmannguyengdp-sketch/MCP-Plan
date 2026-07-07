@@ -1,3 +1,3 @@
 export const config = {
-  matcher: []
+  matcher: ["/__disabled_mcp_middleware__/:path*"]
 };
