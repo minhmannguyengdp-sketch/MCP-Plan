@@ -23,15 +23,16 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams;
+    const orderId = params.get("orderId") || params.get("id");
     const orders = await restRows<OrderRow>("orders", {
       select: "id,order_code,order_date,sales,customer_id,customer_name,customer_phone,area,delivery_address,source_type,source_id,status,subtotal,discount_total,grand_total,note,sync_status,created_at,updated_at",
       order: "order_date.desc,created_at.desc",
       limit: Number(params.get("limit") || 3000),
-      filters: { order_date: params.get("date"), sales: params.get("sales"), status: params.get("status") }
+      filters: { id: orderId, order_date: params.get("date"), sales: params.get("sales"), status: params.get("status") }
     });
     const orderIds = new Set(orders.map((order) => String(order.id || "")).filter(Boolean));
-    const items = await restRows<ItemRow>("order_items", { select: "id,order_id,product_id,variant_id,product_name,sku,unit,quantity,unit_price,discount,line_total,note,created_at", order: "order_id.asc,created_at.asc", limit: 10000 });
-    const scopedItems = items.filter((item) => orderIds.has(String(item.order_id || "")));
+    const items = await restRows<ItemRow>("order_items", { select: "id,order_id,product_id,variant_id,product_name,sku,unit,quantity,unit_price,discount,line_total,note,created_at", order: "order_id.asc,created_at.asc", limit: 10000, filters: { order_id: orderId } });
+    const scopedItems = orderId ? items : items.filter((item) => orderIds.has(String(item.order_id || "")));
     const byOrder = scopedItems.reduce<Record<string, ItemRow[]>>((acc, item) => { const id = String(item.order_id || ""); acc[id] = [...(acc[id] || []), item]; return acc; }, {});
     const rows: ExportRow[] = orders.flatMap((order) => {
       const list = byOrder[String(order.id || "")] || [];
