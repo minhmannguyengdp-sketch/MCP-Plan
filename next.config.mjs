@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const localBackendRoutes = [
+  "exports",
   "mcp-report-settings",
   "mcp-session-actions",
-  "mcp-day/open-session"
+  "mcp-day/open-session",
+  "mcp-day/session-customer/report"
 ];
 
 const backendRoutePattern = localBackendRoutes
