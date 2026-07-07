@@ -28,6 +28,10 @@ function getStatusClass(status: string) {
   return `${styles.status} ${styles.cancelled}`;
 }
 
+function orderExportHref(order: OrderDto) {
+  return `/api/backend/exports/orders.csv?orderId=${encodeURIComponent(order.id)}`;
+}
+
 function buildOrderKpis(orders: OrderDto[]) {
   const totalAmount = orders.reduce((sum, order) => sum + order.totalAmount, 0);
   const skuCount = orders.reduce((sum, order) => sum + order.skuCount, 0);
@@ -51,6 +55,7 @@ function OrderCard({ order, onSelect }: { order: OrderDto; onSelect: (order: Ord
       meta={[`${order.routeName} · ${order.owner}`, `${order.quantity} sản phẩm`]}
       actions={[
         { label: "Xem", tone: "primary", onClick: () => onSelect(order) },
+        { label: "Xuất file", href: orderExportHref(order) },
         { label: "Việc" }
       ]}
     />
@@ -64,7 +69,7 @@ function OrderDetailSheet({ order, onClose }: { order: OrderDto | null; onClose:
       onClose={onClose}
       title={order ? order.code : "Chi tiết đơn"}
       description={order ? `${order.accountName} · ${order.routeName}` : undefined}
-      footer={<div className="sheet-action-grid"><button className="button primary" type="button">Tạo việc</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
+      footer={<div className="sheet-action-grid"><button className="button primary" type="button">Tạo việc</button>{order ? <a className="button" href={orderExportHref(order)}>Xuất file</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {order ? (
         <div className="order-sheet-content">
