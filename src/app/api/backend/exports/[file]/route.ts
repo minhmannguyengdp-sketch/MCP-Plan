@@ -1,10 +1,12 @@
 export const dynamic = "force-dynamic";
 
-const LOCAL_NEEDS_GPS_FILE = "route-customers-needs-gps.csv";
+const LOCAL_EXPORTS: Record<string, string> = {
+  "mcp-sessions.csv": "@/app/api/exports/mcp-sessions.csv/route",
+  "route-customers-needs-gps.csv": "@/app/api/exports/route-customers-needs-gps.csv/route"
+};
 const ALLOWED = new Set([
   "route-customers.csv",
-  LOCAL_NEEDS_GPS_FILE,
-  "mcp-sessions.csv",
+  ...Object.keys(LOCAL_EXPORTS),
   "orders.csv",
   "market-reports.csv",
   "followups.csv",
@@ -20,7 +22,11 @@ export async function GET(request: Request, context: { params: { file: string } 
   const file = context.params.file;
   if (!ALLOWED.has(file)) return Response.json({ ok: false, error: "export_not_allowed" }, { status: 404 });
 
-  if (file === LOCAL_NEEDS_GPS_FILE) {
+  if (file === "mcp-sessions.csv") {
+    const route = await import("@/app/api/exports/mcp-sessions.csv/route");
+    return route.GET(request);
+  }
+  if (file === "route-customers-needs-gps.csv") {
     const route = await import("@/app/api/exports/route-customers-needs-gps.csv/route");
     return route.GET(request);
   }
