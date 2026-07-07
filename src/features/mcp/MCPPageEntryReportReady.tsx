@@ -6,6 +6,7 @@ import type { RoutesData } from "@/features/routes/routes.types";
 import { McpSessionCompactView } from "./McpSessionCompactView";
 import { McpSessionReadonlyView } from "./McpSessionReadonlyView";
 import { McpMasterView } from "./McpMasterView";
+import { RouteCustomerExportMenu } from "./RouteCustomerExportMenu";
 import { RouteCustomerLocationEnhancer } from "./RouteCustomerLocationEnhancer";
 
 type MCPPageProps = {
@@ -25,5 +26,5 @@ export function MCPPage({ activeHref = "/visits", routesData, mcpDayData, routeC
     if (locked(mcpDayData)) return <McpSessionReadonlyView activeHref={activeHref} mcpDayData={mcpDayData} />;
     return <McpSessionCompactView activeHref={activeHref} routesData={routesData} mcpDayData={mcpDayData} routeCustomersData={routeCustomersData} />;
   }
-  return <><RouteCustomerLocationEnhancer /><McpMasterView activeHref={activeHref} routesData={routesData} routeCustomersData={routeCustomersData} /></>;
+  return <><RouteCustomerLocationEnhancer /><RouteCustomerExportMenu routesData={routesData} /><McpMasterView activeHref={activeHref} routesData={routesData} routeCustomersData={routeCustomersData} /></>;
 }
