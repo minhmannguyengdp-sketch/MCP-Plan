@@ -1,11 +1,14 @@
 export const dynamic = "force-dynamic";
 
+const DEFAULT_SUPABASE_URL = "https://noiadkpkvdohljgopgfb.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_n6LXv-fd-ImF3XzeU2mrjg_G7tBGy66";
+
 type Dict = Record<string, unknown>;
 function isObj(v: unknown): v is Dict { return !!v && typeof v === "object" && !Array.isArray(v); }
 function text(v: unknown) { const s = String(v ?? "").trim(); return s || null; }
 function list(v: unknown) { return Array.isArray(v) ? v.filter(isObj).map((x) => ({ id: String(x.id || "").trim(), label: text(x.label), value: text(x.value), groupTitle: text(x.groupTitle), category: text(x.category), brandName: text(x.brandName), productId: text(x.productId) })).filter((x) => x.id) : []; }
 function ids(v: Array<{ id: string }>) { return Array.from(new Set(v.map((x) => x.id))); }
-function env() { const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/+$/, ""); const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim(); if (!url || !key) throw new Error("missing_supabase_config"); return { url, key }; }
+function env() { const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim().replace(/\/+$/, ""); const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim(); if (!url || !key) throw new Error("missing_supabase_config"); return { url, key }; }
 function fallbackContent(fields: Dict, competitors: Array<{ id: string; label: string | null; value: string | null }>, products: Array<{ id: string; label: string | null; value: string | null; groupTitle: string | null }>) { const parts: string[] = []; if (competitors.length) parts.push(`Đối thủ: ${competitors.map((x) => x.label || x.value || x.id).join(", ")}`); const byGroup = products.reduce<Record<string, string[]>>((acc, x) => { const title = x.groupTitle || "Thương hiệu/sản phẩm đang dùng"; acc[title] = [...(acc[title] || []), x.label || x.value || x.id]; return acc; }, {}); Object.entries(byGroup).forEach(([title, values]) => parts.push(`${title}: ${values.join(", ")}`)); ["priceSummary", "displaySummary", "stockSummary", "demandSummary", "opportunitySummary", "riskSummary", "nextAction", "note"].forEach((k) => { const v = text(fields[k]); if (v) parts.push(v); }); return parts.join("\n"); }
 
 async function callReportRpc(args: Dict) {
