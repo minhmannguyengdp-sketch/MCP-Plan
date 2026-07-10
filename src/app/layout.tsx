@@ -17,6 +17,7 @@ import "./mcp-sessions-compact.css";
 import "./mcp-sessions-color.css";
 import "./mcp-compact-ui.css";
 import "./mcp-order-main-final.css";
+import "./mcp-scroll-restore.css";
 
 export const metadata: Metadata = {
   title: "MCP-Plan",
