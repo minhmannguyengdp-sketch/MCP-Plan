@@ -19,10 +19,7 @@ export const MCP_EXCEL_LINKS: ExportLink[] = [
   { label: "Test", href: "/api/backend/exports/tests.csv", hint: "Hồ sơ test và kết quả theo khách" }
 ];
 
-export const MCP_PDF_LINKS: ExportLink[] = [
-  { label: "Dashboard", href: "/api/backend/pdf/dashboard", tone: "primary", hint: "Tổng quan quản trị để in/lưu PDF" },
-  { label: "BC thị trường", href: "/api/backend/pdf/market-report", hint: "Báo cáo thị trường tổng hợp" }
-];
+export const MCP_PDF_LINKS: ExportLink[] = [];
 
 function groupsFromLinks(excelLinks: ExportLink[], pdfLinks: ExportLink[]) {
   const groups: ExportGroup[] = [];
@@ -33,14 +30,14 @@ function groupsFromLinks(excelLinks: ExportLink[], pdfLinks: ExportLink[]) {
 
 export function ExportMenu({ label = "Xuất", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS, groups, primary = false }: { label?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[]; groups?: ExportGroup[]; primary?: boolean }) {
   const items = groups || groupsFromLinks(excelLinks, pdfLinks);
-  return <details style={{ position: "relative", display: "inline-block" }}>
-    <summary className={primary ? "button primary" : "button"} style={{ listStyle: "none", cursor: "pointer" }}>{label} ▾</summary>
-    <div style={{ position: "absolute", right: 0, zIndex: 50, minWidth: 260, marginTop: 8, padding: 10, border: "1px solid var(--line)", borderRadius: 14, background: "var(--panel)", boxShadow: "var(--shadow)" }}>
-      {items.map((group) => <div key={group.title} style={{ display: "grid", gap: 6, marginBottom: 10 }}>
-        <strong style={{ fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em" }}>{group.title}</strong>
-        {group.links.map((item) => <a key={item.href} href={item.href} target="_blank" rel="noreferrer" style={{ display: "grid", gap: 2, padding: "8px 10px", borderRadius: 10, background: "var(--panel-soft)", border: "1px solid var(--line)", fontWeight: 700 }}>
+  return <details className="export-menu">
+    <summary className={primary ? "button primary export-menu-trigger" : "button export-menu-trigger"}>{label} ▾</summary>
+    <div className="export-menu-panel">
+      {items.map((group) => <div className="export-menu-group" key={group.title}>
+        <strong>{group.title}</strong>
+        {group.links.map((item) => <a className={item.tone === "primary" ? "export-menu-link primary" : "export-menu-link"} key={item.href} href={item.href} target="_blank" rel="noreferrer">
           <span>{item.label}</span>
-          {item.hint ? <small style={{ color: "var(--muted)", fontWeight: 400 }}>{item.hint}</small> : null}
+          {item.hint ? <small>{item.hint}</small> : null}
         </a>)}
       </div>)}
     </div>
