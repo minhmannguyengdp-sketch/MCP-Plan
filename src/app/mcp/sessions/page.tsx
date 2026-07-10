@@ -8,8 +8,20 @@ type SessionRow = { id: string; routeId: string; routeName: string; sessionDate:
 type RouteOption = { id: string; name: string };
 type SessionsPayload = { sessions: SessionRow[]; routes: RouteOption[]; kpis: { label: string; value: string | number; hint: string }[] };
 
-function today() { return new Date().toISOString().slice(0, 10); }
-function daysAgo(days: number) { const date = new Date(); date.setDate(date.getDate() - days); return date.toISOString().slice(0, 10); }
+const VN_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
+function vnDate(offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: VN_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const year = parts.find((item) => item.type === "year")?.value || "";
+  const month = parts.find((item) => item.type === "month")?.value || "";
+  const day = parts.find((item) => item.type === "day")?.value || "";
+  return `${year}-${month}-${day}`;
+}
+
+function today() { return vnDate(); }
+function daysAgo(days: number) { return vnDate(-days); }
 function getRequestBaseUrl() { const host = headers().get("host") || "localhost:3000"; const proto = process.env.VERCEL ? "https" : "http"; return `${proto}://${host}`; }
 
 async function loadSessions(searchParams: Record<string, string | string[] | undefined>) {
