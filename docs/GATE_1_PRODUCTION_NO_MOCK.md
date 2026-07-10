@@ -16,7 +16,7 @@ Implemented in code:
   - `/reports` was mock-only.
   - production now throws `production_no_mock: /reports is not wired to real market reports API yet` instead of showing fake data.
 
-## Important deployment note
+## Deployment note
 
 Vercel auto deployments for these commits were cancelled by the project's ignored-build setting. Latest production may still point to the previous READY commit until a manual deploy or local push that passes the ignored-build rule is performed.
 
