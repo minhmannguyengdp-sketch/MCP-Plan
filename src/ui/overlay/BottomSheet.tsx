@@ -22,7 +22,7 @@ const backdropStyle: CSSProperties = {
   background: "rgba(16, 24, 40, 0.54)",
   padding: "16px",
   overscrollBehavior: "contain",
-  touchAction: "none"
+  touchAction: "auto"
 };
 
 const sheetStyle: CSSProperties = {
@@ -37,7 +37,7 @@ const sheetStyle: CSSProperties = {
   borderRadius: "24px 24px 18px 18px",
   boxShadow: "0 -24px 70px rgba(16, 24, 40, 0.28)",
   overscrollBehavior: "contain",
-  touchAction: "auto"
+  touchAction: "pan-y"
 };
 
 const handleStyle: CSSProperties = {
@@ -107,7 +107,10 @@ export function BottomSheet({ title, description, open = false, children, footer
       overflow: body.style.overflow,
       overscrollBehavior: body.style.overscrollBehavior
     };
-    const previousHtmlOverscroll = html.style.overscrollBehavior;
+    const previousHtml = {
+      overflow: html.style.overflow,
+      overscrollBehavior: html.style.overscrollBehavior
+    };
 
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
@@ -116,6 +119,7 @@ export function BottomSheet({ title, description, open = false, children, footer
     body.style.width = "100%";
     body.style.overflow = "hidden";
     body.style.overscrollBehavior = "contain";
+    html.style.overflow = "hidden";
     html.style.overscrollBehavior = "contain";
 
     const focusFrame = window.requestAnimationFrame(() => {
@@ -138,7 +142,8 @@ export function BottomSheet({ title, description, open = false, children, footer
       body.style.width = previousBody.width;
       body.style.overflow = previousBody.overflow;
       body.style.overscrollBehavior = previousBody.overscrollBehavior;
-      html.style.overscrollBehavior = previousHtmlOverscroll;
+      html.style.overflow = previousHtml.overflow;
+      html.style.overscrollBehavior = previousHtml.overscrollBehavior;
       window.scrollTo(0, scrollY);
     };
   }, [mounted, open]);
@@ -167,7 +172,7 @@ export function BottomSheet({ title, description, open = false, children, footer
             <h2 id={titleId}>{title}</h2>
             {description ? <p id={descriptionId}>{description}</p> : null}
           </div>
-          <button className="sheet-close" type="button" aria-label="Dong" onClick={() => onCloseRef.current?.()}>
+          <button className="sheet-close" type="button" aria-label="Đóng" onClick={() => onCloseRef.current?.()}>
             ×
           </button>
         </header>
