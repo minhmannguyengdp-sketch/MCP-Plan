@@ -61,6 +61,14 @@ function getApiBaseUrl(): string | null {
   return value ? value.replace(/\/+$/, "") : null;
 }
 
+function isProductionRuntime() {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+}
+
+function noMockInProductionError(message: string) {
+  return new Error(`production_no_mock: ${message}`);
+}
+
 function hasRouteContext(query?: ListQuery) {
   return Boolean(query?.routeId || query?.route_id);
 }
@@ -155,7 +163,11 @@ async function getMcpDayDataWithSessionStatus(baseUrl: string, query?: ListQuery
 async function withMockFallback<T>(apiRequest: () => Promise<ApiResult<T>>, mockRequest: () => Promise<ApiResult<T>>): Promise<ApiResult<T>> {
   try {
     return await apiRequest();
-  } catch {
+  } catch (error) {
+    if (isProductionRuntime()) {
+      const detail = error instanceof Error ? error.message : "api_failed";
+      throw noMockInProductionError(detail);
+    }
     return mockRequest();
   }
 }
@@ -207,6 +219,9 @@ function createHttpApiClient(baseUrl: string): McpApiClient {
 
 export function createApiClient(): McpApiClient {
   const apiBaseUrl = getApiBaseUrl();
-  if (!apiBaseUrl) return mockApiClient;
+  if (!apiBaseUrl) {
+    if (isProductionRuntime()) throw noMockInProductionError("missing_backend_api_base_url");
+    return mockApiClient;
+  }
   return createHttpApiClient(apiBaseUrl);
 }
