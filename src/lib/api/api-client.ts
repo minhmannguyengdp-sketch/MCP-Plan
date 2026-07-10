@@ -69,6 +69,12 @@ function noMockInProductionError(message: string) {
   return new Error(`production_no_mock: ${message}`);
 }
 
+function isNextDynamicUsageError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const digest = typeof error === "object" && error ? String((error as { digest?: unknown }).digest ?? "") : "";
+  return message.includes("Dynamic server usage") || message.includes("dynamic server usage") || digest.includes("DYNAMIC_SERVER_USAGE");
+}
+
 function hasRouteContext(query?: ListQuery) {
   return Boolean(query?.routeId || query?.route_id);
 }
@@ -164,6 +170,7 @@ async function withMockFallback<T>(apiRequest: () => Promise<ApiResult<T>>, mock
   try {
     return await apiRequest();
   } catch (error) {
+    if (isNextDynamicUsageError(error)) throw error;
     if (isProductionRuntime()) {
       const detail = error instanceof Error ? error.message : "api_failed";
       throw noMockInProductionError(detail);
