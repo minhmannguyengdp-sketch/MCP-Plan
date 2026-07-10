@@ -1,5 +1,5 @@
 import { restRows } from "@/lib/export/supabase-rest";
-import type { MarketCheckItem, MarketCheckKpi, MarketCheckStatus } from "./market-checks.types";
+import type { MarketCheckItem, MarketCheckStatus } from "./market-checks.types";
 import { MarketChecksClientPage } from "./MarketChecksClientPage";
 
 type FileRow = Record<string, string | number | boolean | null>;
@@ -68,20 +68,6 @@ function toCheck(file: FileRow, customer: CustomerRow, result: ResultRow = {}): 
   };
 }
 
-function kpis(checks: MarketCheckItem[]): MarketCheckKpi[] {
-  const done = checks.filter((check) => Boolean(check.resultId)).length;
-  const opportunities = checks.filter((check) => check.status === "opportunity").length;
-  const risks = checks.filter((check) => check.status === "risk").length;
-  const products = new Set(checks.map((check) => check.productName).filter(Boolean)).size;
-
-  return [
-    { label: "Điểm test", value: checks.length, hint: "Dữ liệu thật" },
-    { label: "Đã nhập", value: done, hint: "Có kết quả" },
-    { label: "Cơ hội", value: opportunities, hint: "Kết quả tốt" },
-    { label: "Rủi ro", value: risks || products, hint: risks ? "Cần xử lý" : "SKU theo dõi" }
-  ];
-}
-
 export async function MarketChecksPage() {
   const files = await restRows<FileRow>("test_files", {
     select: "id,title,test_date,sales,status,note,sync_status,created_at,updated_at",
@@ -103,5 +89,5 @@ export async function MarketChecksPage() {
 
   const checks = buildChecks(files, customers, results);
 
-  return <MarketChecksClientPage kpis={kpis(checks)} checks={checks} />;
+  return <MarketChecksClientPage checks={checks} />;
 }
