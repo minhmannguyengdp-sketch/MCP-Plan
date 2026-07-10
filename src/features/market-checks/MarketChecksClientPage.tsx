@@ -151,7 +151,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
   );
 }
 
-export function MarketChecksClientPage({ kpis, checks }: { kpis: MarketCheckKpi[]; checks: MarketCheckItem[] }) {
+export function MarketChecksClientPage({ checks }: { kpis: MarketCheckKpi[]; checks: MarketCheckItem[] }) {
   const [rows, setRows] = useState(checks);
   const [selectedCheck, setSelectedCheck] = useState<MarketCheckItem | null>(null);
   const setup = useMemo(() => buildSetupMetrics(rows), [rows]);
@@ -187,7 +187,7 @@ export function MarketChecksClientPage({ kpis, checks }: { kpis: MarketCheckKpi[
         </div>
       </section>
 
-      <CompactKpiStrip items={rows === checks ? kpis : liveKpis} />
+      <CompactKpiStrip items={liveKpis} />
 
       <section className={styles.section}>
         <div className="dashboard-section-head"><h2>Kết quả theo điểm bán</h2><span>{rows.length} dòng</span></div>
