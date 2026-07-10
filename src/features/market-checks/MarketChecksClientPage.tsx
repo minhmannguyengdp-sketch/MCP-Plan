@@ -29,6 +29,18 @@ function buildSetupMetrics(checks: MarketCheckItem[]) {
   return { products, accounts, pending };
 }
 
+function buildKpis(checks: MarketCheckItem[]): MarketCheckKpi[] {
+  const done = checks.filter((check) => Boolean(check.resultId)).length;
+  const opportunities = checks.filter((check) => check.status === "opportunity").length;
+  const risks = checks.filter((check) => check.status === "risk").length;
+  return [
+    { label: "Điểm test", value: checks.length, hint: "Dữ liệu thật" },
+    { label: "Đã nhập", value: done, hint: "Có kết quả" },
+    { label: "Cơ hội", value: opportunities, hint: "Kết quả tốt" },
+    { label: "Rủi ro", value: risks, hint: "Cần xử lý" }
+  ];
+}
+
 function TestResultCard({ check, onSelect }: { check: MarketCheckItem; onSelect: (check: MarketCheckItem) => void }) {
   return (
     <OperationalListCard
@@ -143,6 +155,7 @@ export function MarketChecksClientPage({ kpis, checks }: { kpis: MarketCheckKpi[
   const [rows, setRows] = useState(checks);
   const [selectedCheck, setSelectedCheck] = useState<MarketCheckItem | null>(null);
   const setup = useMemo(() => buildSetupMetrics(rows), [rows]);
+  const liveKpis = useMemo(() => buildKpis(rows), [rows]);
   const needAction = rows.filter((check) => check.status !== "normal").length;
 
   function handleSaved(next: MarketCheckItem) {
@@ -174,7 +187,7 @@ export function MarketChecksClientPage({ kpis, checks }: { kpis: MarketCheckKpi[
         </div>
       </section>
 
-      <CompactKpiStrip items={kpis} />
+      <CompactKpiStrip items={rows === checks ? kpis : liveKpis} />
 
       <section className={styles.section}>
         <div className="dashboard-section-head"><h2>Kết quả theo điểm bán</h2><span>{rows.length} dòng</span></div>
