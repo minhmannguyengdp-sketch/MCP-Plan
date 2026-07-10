@@ -1,6 +1,76 @@
 /* UI scroll hardening.
    Root cause: earlier mobile shell locked html/body and several dense UI strips hid overflow/scrollbars.
    This keeps the document as the primary vertical scroller and makes nested horizontal strips momentum-scroll instead of feeling stuck. */
+.export-menu {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.export-menu-trigger {
+  list-style: none;
+  white-space: nowrap;
+}
+
+.export-menu-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.export-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 70;
+  width: min(300px, calc(100vw - 24px));
+  max-height: min(72vh, 520px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 10px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.export-menu-group {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.export-menu-group:last-child {
+  margin-bottom: 0;
+}
+
+.export-menu-group > strong {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.export-menu-link {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
+.export-menu-link.primary {
+  border-color: rgba(37, 99, 235, 0.18);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.export-menu-link small {
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 @media (max-width: 820px) {
   html,
   body {
@@ -52,7 +122,8 @@
 
   .product-card-list.compact,
   .order-builder-report-style .order-summary-list.report-style,
-  .sheet-body {
+  .sheet-body,
+  .export-menu-panel {
     touch-action: pan-y;
   }
 
@@ -98,5 +169,14 @@
   .mcp-session-card-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .export-menu {
+    width: fit-content;
+  }
+
+  .export-menu-panel {
+    right: auto;
+    left: 0;
   }
 }
