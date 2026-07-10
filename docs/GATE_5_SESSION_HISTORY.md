@@ -37,4 +37,4 @@ Expected:
 
 ## Deployment note
 
-Vercel auto deploy is still being canceled by the ignored-build setting. Production will not include Gate 5 until a manual deploy/local push passes that setting.
+Vercel ignored-build setting was reopened by the owner. This docs-only commit is intentionally used to trigger production deploy after Gate 1-5.
