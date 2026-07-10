@@ -20,13 +20,6 @@ Implemented in code:
 
 Vercel auto deployments for these commits were cancelled by the project's ignored-build setting. Latest production may still point to the previous READY commit until a manual deploy or local push that passes the ignored-build rule is performed.
 
-Check with:
-
-```bash
-# Vercel production should show latest commit when deployed
-# latest repo commit at time of this note: 6275a59898531247c122562216ae10220a3bee41
-```
-
 ## Local deploy command
 
 ```powershell
