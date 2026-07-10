@@ -7,7 +7,7 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
-import type { MarketCheckItem, MarketCheckKpi, MarketCheckStatus } from "./market-checks.types";
+import type { MarketCheckItem, MarketCheckStatus } from "./market-checks.types";
 import styles from "./MarketChecksClientPage.module.css";
 
 function getStatusLabel(status: MarketCheckStatus) {
@@ -29,7 +29,7 @@ function buildSetupMetrics(checks: MarketCheckItem[]) {
   return { products, accounts, pending };
 }
 
-function buildKpis(checks: MarketCheckItem[]): MarketCheckKpi[] {
+function buildKpis(checks: MarketCheckItem[]) {
   const done = checks.filter((check) => Boolean(check.resultId)).length;
   const opportunities = checks.filter((check) => check.status === "opportunity").length;
   const risks = checks.filter((check) => check.status === "risk").length;
@@ -151,7 +151,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
   );
 }
 
-export function MarketChecksClientPage({ checks }: { kpis: MarketCheckKpi[]; checks: MarketCheckItem[] }) {
+export function MarketChecksClientPage({ checks }: { checks: MarketCheckItem[] }) {
   const [rows, setRows] = useState(checks);
   const [selectedCheck, setSelectedCheck] = useState<MarketCheckItem | null>(null);
   const setup = useMemo(() => buildSetupMetrics(rows), [rows]);
