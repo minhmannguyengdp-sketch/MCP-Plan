@@ -10,6 +10,9 @@ export const marketChecksMock: MarketChecksData = {
   checks: [
     {
       id: "check-001",
+      fileId: "test-file-mock-001",
+      customerId: "test-customer-mock-001",
+      resultId: "check-001",
       date: "2026-07-03",
       routeName: "Tuyen Cho Gao",
       accountName: "Diem ban Minh Chau",
@@ -22,6 +25,9 @@ export const marketChecksMock: MarketChecksData = {
     },
     {
       id: "check-002",
+      fileId: "test-file-mock-001",
+      customerId: "test-customer-mock-002",
+      resultId: "check-002",
       date: "2026-07-03",
       routeName: "Tuyen Cho Gao",
       accountName: "Diem ban Thanh Phat",
@@ -34,6 +40,9 @@ export const marketChecksMock: MarketChecksData = {
     },
     {
       id: "check-003",
+      fileId: "test-file-mock-002",
+      customerId: "test-customer-mock-003",
+      resultId: "check-003",
       date: "2026-07-03",
       routeName: "Tuyen My Tho",
       accountName: "Diem ban Huong Que",
@@ -46,6 +55,9 @@ export const marketChecksMock: MarketChecksData = {
     },
     {
       id: "check-004",
+      fileId: "test-file-mock-003",
+      customerId: "test-customer-mock-004",
+      resultId: "check-004",
       date: "2026-07-02",
       routeName: "Tuyen Go Cong",
       accountName: "Diem ban Ven Song",
@@ -58,6 +70,9 @@ export const marketChecksMock: MarketChecksData = {
     },
     {
       id: "check-005",
+      fileId: "test-file-mock-004",
+      customerId: "test-customer-mock-005",
+      resultId: "check-005",
       date: "2026-07-02",
       routeName: "Tuyen Cai Be",
       accountName: "Diem ban Tan Loi",
