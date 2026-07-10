@@ -24,7 +24,7 @@ Check with:
 
 ```bash
 # Vercel production should show latest commit when deployed
-# latest repo commit at time of this note: 3b3ffe81e995496b21bf44f3ea50b252ce7b7c73
+# latest repo commit at time of this note: 6275a59898531247c122562216ae10220a3bee41
 ```
 
 ## Local deploy command
