@@ -1,27 +1,20 @@
 export const dynamic = "force-dynamic";
 
-const LOCAL_EXPORTS: Record<string, string> = {
-  "mcp-sessions.csv": "local",
-  "orders.csv": "local",
-  "route-customers-needs-gps.csv": "local"
-};
-const ALLOWED = new Set([
+const LOCAL_EXPORTS = new Set([
   "route-customers.csv",
-  ...Object.keys(LOCAL_EXPORTS),
+  "mcp-sessions.csv",
+  "orders.csv",
   "market-reports.csv",
   "followups.csv",
-  "tests.csv"
+  "tests.csv",
+  "route-customers-needs-gps.csv"
 ]);
 
-function backendBaseUrl() {
-  const value = String(process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
-  return value ? value.replace(/\/+$/, "") : null;
-}
-
-export async function GET(request: Request, context: { params: { file: string } }) {
-  const file = context.params.file;
-  if (!ALLOWED.has(file)) return Response.json({ ok: false, error: "export_not_allowed" }, { status: 404 });
-
+async function localExport(file: string, request: Request) {
+  if (file === "route-customers.csv") {
+    const route = await import("@/app/api/exports/route-customers.csv/route");
+    return route.GET(request);
+  }
   if (file === "mcp-sessions.csv") {
     const route = await import("@/app/api/exports/mcp-sessions.csv/route");
     return route.GET(request);
@@ -30,27 +23,27 @@ export async function GET(request: Request, context: { params: { file: string } 
     const route = await import("@/app/api/exports/orders.csv/route");
     return route.GET(request);
   }
+  if (file === "market-reports.csv") {
+    const route = await import("@/app/api/exports/market-reports.csv/route");
+    return route.GET(request);
+  }
+  if (file === "followups.csv") {
+    const route = await import("@/app/api/exports/followups.csv/route");
+    return route.GET(request);
+  }
+  if (file === "tests.csv") {
+    const route = await import("@/app/api/exports/tests.csv/route");
+    return route.GET(request);
+  }
   if (file === "route-customers-needs-gps.csv") {
     const route = await import("@/app/api/exports/route-customers-needs-gps.csv/route");
     return route.GET(request);
   }
+  return Response.json({ ok: false, error: "export_not_allowed" }, { status: 404 });
+}
 
-  const baseUrl = backendBaseUrl();
-  if (!baseUrl) return Response.json({ ok: false, error: "missing_backend_api_base_url" }, { status: 500 });
-
-  try {
-    const url = new URL(request.url);
-    const response = await fetch(`${baseUrl}/api/exports/${file}${url.search}`, { cache: "no-store", headers: { Accept: "text/csv,*/*" } });
-    const body = await response.text();
-    return new Response(body, {
-      status: response.status,
-      headers: {
-        "Content-Type": response.headers.get("content-type") || "text/csv; charset=utf-8",
-        "Content-Disposition": response.headers.get("content-disposition") || `attachment; filename="${file}"`,
-        "Cache-Control": "no-store"
-      }
-    });
-  } catch (error) {
-    return Response.json({ ok: false, error: error instanceof Error ? error.message : "export_proxy_failed" }, { status: 502 });
-  }
+export async function GET(request: Request, context: { params: { file: string } }) {
+  const file = context.params.file;
+  if (!LOCAL_EXPORTS.has(file)) return Response.json({ ok: false, error: "export_not_allowed" }, { status: 404 });
+  return localExport(file, request);
 }
