@@ -1,0 +1,29 @@
+/* Restore page-level scroll for MCP route/session screens.
+   Previous mobile shell locked html/body and relied on .main as the only scroller; after route transitions this can make Tuyến gốc / MCP hôm nay feel like the scrollbar disappeared. */
+@media (max-width: 820px) {
+  html,
+  body {
+    min-height: 100%;
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .app-shell {
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+  }
+
+  .main {
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .mcp-line-list,
+  .mcp-session-list {
+    padding-bottom: 10px;
+  }
+}
