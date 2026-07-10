@@ -3,6 +3,8 @@ type QueryValue = string | number | boolean | null | undefined;
 const DEFAULT_SUPABASE_URL = "https://noiadkpkvdohljgopgfb.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_n6LXv-fd-ImF3XzeU2mrjg_G7tBGy66";
 
+const RAW_FILTER_PREFIXES = ["eq.", "neq.", "gte.", "lte.", "lt.", "gt.", "ilike.", "like.", "is.", "in."];
+
 type RequestOptions = {
   select?: string;
   order?: string;
@@ -21,7 +23,7 @@ function filterValue(value: QueryValue) {
   if (value == null || value === "") return null;
   const text = String(value).trim();
   if (!text) return null;
-  if (text.startsWith("eq.") || text.startsWith("gte.") || text.startsWith("lte.") || text.startsWith("lt.") || text.startsWith("gt.") || text.startsWith("ilike.")) return text;
+  if (RAW_FILTER_PREFIXES.some((prefix) => text.startsWith(prefix))) return text;
   return `eq.${text}`;
 }
 
