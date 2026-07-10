@@ -12,7 +12,7 @@ type EditDraft = { sessionDate: string; status: string; note: string };
 const labels: Record<string, string> = { active: "Đang chạy", done: "Đã chốt", completed: "Đã chốt", cancelled: "Đã hủy" };
 const actionUrl = (id: string) => `/api/backend/mcp-session-actions/${encodeURIComponent(id)}`;
 const sessionExcelUrl = (id: string) => `/api/backend/exports/mcp-sessions.csv?sessionId=${encodeURIComponent(id)}`;
-const sessionPdfUrl = (id: string) => `/api/backend/pdf/session-day?sessionId=${encodeURIComponent(id)}`;
+const sessionPdfUrl = (id: string) => `/api/pdf/session-day?sessionId=${encodeURIComponent(id)}`;
 function toDraft(s: SessionRow): EditDraft { return { sessionDate: s.sessionDate, status: s.status === "completed" ? "done" : s.status || "active", note: s.note || "" }; }
 async function callApi(path: string, init: RequestInit) { const r = await fetch(path, { cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, ...init }); const p = await r.json().catch(() => ({})); if (!r.ok) throw new Error(p.error || p.message || "Không xử lý được phiên"); return p; }
 
