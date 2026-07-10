@@ -160,7 +160,6 @@ export function MarketChecksClientPage({ checks }: { checks: MarketCheckItem[] }
 
   function handleSaved(next: MarketCheckItem) {
     setRows((current) => current.map((item) => item.id === next.id ? next : item));
-    setSelectedCheck(next);
   }
 
   return (
