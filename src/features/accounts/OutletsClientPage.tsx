@@ -42,15 +42,7 @@ function OutletSheet({ item, onClose }: { item: AccountItem | null; onClose: () 
       onClose={onClose}
       title={item ? item.name : "Hồ sơ điểm bán"}
       description={item ? `${item.area} · ${item.routeName}` : undefined}
-      footer={
-        <div className="sheet-action-grid">
-          <button className="button primary" type="button">Lên lịch ghé lại</button>
-          <button className="button" type="button">Tạo đơn nhanh</button>
-          <button className="button" type="button">Ghi quan sát MCP</button>
-          <button className="button" type="button">Tạo việc theo dõi</button>
-          <button className="button" type="button" onClick={onClose}>Đóng</button>
-        </div>
-      }
+      footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {item ? (
         <div className="outlet-sheet-content">
@@ -67,7 +59,7 @@ function OutletSheet({ item, onClose }: { item: AccountItem | null; onClose: () 
           </div>
           <div className="sheet-note-card">
             <h3>Hồ sơ điểm bán</h3>
-            <p>Nơi tổng hợp lịch ghé, đơn hàng, quan sát MCP, việc cần làm và ghi chú chăm sóc của điểm bán.</p>
+            <p>Dữ liệu được tổng hợp từ tuyến, phiên MCP và đơn hàng. Các thao tác tạo đơn, ghi quan sát hoặc follow-up nên thực hiện trong phiên MCP để giữ đúng ngữ cảnh tuyến/ngày.</p>
           </div>
         </div>
       ) : null}
@@ -78,6 +70,16 @@ function OutletSheet({ item, onClose }: { item: AccountItem | null; onClose: () 
 export function OutletsClientPage({ kpis, items }: { kpis: AccountKpi[]; items: AccountItem[] }) {
   const [selected, setSelected] = useState<AccountItem | null>(null);
   const columns = useMemo(() => buildColumns(setSelected), []);
+  const stats = useMemo(() => {
+    const needVisit = items.filter((item) => item.status === "need_visit").length;
+    const missingContact = items.filter((item) => !item.contactName || item.contactName === "-" || item.contactName === "Chưa cập nhật").length;
+    const noOrder = items.filter((item) => !item.lastOrderDate || item.lastOrderDate === "-").length;
+    const tierA = items.filter((item) => item.tier === "A").length;
+    return { needVisit, missingContact, noOrder, tierA };
+  }, [items]);
+  const priorityText = stats.needVisit > 0
+    ? `Có ${stats.needVisit} điểm bán cần ghé lại. Ưu tiên nhóm có doanh số hoặc chưa có đơn gần đây.`
+    : "Tệp điểm bán đang ổn định. Tiếp tục duy trì lịch ghé và cập nhật quan sát trong phiên MCP.";
 
   return (
     <AppShell activeHref="/customers">
@@ -97,12 +99,12 @@ export function OutletsClientPage({ kpis, items }: { kpis: AccountKpi[]; items: 
           <DataTable columns={columns} rows={items} getRowKey={(row) => row.id} emptyMessage="Chưa có điểm bán" />
         </div>
         <div className="card">
-          <h2 className="panel-title">Cần chuẩn hóa</h2>
+          <h2 className="panel-title">Chất lượng hồ sơ</h2>
           <div className="grid">
-            <div className="metric-row"><span>Cần ghé lại</span><strong>2</strong></div>
-            <div className="metric-row"><span>Thiếu thông tin</span><strong>1</strong></div>
-            <div className="metric-row"><span>Chưa có đơn</span><strong>3</strong></div>
-            <div className="metric-row"><span>Tier A</span><strong>2</strong></div>
+            <div className="metric-row"><span>Cần ghé lại</span><strong>{stats.needVisit}</strong></div>
+            <div className="metric-row"><span>Thiếu liên hệ</span><strong>{stats.missingContact}</strong></div>
+            <div className="metric-row"><span>Chưa có đơn</span><strong>{stats.noOrder}</strong></div>
+            <div className="metric-row"><span>Tier A</span><strong>{stats.tierA}</strong></div>
           </div>
         </div>
       </section>
@@ -111,11 +113,11 @@ export function OutletsClientPage({ kpis, items }: { kpis: AccountKpi[]; items: 
         <h2 className="panel-title">Gợi ý chăm sóc điểm bán</h2>
         <article className="action-card">
           <div>
-            <span className="badge">Ưu tiên</span>
-            <h3>Tập trung điểm bán tier cao nhưng chưa có đơn mới</h3>
-            <p className="page-subtitle">Nhóm này nên được ghé lại trước để kiểm tra tồn kho, đối thủ và nhu cầu đặt thêm hàng.</p>
+            <span className="badge">Từ dữ liệu hiện có</span>
+            <h3>Ưu tiên ghé lại đúng tuyến và ghi nhận trong phiên MCP</h3>
+            <p className="page-subtitle">{priorityText}</p>
           </div>
-          <strong>Sale</strong>
+          <strong>MCP</strong>
         </article>
       </section>
 
