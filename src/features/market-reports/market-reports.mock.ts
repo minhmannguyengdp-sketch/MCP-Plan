@@ -1,51 +1,103 @@
-import type { MarketReportsData } from "./market-reports.types";
+import type { MarketReportItem, MarketReportsData } from "./market-reports.types";
+
+const emptyOverview = {
+  planned: 0,
+  visited: 0,
+  pending: 0,
+  skipped: 0,
+  observations: 0,
+  orders: 0,
+  tests: 0,
+  followups: 0
+};
+
+const emptySections = {
+  overview: emptyOverview,
+  competitors: [],
+  usedProducts: [],
+  opportunities: [],
+  risks: [],
+  nextActions: [],
+  observations: [],
+  orders: [],
+  tests: [],
+  followups: [],
+  skipped: [],
+  customers: []
+};
+
+function mockReport(input: Pick<MarketReportItem, "id" | "date" | "routeName" | "accountName" | "reportType" | "subject" | "note" | "nextAction" | "status"> & Partial<MarketReportItem>): MarketReportItem {
+  return {
+    sessionId: `mock-session-${input.id}`,
+    score: input.status === "risk" ? 30 : input.status === "opportunity" ? 75 : 50,
+    health: input.status === "risk" ? "risk" : input.status === "opportunity" ? "good" : "watch",
+    warnings: input.status === "risk" ? [input.note] : [],
+    recommendedActions: input.nextAction ? [{ priority: input.status === "risk" ? "high" : "medium", action: input.nextAction, reason: input.note }] : [],
+    insights: {
+      summary: input.note,
+      reasons: input.note ? [input.note] : [],
+      opportunities: input.status === "opportunity" ? [input.note] : [],
+      risks: input.status === "risk" ? [input.note] : [],
+      dataQuality: {
+        customerDetails: 0,
+        expectedCustomers: 0,
+        completeCustomerCoverage: true,
+        customersWithSignals: 0,
+        visitedWithoutSignals: 0
+      }
+    },
+    overview: { ...emptyOverview },
+    sections: { ...emptySections, overview: { ...emptyOverview } },
+    ...input
+  };
+}
 
 export const marketReportsMock: MarketReportsData = {
   kpis: [
-    { label: "Bao cao", value: 12, hint: "Trong ky" },
-    { label: "Co hoi", value: 4, hint: "Can bam sat" },
-    { label: "Rui ro", value: 3, hint: "Can xu ly" },
-    { label: "Theo doi", value: 5, hint: "Da tao viec" }
+    { label: "Báo cáo", value: 12, hint: "Trong kỳ" },
+    { label: "Cơ hội", value: 4, hint: "Cần bám sát" },
+    { label: "Rủi ro", value: 3, hint: "Cần xử lý" },
+    { label: "Theo dõi", value: 5, hint: "Đã tạo việc" }
   ],
   reports: [
-    {
+    mockReport({
       id: "mr-001",
       date: "2026-07-03",
-      routeName: "Tuyen Cho Gao",
-      accountName: "Diem ban Minh Chau",
+      routeName: "Tuyến Chợ Gạo",
+      accountName: "Điểm bán Minh Châu",
       reportType: "price",
-      subject: "Gia ke doi thu thap hon",
-      competitorName: "Doi thu A",
+      subject: "Giá kệ đối thủ thấp hơn",
+      competitorName: "Đối thủ A",
       price: 16500,
-      note: "Gia ban thap hon khoang 1.000d so voi hang minh.",
-      nextAction: "Kiem tra chinh sach gia va khuyen mai",
+      note: "Giá bán thấp hơn khoảng 1.000đ so với hàng mình.",
+      nextAction: "Kiểm tra chính sách giá và khuyến mãi",
       status: "risk"
-    },
-    {
+    }),
+    mockReport({
       id: "mr-002",
       date: "2026-07-03",
-      routeName: "Tuyen Cho Gao",
-      accountName: "Diem ban Thanh Phat",
+      routeName: "Tuyến Chợ Gạo",
+      accountName: "Điểm bán Thành Phát",
       reportType: "display",
-      subject: "Vi tri trung bay tot",
+      subject: "Vị trí trưng bày tốt",
       competitorName: "",
       price: 0,
-      note: "Co the xin them mat ke cho SKU chu luc.",
-      nextAction: "De xuat POSM va tang hien dien",
+      note: "Có thể xin thêm mặt kệ cho SKU chủ lực.",
+      nextAction: "Đề xuất POSM và tăng hiện diện",
       status: "opportunity"
-    },
-    {
+    }),
+    mockReport({
       id: "mr-003",
       date: "2026-07-02",
-      routeName: "Tuyen Cai Be",
-      accountName: "Diem ban Tan Loi",
+      routeName: "Tuyến Cái Bè",
+      accountName: "Điểm bán Tân Lợi",
       reportType: "stock",
-      subject: "Ton kho cham ra",
+      subject: "Tồn kho chậm ra",
       competitorName: "",
       price: 0,
-      note: "Hang con nhieu, can kiem tra sell-out.",
-      nextAction: "Len lich ghe lai va ho tro ban ra",
+      note: "Hàng còn nhiều, cần kiểm tra sell-out.",
+      nextAction: "Lên lịch ghé lại và hỗ trợ bán ra",
       status: "normal"
-    }
+    })
   ]
 };
