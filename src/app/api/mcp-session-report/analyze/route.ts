@@ -1,4 +1,5 @@
 import { supabaseRestConfig } from "@/lib/export/supabase-rest";
+import { mcpReportAgentHealthUrl, mcpReportAgentUrl } from "@/lib/mcp/report-agent-config";
 import { buildSessionReportExportPayload } from "@/lib/mcp/session-report-export-v2";
 import { loadMcpSessionReportSource } from "@/lib/mcp/session-report-source";
 
@@ -47,7 +48,7 @@ function fallbackResult(reason: string): AgentResult {
     follow_up_list: [],
     order_opportunities: [],
     risks: [reason],
-    next_steps: ["Kiểm tra MCP_REPORT_AGENT_URL và log Cloud Run của agent."]
+    next_steps: ["Kiểm tra endpoint Cloud Run và log MCP Report Agent."]
   };
 }
 
@@ -106,6 +107,27 @@ async function persistAgentResult(sessionId: string, payload: Record<string, unk
   return { row: rows[0], analyzedAt };
 }
 
+export async function GET() {
+  try {
+    const response = await fetchWithTimeout(mcpReportAgentHealthUrl(), {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    }, 15000);
+    const rawText = await response.text();
+    const health = object(parseJson(rawText));
+    return Response.json({
+      ok: response.ok && health.ok !== false,
+      status: response.status,
+      source: "mcp_report_agent_health",
+      health,
+      receivedAt: new Date().toISOString()
+    }, { status: response.ok ? 200 : 502, headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "mcp_report_agent_health_failed";
+    return Response.json({ ok: false, error: reason }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
 export async function POST(request: Request) {
   const body = object(await request.json().catch(() => ({})));
   const sessionId = text(body.sessionId || body.session_id);
@@ -125,16 +147,7 @@ export async function POST(request: Request) {
     }
 
     const snapshot = buildSessionReportExportPayload(source);
-    const agentUrl = text(process.env.MCP_REPORT_AGENT_URL || process.env.AI_AGENT_URL || process.env.ADK_AGENT_URL);
-    if (!agentUrl) {
-      return Response.json({
-        ok: false,
-        source: "missing_agent_url",
-        error: "missing_mcp_report_agent_url",
-        result: fallbackResult("Chưa cấu hình MCP_REPORT_AGENT_URL. Agent ADK đã có trong repo nhưng chưa có endpoint Cloud Run để gọi.")
-      }, { status: 503, headers: { "Cache-Control": "no-store" } });
-    }
-
+    const agentUrl = mcpReportAgentUrl();
     const token = text(process.env.MCP_REPORT_AGENT_TOKEN || process.env.AI_AGENT_TOKEN || process.env.ADK_AGENT_TOKEN);
     const headers: Record<string, string> = {
       Accept: "application/json",
