@@ -19,6 +19,7 @@ type Summary = {
     observations: Array<{ id: string; customerName: string; note: string; competitors?: string[]; usedProducts?: string[] }>;
     orders: Array<{ id: string; code: string; customerName: string; status: string; total: number; note: string }>;
     tests: Array<{ id: string; customerName: string; productName: string; status: string; note: string }>;
+    followups: Array<{ id: string; customerName: string; title: string; dueDate: string; status: string; priority: string; note: string }>;
     skipped: Array<{ id: string; customerName: string; reason: string }>;
   };
 };
@@ -47,6 +48,10 @@ function OrderList({ items }: { items: Summary["sections"]["orders"] }) {
 function TestList({ items }: { items: Summary["sections"]["tests"] }) {
   if (!items.length) return <p className="page-subtitle">Chưa có test trong phiên.</p>;
   return <div className="grid">{items.map((item) => <div className="metric-row" key={item.id}><span>{item.customerName} · {item.productName || "Sản phẩm test"}</span><strong>{item.status || "tested"}</strong></div>)}</div>;
+}
+function FollowupList({ items }: { items: Summary["sections"]["followups"] }) {
+  if (!items?.length) return <p className="page-subtitle">Chưa có follow-up trong phiên.</p>;
+  return <div className="grid">{items.map((item) => <div className="metric-row" key={item.id}><span>{item.customerName} · {item.title}</span><strong>{item.dueDate || item.priority || item.status}</strong></div>)}</div>;
 }
 
 export function VisitsSessionReportPanel({ mcpDayData, children }: { mcpDayData: McpDayData; children?: ReactNode }) {
@@ -110,6 +115,7 @@ export function VisitsSessionReportPanel({ mcpDayData, children }: { mcpDayData:
         <section className="card"><h2 className="panel-title">Sản phẩm khách đang dùng</h2><CountList items={summary.sections.usedProducts} empty="Chưa có dữ liệu sản phẩm khách đang dùng." /></section>
         <section className="card"><h2 className="panel-title">Test</h2><TestList items={summary.sections.tests} /></section>
         <section className="card"><h2 className="panel-title">Đơn hàng</h2><OrderList items={summary.sections.orders} /></section>
+        <section className="card"><h2 className="panel-title">Follow-up</h2><FollowupList items={summary.sections.followups || []} /></section>
         <section className="card"><h2 className="panel-title">Quan sát chi tiết</h2><ObservationList items={summary.sections.observations} /></section>
         <section className="card"><h2 className="panel-title">Cơ hội</h2><TextList items={summary.sections.opportunities} empty="Chưa ghi cơ hội." /></section>
         <section className="card"><h2 className="panel-title">Rủi ro</h2><TextList items={summary.sections.risks} empty="Chưa ghi rủi ro." /></section>
