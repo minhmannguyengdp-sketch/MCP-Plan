@@ -26,7 +26,7 @@ function resultSummary(line: McpDayLine) {
   const done = [
     line.hasOrder ? "Có đơn" : null,
     line.hasTest ? "Có test" : null,
-    line.hasReport ? "Có báo cáo" : null,
+    line.hasReport ? "Có quan sát" : null,
     Number(line.followupCount || 0) > 0 ? `${line.followupCount} follow-up` : null
   ].filter(Boolean);
 
@@ -37,7 +37,7 @@ function actionItems(): Array<{ label: string; action: McpCustomerAction; tone?:
   return [
     { label: "Tạo đơn", action: "order", tone: "primary" },
     { label: "Ghi test", action: "test" },
-    { label: "Báo cáo", action: "market_report" },
+    { label: "Quan sát", action: "market_report" },
     { label: "Follow-up", action: "follow_up" },
     { label: "Bỏ qua / không mua", action: "skip" }
   ];
