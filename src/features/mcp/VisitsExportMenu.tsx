@@ -5,7 +5,12 @@ import { useEffect, useRef, useState } from "react";
 
 import type { McpDayData } from "@/features/mcp-day/mcp-day.types";
 
-export function VisitsExportMenu({ mcpDayData }: { mcpDayData: McpDayData }) {
+type VisitsExportMenuProps = {
+  mcpDayData: McpDayData;
+  variant?: "fixed" | "inline";
+};
+
+export function VisitsExportMenu({ mcpDayData, variant = "fixed" }: VisitsExportMenuProps) {
   const run = mcpDayData.run;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -37,11 +42,13 @@ export function VisitsExportMenu({ mcpDayData }: { mcpDayData: McpDayData }) {
     };
   }, []);
 
-  const shellStyle = {
+  const shellStyle = variant === "fixed" ? {
     position: "fixed",
     right: 14,
     top: 74,
     zIndex: 90
+  } as const : {
+    position: "relative"
   } as const;
 
   const triggerStyle = {
