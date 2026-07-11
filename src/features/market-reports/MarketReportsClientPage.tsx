@@ -54,7 +54,7 @@ function ReportSheet({ report, onClose }: { report: MarketReportItem | null; onC
     >
       {report ? (
         <div className="field-sheet-content">
-          <div className="field-focus-card"><span>Đánh giá snapshot</span><strong>{getStatusLabel(report.status)}</strong><small>{report.note}</small></div>
+          <div className="field-focus-card"><span>Đánh giá BC</span><strong>{getStatusLabel(report.status)}</strong><small>{report.note}</small></div>
           <div className="grid">
             <div className="metric-row"><span>Loại</span><strong>{getTypeLabel(report.reportType)}</strong></div>
             <div className="metric-row"><span>Đối thủ nổi bật</span><strong>{report.competitorName || "-"}</strong></div>
@@ -73,8 +73,8 @@ export function MarketReportsClientPage({ kpis, reports }: { kpis: MarketReportK
 
   return (
     <AppShell activeHref="/reports">
-      <PageHeader eyebrow="BC phiên MCP" title="Báo cáo phiên" subtitle="Danh sách snapshot BC phiên được tạo khi chốt phiên MCP. Dữ liệu khách chỉ là quan sát đầu vào, không còn là báo cáo rời."><span className="badge">{needAction} cần xử lý</span></PageHeader>
-      <FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Trạng thái", value: "Snapshot" }, { label: "Nhóm", value: "Theo phiên" }]} />
+      <PageHeader eyebrow="BC phiên MCP" title="BC phiên" subtitle="Danh sách BC phiên được lưu khi chốt phiên MCP. Quan sát khách chỉ là dữ liệu đầu vào, không tạo BC rời theo khách."><span className="badge">{needAction} cần xử lý</span></PageHeader>
+      <FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Trạng thái", value: "Đã chốt" }, { label: "Nhóm", value: "Theo phiên" }]} />
       <CompactKpiStrip items={kpis} />
 
       <div className={styles.templateGrid}>
@@ -86,7 +86,7 @@ export function MarketReportsClientPage({ kpis, reports }: { kpis: MarketReportK
 
       <section className={styles.section}>
         <div className="dashboard-section-head"><h2>BC phiên đã chốt</h2><span>{reports.length} phiên</span></div>
-        <div className={styles.list}>{reports.length ? reports.map((report) => <ReportCard key={report.id} report={report} onSelect={setSelectedReport} />) : <div className="empty-inline">Chưa có snapshot BC phiên. Chốt một phiên MCP để tạo báo cáo chính thức.</div>}</div>
+        <div className={styles.list}>{reports.length ? reports.map((report) => <ReportCard key={report.id} report={report} onSelect={setSelectedReport} />) : <div className="empty-inline">Chưa có BC phiên. Chốt một phiên MCP để lưu BC chính thức.</div>}</div>
       </section>
 
       <ReportSheet report={selectedReport} onClose={() => setSelectedReport(null)} />
