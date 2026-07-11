@@ -14,6 +14,7 @@ const actionUrl = (id: string) => `/api/backend/mcp-session-actions/${encodeURIC
 const reportExportUrl = (id: string, format: "json" | "markdown") => `/api/mcp-session-report/export?sessionId=${encodeURIComponent(id)}&format=${format}`;
 const sessionExcelUrl = (id: string) => `/api/backend/exports/mcp-sessions.csv?sessionId=${encodeURIComponent(id)}`;
 const sessionPdfUrl = (id: string) => `/api/pdf/session-day?sessionId=${encodeURIComponent(id)}`;
+const sessionWordUrl = (id: string) => `/api/mcp-session-report/word?sessionId=${encodeURIComponent(id)}`;
 function toDraft(s: SessionRow): EditDraft { return { sessionDate: s.sessionDate, status: s.status === "completed" ? "done" : s.status || "active", note: s.note || "" }; }
 function branchSummary(s: SessionRow) { return `${s.orderCount || 0} đơn · ${s.testCount || 0} test · ${s.reportCount || 0} BC · ${s.followupCount || 0} follow-up`; }
 function isClosedSession(s: SessionRow) { return s.status === "done" || s.status === "completed"; }
@@ -23,13 +24,24 @@ async function callApi(path: string, init: RequestInit) { const r = await fetch(
 function SessionExportMenu({ session }: { session: SessionRow }) {
   const closed = isClosedSession(session);
   return <ExportMenu
-    label={closed ? "Xuất BC" : "Xuất"}
-    groups={[{ title: closed ? "BC phiên đã chốt" : "Phiên này", links: [
-      buildExportLink(closed ? "JSON cho AI" : "JSON BC tạm tính", reportExportUrl(session.id, "json"), "primary", closed ? "Schema sạch cho Gemini/ADK phân tích" : "Dữ liệu tạm tính theo phiên hiện tại"),
-      buildExportLink("Markdown dễ đọc", reportExportUrl(session.id, "markdown"), undefined, "Bản văn bản có cấu trúc để đọc hoặc dán vào AI"),
-      buildExportLink("Excel checklist", sessionExcelUrl(session.id), undefined, "Dữ liệu dòng khách trong phiên"),
-      buildExportLink("PDF báo cáo ngày", sessionPdfUrl(session.id), undefined, "Bản in theo phiên")
-    ] }]}
+    label={closed ? "Xuất báo cáo" : "Xuất"}
+    groups={[
+      {
+        title: "Xuất văn phòng",
+        links: [
+          buildExportLink("PDF", sessionPdfUrl(session.id), "primary", "Xem, in hoặc gửi quản lý"),
+          buildExportLink("Excel", sessionExcelUrl(session.id), undefined, "Danh sách khách và trạng thái trong phiên"),
+          buildExportLink("Word", sessionWordUrl(session.id), undefined, "Bản báo cáo có thể chỉnh sửa")
+        ]
+      },
+      {
+        title: "Dữ liệu AI",
+        links: [
+          buildExportLink(closed ? "JSON cho Gemini/ADK" : "JSON BC tạm tính", reportExportUrl(session.id, "json"), undefined, "Dữ liệu máy đọc có cấu trúc"),
+          buildExportLink("Markdown", reportExportUrl(session.id, "markdown"), undefined, "Văn bản để dán vào AI hoặc lưu kỹ thuật")
+        ]
+      }
+    ]}
   />;
 }
 
