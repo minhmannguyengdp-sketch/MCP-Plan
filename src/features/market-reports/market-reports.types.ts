@@ -2,6 +2,8 @@ export type MarketReportStatus = "normal" | "opportunity" | "risk";
 
 export type MarketReportType = "price" | "competitor" | "display" | "stock";
 
+export type SessionReportHealth = "good" | "watch" | "risk" | "unknown";
+
 export type SessionReportOverview = {
   planned: number;
   visited: number;
@@ -57,13 +59,48 @@ export type SessionReportObservation = {
 
 export type SessionReportCustomer = {
   id?: string;
+  routeId?: string;
+  routeCustomerId?: string;
+  customerId?: string;
   customerName?: string;
+  phone?: string;
+  area?: string;
+  sortOrder?: number;
+  visitStatus?: string;
   status?: string;
+  statusReason?: string;
   orderId?: string;
   testId?: string;
   reportId?: string;
   followupCount?: number;
   note?: string;
+  orders?: SessionReportOrder[];
+  tests?: SessionReportTest[];
+  observations?: SessionReportObservation[];
+  followups?: SessionReportFollowup[];
+};
+
+export type SessionReportRecommendedAction = {
+  type?: string;
+  priority?: string;
+  customerId?: string;
+  customerName?: string;
+  action?: string;
+  reason?: string;
+};
+
+export type SessionReportInsights = {
+  summary?: string;
+  reasons: string[];
+  opportunities: string[];
+  risks: string[];
+  dataQuality?: {
+    customerDetails?: number;
+    expectedCustomers?: number;
+    completeCustomerCoverage?: boolean;
+    customersWithSignals?: number;
+    visitedWithoutSignals?: number;
+  };
 };
 
 export type SessionReportSections = {
@@ -98,6 +135,15 @@ export type MarketReportItem = {
   status: MarketReportStatus;
   snapshotSource?: string;
   snapshotAt?: string;
+  schemaVersion?: string;
+  score: number;
+  health: SessionReportHealth;
+  warnings: string[];
+  recommendedActions: SessionReportRecommendedAction[];
+  insights: SessionReportInsights;
+  aiPromptContext?: Record<string, unknown>;
+  aiResult?: Record<string, unknown> | null;
+  aiAnalyzedAt?: string;
   overview: SessionReportOverview;
   sections: SessionReportSections;
 };
