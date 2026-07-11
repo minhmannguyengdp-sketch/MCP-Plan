@@ -39,36 +39,64 @@ function num(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function byName<T extends { customerName: string }>(items: T[], customerName: string) {
-  const name = text(customerName).toLocaleLowerCase("vi");
-  return items.filter((item) => text(item.customerName).toLocaleLowerCase("vi") === name);
+function normalizedName(value: unknown) {
+  return text(value).toLocaleLowerCase("vi");
 }
 
-function linkedOrNamed<T extends { id: string; customerName: string }>(items: T[], linkedId: string, customerName: string) {
+function byName<T extends { customerName: string }>(items: T[], customerName: string) {
+  const name = normalizedName(customerName);
+  return items.filter((item) => normalizedName(item.customerName) === name);
+}
+
+function linkedOrUniqueName<T extends { id: string; customerName: string }>(items: T[], linkedId: string, customerName: string, uniqueName: boolean) {
   const linked = linkedId ? items.filter((item) => text(item.id) === linkedId) : [];
-  return linked.length ? linked : byName(items, customerName);
+  if (linked.length) return linked;
+  return uniqueName ? byName(items, customerName) : [];
 }
 
 export async function buildSessionReportCustomerDetails(summary: SessionReportSummary): Promise<SessionReportCustomerDetail[]> {
-  const rows = await restRows<Row>("mcp_session_customers", {
-    select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,sort_order,visit_status,status_reason,order_id,test_id,report_id,followup_count,note,created_at,updated_at",
-    order: "sort_order.asc,customer_name.asc",
-    limit: 20000,
-    filters: { session_id: summary.session.id }
-  });
+  const [rows, followupLinks] = await Promise.all([
+    restRows<Row>("mcp_session_customers", {
+      select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,sort_order,visit_status,status_reason,order_id,test_id,report_id,followup_count,note,created_at,updated_at",
+      order: "sort_order.asc,customer_name.asc",
+      limit: 20000,
+      filters: { session_id: summary.session.id }
+    }),
+    restRows<Row>("mcp_followups", {
+      select: "id,session_customer_id,customer_name",
+      order: "created_at.asc",
+      limit: 20000,
+      filters: { session_id: summary.session.id }
+    })
+  ]);
+
+  const nameCounts = rows.reduce<Record<string, number>>((acc, row) => {
+    const key = normalizedName(row.customer_name);
+    if (key) acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const followupCustomerById = followupLinks.reduce<Record<string, string>>((acc, row) => {
+    const id = text(row.id);
+    const sessionCustomerId = text(row.session_customer_id);
+    if (id && sessionCustomerId) acc[id] = sessionCustomerId;
+    return acc;
+  }, {});
 
   return rows.map((row) => {
+    const id = text(row.id);
     const customerName = text(row.customer_name) || "Khách trong phiên";
+    const uniqueName = nameCounts[normalizedName(customerName)] === 1;
     const orderId = text(row.order_id);
     const testId = text(row.test_id);
     const reportId = text(row.report_id);
-    const orders = linkedOrNamed(summary.sections.orders, orderId, customerName);
-    const tests = linkedOrNamed(summary.sections.tests, testId, customerName);
-    const observations = linkedOrNamed(summary.sections.observations, reportId, customerName);
-    const followups = byName(summary.sections.followups, customerName);
+    const orders = linkedOrUniqueName(summary.sections.orders, orderId, customerName, uniqueName);
+    const tests = linkedOrUniqueName(summary.sections.tests, testId, customerName, uniqueName);
+    const observations = linkedOrUniqueName(summary.sections.observations, reportId, customerName, uniqueName);
+    const linkedFollowups = summary.sections.followups.filter((item) => followupCustomerById[text(item.id)] === id);
+    const followups = linkedFollowups.length ? linkedFollowups : (uniqueName ? byName(summary.sections.followups, customerName) : []);
 
     return {
-      id: text(row.id),
+      id,
       routeId: text(row.route_id),
       routeCustomerId: text(row.route_customer_id),
       customerId: text(row.customer_id),
