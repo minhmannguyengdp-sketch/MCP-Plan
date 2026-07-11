@@ -1,6 +1,7 @@
 import { restRows } from "@/lib/export/supabase-rest";
 
 type Row = Record<string, unknown>;
+type RestOptions = { select?: string; order?: string; limit?: number; filters?: Record<string, string | number | boolean | null | undefined> };
 export type CountItem = { label: string; count: number };
 export type SessionReportSummary = {
   session: { id: string; routeId: string; routeName: string; sessionDate: string; sales: string; status: string; updatedAt: string };
@@ -58,7 +59,7 @@ function mergeRows(groups: Row[][]) {
   groups.flat().forEach((row) => { const id = text(row.id); if (id && !map.has(id)) map.set(id, row); });
   return Array.from(map.values());
 }
-async function restRowsSafe(table: string, options: Parameters<typeof restRows<Row>>[1]) {
+async function restRowsSafe(table: string, options: RestOptions) {
   return restRows<Row>(table, options);
 }
 async function rowsByFilters(table: string, select: string, order: string, filters: Array<Record<string, string | null>>) {
