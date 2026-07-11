@@ -1,4 +1,5 @@
-import { buildSessionReportAiPayload } from "@/lib/mcp/session-report-export";
+import { supabaseRestConfig } from "@/lib/export/supabase-rest";
+import { buildSessionReportExportPayload } from "@/lib/mcp/session-report-export-v2";
 import { loadMcpSessionReportSource } from "@/lib/mcp/session-report-source";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +85,27 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 5500
   }
 }
 
+async function persistAgentResult(sessionId: string, payload: Record<string, unknown>) {
+  const env = supabaseRestConfig();
+  const analyzedAt = new Date().toISOString();
+  const response = await fetch(`${env.url}/rest/v1/mcp_session_reports?session_id=eq.${encodeURIComponent(sessionId)}&select=id,session_id,ai_result,ai_analyzed_at`, {
+    method: "PATCH",
+    cache: "no-store",
+    headers: {
+      apikey: env.key,
+      Authorization: `Bearer ${env.key}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify({ ai_result: payload, ai_analyzed_at: analyzedAt, updated_at: analyzedAt })
+  });
+  const rows = await response.json().catch(() => ([]));
+  if (!response.ok) throw new Error(`save_ai_result_${response.status}`);
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error("session_report_snapshot_not_found_for_ai_result");
+  return { row: rows[0], analyzedAt };
+}
+
 export async function POST(request: Request) {
   const body = object(await request.json().catch(() => ({})));
   const sessionId = text(body.sessionId || body.session_id);
@@ -93,14 +115,23 @@ export async function POST(request: Request) {
 
   try {
     const source = await loadMcpSessionReportSource({ sessionId });
-    const snapshot = buildSessionReportAiPayload(source);
+    if (source.origin !== "snapshot" || !source.snapshotId) {
+      return Response.json({
+        ok: false,
+        source: "missing_snapshot",
+        error: "session_report_snapshot_required",
+        result: fallbackResult("BC phiên chưa có snapshot chính thức. Hãy rebuild BC trước khi chạy AI.")
+      }, { status: 409, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const snapshot = buildSessionReportExportPayload(source);
     const agentUrl = text(process.env.MCP_REPORT_AGENT_URL || process.env.AI_AGENT_URL || process.env.ADK_AGENT_URL);
     if (!agentUrl) {
       return Response.json({
         ok: false,
         source: "missing_agent_url",
         error: "missing_mcp_report_agent_url",
-        result: fallbackResult("Chưa cấu hình MCP_REPORT_AGENT_URL. Agent ADK đã được đưa vào repo nhưng chưa có endpoint Cloud Run để gọi.")
+        result: fallbackResult("Chưa cấu hình MCP_REPORT_AGENT_URL. Agent ADK đã có trong repo nhưng chưa có endpoint Cloud Run để gọi.")
       }, { status: 503, headers: { "Cache-Control": "no-store" } });
     }
 
@@ -115,10 +146,10 @@ export async function POST(request: Request) {
       method: "POST",
       headers,
       body: JSON.stringify({
-        input: snapshot,
-        snapshot,
+        input: source.aiPromptContext,
+        snapshot: source.aiPromptContext,
         report_type: snapshot.reportType,
-        selected_items: snapshot.customers.signals,
+        selected_items: source.customerDetails,
         selected_only: true,
         task: "mcp_session_report_analysis"
       })
@@ -127,19 +158,40 @@ export async function POST(request: Request) {
     const raw = object(parseJson(responseText));
     const result = normalizeResult(extractResult(raw));
     const agentOk = response.ok && raw.ok !== false;
+    const agentSource = text(raw.source) || "mcp_report_agent_url";
+
+    if (!agentOk) {
+      return Response.json({
+        ok: false,
+        source: agentSource,
+        status: response.status,
+        result,
+        reportSource: source.origin,
+        snapshotId: source.snapshotId,
+        persisted: false,
+        receivedAt: new Date().toISOString()
+      }, { status: 502, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const saved = await persistAgentResult(sessionId, {
+      schemaVersion: "mcp.session-report.ai-result.v1",
+      source: agentSource,
+      status: response.status,
+      result,
+      generatedAt: new Date().toISOString()
+    });
 
     return Response.json({
-      ok: agentOk,
-      source: text(raw.source) || "mcp_report_agent_url",
+      ok: true,
+      source: agentSource,
       status: response.status,
       result,
       reportSource: source.origin,
       snapshotId: source.snapshotId,
+      persisted: true,
+      aiAnalyzedAt: saved.analyzedAt,
       receivedAt: new Date().toISOString()
-    }, {
-      status: agentOk ? 200 : 502,
-      headers: { "Cache-Control": "no-store" }
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const reason = error instanceof Error
       ? (error.name === "AbortError" ? "Agent phân tích quá thời gian chờ." : error.message)
