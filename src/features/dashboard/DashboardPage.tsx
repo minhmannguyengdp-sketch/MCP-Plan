@@ -1,5 +1,6 @@
 import { createApiClient } from "@/lib/api/api-client";
 import type { DashboardActionDto, DashboardRouteHealthDto } from "@/lib/api/api.types";
+import { restRows } from "@/lib/export/supabase-rest";
 import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
 import { TodaySummaryCard } from "@/ui/cards/TodaySummaryCard";
 import { FilterBar } from "@/ui/layout/FilterBar";
@@ -7,12 +8,44 @@ import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 
-const MODULE_CARDS = [
-  { href: "/mcp", icon: "◇", title: "MCP hôm nay", description: "Mở phiên, đi tuyến, ghi đơn, test và quan sát", cta: "Mở MCP" },
-  { href: "/orders", icon: "+", title: "Đơn hàng", description: "Theo dõi đơn, giá trị và trạng thái xử lý", cta: "Xem đơn" },
-  { href: "/reports", icon: "▣", title: "BC phiên", description: "Snapshot phiên MCP đã chốt", cta: "Xem BC" },
-  { href: "/customers", icon: "□", title: "Khách hàng", description: "Hồ sơ điểm bán và lịch sử chăm sóc", cta: "Xem khách" }
-];
+type Row = Record<string, unknown>;
+type RestOptions = { select?: string; order?: string; limit?: number; filters?: Record<string, string | number | boolean | null | undefined> };
+type HomeCard = {
+  href: string;
+  eyebrow: string;
+  title: string;
+  value: string | number;
+  description: string;
+  meta: string[];
+  cta: string;
+  tone: "good" | "watch" | "risk";
+};
+
+type HomeAlert = {
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  href: string;
+  cta: string;
+};
+
+type HomeFacts = {
+  sessions: Row[];
+  reports: Row[];
+};
+
+function text(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function num(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function dateText(value: unknown) {
+  return text(value).slice(0, 10) || "-";
+}
 
 function getStatusLabel(status: "good" | "watch" | "risk") {
   if (status === "good") return "Ổn";
@@ -32,21 +65,73 @@ function getStatusClass(status: "good" | "watch" | "risk") {
   return "status-risk";
 }
 
-function renderModuleCard(item: (typeof MODULE_CARDS)[number]) {
-  return (
-    <a className="dashboard-module-card" href={item.href} key={item.href}>
-      <span className="dashboard-module-icon" aria-hidden="true">{item.icon}</span>
-      <div>
-        <h3>{item.title}</h3>
-        <p>{item.description}</p>
-      </div>
-      <strong>{item.cta}</strong>
-    </a>
-  );
+function sessionStatusText(status: string) {
+  if (status === "done" || status === "completed") return "Đã chốt";
+  if (status === "cancelled") return "Đã hủy";
+  return "Đang mở";
+}
+
+function visitRate(visited: number, planned: number) {
+  return planned > 0 ? Math.round((visited / planned) * 100) : 0;
+}
+
+function reportOverview(row?: Row) {
+  const direct = row?.overview;
+  if (direct && typeof direct === "object") return direct as Row;
+  const sections = row?.sections;
+  if (sections && typeof sections === "object") {
+    const overview = (sections as Row).overview;
+    if (overview && typeof overview === "object") return overview as Row;
+  }
+  return {} as Row;
+}
+
+function sessionMatchesReport(session?: Row, report?: Row) {
+  return Boolean(session?.id && report?.session_id && text(session.id) === text(report.session_id));
+}
+
+function metricsFromSession(session?: Row, report?: Row) {
+  const overview = sessionMatchesReport(session, report) ? reportOverview(report) : {};
+  const planned = num(overview.planned) || num(session?.planned_customers);
+  const visited = num(overview.visited) || num(session?.visited_customers);
+  return {
+    planned,
+    visited,
+    pending: num(overview.pending) || Math.max(planned - visited - num(overview.skipped), 0),
+    skipped: num(overview.skipped),
+    orders: num(overview.orders) || num(session?.order_count),
+    tests: num(overview.tests) || num(session?.test_count),
+    observations: num(overview.observations) || num(session?.report_count),
+    followups: num(overview.followups) || num(session?.followup_count)
+  };
+}
+
+async function safeRows(table: string, options: RestOptions) {
+  try {
+    return await restRows<Row>(table, options);
+  } catch {
+    return [] as Row[];
+  }
+}
+
+async function loadHomeFacts(): Promise<HomeFacts> {
+  const [sessions, reports] = await Promise.all([
+    safeRows("mcp_route_sessions", {
+      select: "id,route_id,route_name,session_date,sales,status,planned_customers,visited_customers,order_count,test_count,report_count,followup_count,updated_at",
+      order: "session_date.desc,updated_at.desc",
+      limit: 12
+    }),
+    safeRows("mcp_session_reports", {
+      select: "id,session_id,route_id,route_name,session_date,sales,status,kpis,overview,sections,summary_text,snapshot_source,snapshot_at,created_at,updated_at",
+      order: "session_date.desc,snapshot_at.desc",
+      limit: 8
+    })
+  ]);
+  return { sessions, reports };
 }
 
 function renderRouteCard(route: DashboardRouteHealthDto) {
-  const visitRate = route.planned > 0 ? Math.round((route.visited / route.planned) * 100) : 0;
+  const rate = visitRate(route.visited, route.planned);
 
   return (
     <article className="dashboard-route-card" key={route.routeName}>
@@ -57,8 +142,8 @@ function renderRouteCard(route: DashboardRouteHealthDto) {
         </div>
         <span className={`dashboard-status ${getStatusClass(route.status)}`}>{getStatusLabel(route.status)}</span>
       </div>
-      <div className="dashboard-route-progress" aria-label={`Tiến độ ghé ${visitRate}%`}>
-        <span style={{ width: `${Math.min(visitRate, 100)}%` }} />
+      <div className="dashboard-route-progress" aria-label={`Tiến độ ghé ${rate}%`}>
+        <span style={{ width: `${Math.min(rate, 100)}%` }} />
       </div>
       <div className="dashboard-route-metrics">
         <span>
@@ -66,7 +151,7 @@ function renderRouteCard(route: DashboardRouteHealthDto) {
           <small>Đã ghé</small>
         </span>
         <span>
-          <b>{visitRate}%</b>
+          <b>{rate}%</b>
           <small>Tiến độ</small>
         </span>
         <span>
@@ -91,55 +176,198 @@ function renderAction(action: DashboardActionDto) {
   );
 }
 
+function renderHomeCard(item: HomeCard) {
+  return (
+    <a className={`dashboard-command-card command-${item.tone}`} href={item.href} key={item.eyebrow}>
+      <div className="dashboard-command-head">
+        <span>{item.eyebrow}</span>
+        <strong className={`dashboard-status ${getStatusClass(item.tone)}`}>{getStatusLabel(item.tone)}</strong>
+      </div>
+      <div className="dashboard-command-main">
+        <h3>{item.title}</h3>
+        <b>{item.value}</b>
+        <p>{item.description}</p>
+      </div>
+      <div className="dashboard-command-meta">
+        {item.meta.map((meta) => <small key={meta}>{meta}</small>)}
+      </div>
+      <strong className="dashboard-command-cta">{item.cta}</strong>
+    </a>
+  );
+}
+
+function renderAlert(alert: HomeAlert) {
+  return (
+    <a className="dashboard-alert-card" href={alert.href} key={alert.title}>
+      <span className={`dashboard-priority priority-${alert.priority}`}>Ưu tiên {getPriorityLabel(alert.priority)}</span>
+      <div>
+        <h3>{alert.title}</h3>
+        <p>{alert.description}</p>
+      </div>
+      <strong>{alert.cta}</strong>
+    </a>
+  );
+}
+
 export async function DashboardPage() {
   const api = createApiClient();
-  const dashboardResult = await api.getDashboardOverview();
+  const [dashboardResult, homeFacts] = await Promise.all([api.getDashboardOverview(), loadHomeFacts()]);
   const dashboard = dashboardResult.data;
   const primaryKpi = dashboard.kpis[0];
   const totalRoutes = dashboard.routeHealth.length;
   const riskRoutes = dashboard.routeHealth.filter((route) => route.status === "risk").length;
   const watchRoutes = dashboard.routeHealth.filter((route) => route.status === "watch").length;
   const totalOrders = dashboard.routeHealth.reduce((sum, route) => sum + route.orders, 0);
+  const totalPlanned = dashboard.routeHealth.reduce((sum, route) => sum + route.planned, 0);
+  const totalVisited = dashboard.routeHealth.reduce((sum, route) => sum + route.visited, 0);
+  const totalVisitRate = visitRate(totalVisited, totalPlanned);
+  const activeSession = homeFacts.sessions.find((session) => !["done", "completed", "cancelled"].includes(text(session.status)));
+  const latestSession = activeSession || homeFacts.sessions[0];
+  const latestReport = homeFacts.reports[0];
+  const sessionMetrics = metricsFromSession(latestSession, latestReport);
+  const latestReportOverview = reportOverview(latestReport);
+  const reportVisited = num(latestReportOverview.visited);
+  const reportPlanned = num(latestReportOverview.planned);
+  const reportOrders = num(latestReportOverview.orders);
+  const reportTests = num(latestReportOverview.tests);
+  const reportFollowups = num(latestReportOverview.followups);
+  const reportObservations = num(latestReportOverview.observations);
+  const highActions = dashboard.actions.filter((action) => action.priority === "high").length;
+  const hasActiveSession = Boolean(activeSession?.id);
+  const hasLatestReport = Boolean(latestReport?.id);
+  const latestSessionStatus = text(latestSession?.status) || "active";
+  const latestSessionTitle = latestSession?.id ? `${text(latestSession.route_name) || "Phiên MCP"} · ${dateText(latestSession.session_date)}` : "Chưa thấy phiên MCP gần đây";
+  const latestReportTitle = latestReport?.id ? `${text(latestReport.route_name) || "MCP"} · ${dateText(latestReport.session_date || latestReport.snapshot_at)}` : "Chưa có BC phiên đã chốt";
+
+  const homeCards: HomeCard[] = [
+    {
+      href: "/mcp/sessions",
+      eyebrow: hasActiveSession ? "Phiên đang mở" : "Phiên gần nhất",
+      title: latestSessionTitle,
+      value: latestSession?.id ? `${sessionMetrics.visited}/${sessionMetrics.planned || "-"}` : `${totalVisited}/${totalPlanned || "-"}`,
+      description: latestSession?.id ? `${sessionStatusText(latestSessionStatus)} · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} test · ${sessionMetrics.observations} quan sát` : "Mở phiên từ tuyến gốc để bắt đầu ghi đơn, test và quan sát.",
+      meta: latestSession?.id ? [`${sessionMetrics.pending} chờ`, `${sessionMetrics.followups} follow-up`, text(latestSession.sales) || "Sale"] : [`${totalRoutes} tuyến`, `${totalVisitRate}% ghé`, "Chưa có phiên"],
+      cta: hasActiveSession ? "Tiếp tục phiên" : "Xem phiên",
+      tone: hasActiveSession ? "watch" : latestSession?.id ? "good" : "risk"
+    },
+    {
+      href: "/reports",
+      eyebrow: "BC phiên mới nhất",
+      title: latestReportTitle,
+      value: hasLatestReport ? `${reportOrders}/${reportTests}` : "-",
+      description: hasLatestReport ? `${reportVisited}/${reportPlanned || "-"} khách đã ghé · ${reportObservations} quan sát · ${reportFollowups} follow-up` : "Chưa có snapshot BC phiên để quản lý đọc nhanh hoặc đưa vào AI phân tích.",
+      meta: hasLatestReport ? ["đơn/test", `${reportPlanned ? visitRate(reportVisited, reportPlanned) : 0}% độ phủ`, text(latestReport.snapshot_source) || "snapshot"] : ["cần chốt phiên", "cần snapshot", "AI chưa có dữ liệu"],
+      cta: hasLatestReport ? "Xem BC" : "Mở BC",
+      tone: hasLatestReport ? (reportPlanned > 0 && visitRate(reportVisited, reportPlanned) < 50 ? "watch" : "good") : "risk"
+    },
+    {
+      href: "/actions",
+      eyebrow: "Việc cần xử lý",
+      title: dashboard.actions[0]?.title || "Không có việc khẩn cấp",
+      value: dashboard.actions.length,
+      description: dashboard.actions[0]?.description || "Chưa có cảnh báo vận hành nổi bật từ dữ liệu hiện tại.",
+      meta: [`${highActions} ưu tiên cao`, `${dashboard.actions.length - highActions} còn lại`, "theo dashboard"],
+      cta: dashboard.actions.length ? "Xem việc" : "Mở danh sách",
+      tone: highActions ? "risk" : dashboard.actions.length ? "watch" : "good"
+    },
+    {
+      href: "/routes",
+      eyebrow: "Sức khỏe tuyến",
+      title: riskRoutes ? `${riskRoutes} tuyến rủi ro` : watchRoutes ? `${watchRoutes} tuyến cần theo dõi` : "Tuyến ổn định",
+      value: `${riskRoutes + watchRoutes}`,
+      description: `${totalVisited}/${totalPlanned || "-"} khách đã ghé · ${totalOrders} đơn từ sức khỏe tuyến hiện tại.`,
+      meta: [`${riskRoutes} rủi ro`, `${watchRoutes} theo dõi`, `${totalVisitRate}% tiến độ`],
+      cta: "Xem tuyến",
+      tone: riskRoutes ? "risk" : watchRoutes ? "watch" : "good"
+    }
+  ];
+
+  const alerts: HomeAlert[] = [
+    !hasLatestReport && latestSession?.id && ["done", "completed"].includes(latestSessionStatus) ? {
+      title: "Phiên đã chốt nhưng chưa có BC",
+      description: `${text(latestSession.route_name) || "Phiên MCP"} ngày ${dateText(latestSession.session_date)} cần rebuild snapshot để /reports có dữ liệu chính thức.`,
+      priority: "high",
+      href: "/mcp/sessions",
+      cta: "Kiểm tra"
+    } : null,
+    hasLatestReport && reportPlanned > 0 && visitRate(reportVisited, reportPlanned) < 50 ? {
+      title: "Độ phủ phiên thấp",
+      description: `BC mới nhất chỉ ghé ${reportVisited}/${reportPlanned} khách. Cần kiểm tra lý do chưa ghé và lịch follow-up phiên sau.`,
+      priority: "high",
+      href: "/reports",
+      cta: "Xem BC"
+    } : null,
+    reportTests > 0 && reportFollowups === 0 ? {
+      title: "Có test nhưng chưa có follow-up",
+      description: "BC mới nhất có test sản phẩm nhưng chưa tạo việc theo dõi. Nên bổ sung follow-up để không mất tín hiệu mua hàng.",
+      priority: "medium",
+      href: "/reports",
+      cta: "Xem test"
+    } : null,
+    riskRoutes > 0 ? {
+      title: "Có tuyến rủi ro",
+      description: `${riskRoutes} tuyến đang ở trạng thái rủi ro. Ưu tiên kiểm tra độ phủ, đơn và khách chưa ghé.`,
+      priority: "medium",
+      href: "/routes",
+      cta: "Xem tuyến"
+    } : null,
+    highActions > 0 ? {
+      title: "Có việc ưu tiên cao",
+      description: `${highActions} việc đang cần xử lý trước. Mở danh sách việc để tránh sót follow-up hoặc đơn chưa xác nhận.`,
+      priority: "high",
+      href: "/actions",
+      cta: "Xem việc"
+    } : null
+  ].filter(Boolean) as HomeAlert[];
 
   return (
     <AppShell activeHref="/">
       <PageHeader
         eyebrow="Dashboard"
-        title="Hôm nay"
-        subtitle="Vào nhanh phiên MCP, đơn hàng, BC phiên và hồ sơ điểm bán."
+        title="Điều hành hôm nay"
+        subtitle="Nhìn nhanh phiên MCP, BC mới nhất, việc cần xử lý và sức khỏe tuyến — không chỉ là menu điều hướng."
       >
         <SourceBadge source={dashboardResult.source} />
       </PageHeader>
 
       <TodaySummaryCard
-        eyebrow="Tổng quan nhanh"
-        value={primaryKpi?.value ?? "-"}
-        description={primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
+        eyebrow={hasActiveSession ? "Đang có phiên cần tiếp tục" : hasLatestReport ? "BC phiên mới nhất" : "Tổng quan nhanh"}
+        value={hasActiveSession ? text(activeSession?.route_name) || "Phiên MCP" : hasLatestReport ? `${reportVisited}/${reportPlanned || "-"}` : primaryKpi?.value ?? "-"}
+        description={hasActiveSession ? `${dateText(activeSession?.session_date)} · ${sessionMetrics.visited}/${sessionMetrics.planned || "-"} khách đã ghé · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} test` : hasLatestReport ? `${latestReportTitle} · ${reportOrders} đơn · ${reportTests} test · ${reportObservations} quan sát` : primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
         pills={[
-          { label: "tuyến", value: totalRoutes },
-          { label: "đơn", value: totalOrders },
-          { label: "cần xem", value: riskRoutes + watchRoutes }
+          { label: "phiên", value: hasActiveSession ? "mở" : homeFacts.sessions.length },
+          { label: "BC", value: homeFacts.reports.length },
+          { label: "cần xem", value: alerts.length }
         ]}
       />
 
-      <section className="dashboard-module-grid" aria-label="Nghiệp vụ nhanh">
-        {MODULE_CARDS.map(renderModuleCard)}
+      <section className="dashboard-command-grid" aria-label="Điều hành nhanh">
+        {homeCards.map(renderHomeCard)}
       </section>
 
       <FilterBar
-        title="Lọc nhanh"
+        title="Trạng thái vận hành"
         filters={[
-          { label: "Kỳ", value: "Hôm nay" },
-          { label: "Tuyến", value: "Tất cả" },
-          { label: "Trạng thái", value: "Đang theo dõi" }
+          { label: "Phiên", value: hasActiveSession ? "Đang mở" : latestSession?.id ? sessionStatusText(latestSessionStatus) : "Chưa có" },
+          { label: "BC mới nhất", value: hasLatestReport ? dateText(latestReport?.session_date || latestReport?.snapshot_at) : "Chưa có" },
+          { label: "Độ phủ", value: hasLatestReport && reportPlanned ? `${visitRate(reportVisited, reportPlanned)}%` : `${totalVisitRate}%` },
+          { label: "Cảnh báo", value: String(alerts.length) }
         ]}
       />
 
       <CompactKpiStrip items={dashboard.kpis.map((item) => ({ label: item.label, value: item.value, hint: item.trend }))} />
 
+      <section className="dashboard-section dashboard-alerts-section">
+        <div className="dashboard-section-head">
+          <h2>Cảnh báo cần xử lý</h2>
+          <span>{alerts.length ? `${alerts.length} cảnh báo` : "đang ổn"}</span>
+        </div>
+        {alerts.length ? <div className="dashboard-alert-list">{alerts.map(renderAlert)}</div> : <div className="empty-inline">Chưa có cảnh báo nổi bật từ phiên, BC và tuyến hiện tại.</div>}
+      </section>
+
       <section className="dashboard-section dashboard-actions-section">
         <div className="dashboard-section-head">
-          <h2>Cần xử lý</h2>
+          <h2>Việc cần xử lý</h2>
           <span>{dashboard.actions.length} việc</span>
         </div>
         <div className="dashboard-action-list">{dashboard.actions.map(renderAction)}</div>
