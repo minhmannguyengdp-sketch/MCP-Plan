@@ -58,3 +58,5 @@ POST /api/mcp-session-report/analyze
 - POST gửi snapshot BC phiên đã chốt, nhận kết quả AI và lưu vào `mcp_session_reports.ai_result`.
 
 Deployment trigger after verified local build: 2026-07-11.
+
+Vercel deployment trigger after disabling verified commit requirement.
