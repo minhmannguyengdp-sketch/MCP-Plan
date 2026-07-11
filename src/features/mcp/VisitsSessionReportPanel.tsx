@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import type { McpDayData } from "@/features/mcp-day/mcp-day.types";
@@ -49,7 +49,7 @@ function TestList({ items }: { items: Summary["sections"]["tests"] }) {
   return <div className="grid">{items.map((item) => <div className="metric-row" key={item.id}><span>{item.customerName} · {item.productName || "Sản phẩm test"}</span><strong>{item.status || "tested"}</strong></div>)}</div>;
 }
 
-export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayData }) {
+export function VisitsSessionReportPanel({ mcpDayData, children }: { mcpDayData: McpDayData; children?: ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -89,14 +89,15 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
     }
   }
 
-  const shellStyle = { position: "fixed", right: 104, top: 74, zIndex: 90, display: "flex", gap: 6 } as const;
+  const shellStyle = { position: "fixed", right: 14, top: 74, zIndex: 90, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: "calc(100vw - 28px)" } as const;
   const baseButtonStyle = { minHeight: 34, borderRadius: 999, fontSize: 13, fontWeight: 900, padding: "0 12px", boxShadow: "0 6px 16px rgba(15, 23, 42, 0.08)", backdropFilter: "blur(10px)", cursor: "pointer" } as const;
   const reportButtonStyle = { ...baseButtonStyle, border: "1px solid rgba(37, 99, 235, 0.20)", background: "rgba(239, 246, 255, 0.96)", color: "#1d4ed8" } as const;
   const closeButtonStyle = { ...baseButtonStyle, border: "1px solid rgba(22, 163, 74, 0.22)", background: "rgba(240, 253, 244, 0.96)", color: "#166534" } as const;
 
   return <>
-    <div style={shellStyle}>
+    <div aria-label="Điều khiển phiên MCP" style={shellStyle}>
       <button type="button" style={reportButtonStyle} onClick={() => { setOpen(true); setSummary(null); }}>BC phiên</button>
+      {children}
       <button type="button" style={closeButtonStyle} disabled={closing} onClick={closeSession}>{closing ? "Đang chốt..." : "Chốt phiên"}</button>
     </div>
     <BottomSheet open={open} onClose={() => setOpen(false)} title="BC phiên" description={`${mcpDayData.run.routeName} · ${mcpDayData.run.date}`} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={() => setOpen(false)}>Đóng</button><button className="button primary" type="button" onClick={() => { setSummary(null); setError(null); }}>Tải lại</button><button className="button" type="button" onClick={closeSession} disabled={closing}>{closing ? "Đang chốt..." : "Chốt phiên"}</button></div>}>
