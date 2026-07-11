@@ -11,6 +11,23 @@ import type { MarketReportItem, MarketReportKpi, MarketReportStatus, MarketRepor
 import styles from "./MarketReportsClientPage.module.css";
 
 type ReportTab = "overview" | "orders" | "tests" | "observations" | "followups" | "customers" | "ai";
+type AgentProductInsight = { product?: string; status?: string; insight?: string };
+type AgentCustomerAction = { customer?: string; priority?: string; action?: string; reason?: string };
+type AgentSampleRequest = { customer?: string; products?: string[]; note?: string };
+type AgentFollowup = { customer?: string; date?: string; note?: string };
+type AgentOrderOpportunity = { customer?: string; products?: string[]; confidence?: string; reason?: string };
+type AgentResult = {
+  summary: string;
+  market_insights: string[];
+  product_insights: AgentProductInsight[];
+  customer_actions: AgentCustomerAction[];
+  sample_requests: AgentSampleRequest[];
+  follow_up_list: AgentFollowup[];
+  order_opportunities: AgentOrderOpportunity[];
+  risks: string[];
+  next_steps: string[];
+};
+type AgentResponse = { ok?: boolean; source?: string; error?: string; result?: unknown };
 
 const REPORT_TABS: { id: ReportTab; label: string }[] = [
   { id: "overview", label: "Tổng quan" },
@@ -50,8 +67,39 @@ function money(value?: number) {
   return `${Math.round(Number(value || 0)).toLocaleString("vi-VN")}đ`;
 }
 
-function reportJsonUrl(report: MarketReportItem) {
-  return `/api/mcp-session-report?sessionId=${encodeURIComponent(report.sessionId)}`;
+function reportExportUrl(report: MarketReportItem, format: "json" | "markdown") {
+  return `/api/mcp-session-report/export?sessionId=${encodeURIComponent(report.sessionId)}&format=${format}`;
+}
+
+function reportAnalyzeUrl() {
+  return "/api/mcp-session-report/analyze";
+}
+
+function object(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function stringList(value: unknown) {
+  return Array.isArray(value) ? value.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
+}
+
+function objectList<T>(value: unknown) {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") as T[] : [];
+}
+
+function normalizeAgentResult(value: unknown): AgentResult {
+  const result = object(value);
+  return {
+    summary: String(result.summary ?? "").trim(),
+    market_insights: stringList(result.market_insights),
+    product_insights: objectList<AgentProductInsight>(result.product_insights),
+    customer_actions: objectList<AgentCustomerAction>(result.customer_actions),
+    sample_requests: objectList<AgentSampleRequest>(result.sample_requests),
+    follow_up_list: objectList<AgentFollowup>(result.follow_up_list),
+    order_opportunities: objectList<AgentOrderOpportunity>(result.order_opportunities),
+    risks: stringList(result.risks),
+    next_steps: stringList(result.next_steps)
+  };
 }
 
 function buildAiSummary(report: MarketReportItem) {
@@ -95,7 +143,11 @@ function ReportCard({ report, onSelect }: { report: MarketReportItem; onSelect: 
       description={`${report.routeName} · ${ov.visited}/${ov.planned} khách đã ghé · ${ov.orders} đơn · ${ov.tests} test`}
       badge={<strong className={getStatusClass(report.status)}>{getStatusLabel(report.status)}</strong>}
       meta={[`Độ phủ ${pct(ov.visited, ov.planned)}`, `${ov.observations} quan sát`, report.nextAction]}
-      actions={[{ label: "Xem", tone: "primary", onClick: () => onSelect(report) }, { label: "JSON", href: reportJsonUrl(report) }]}
+      actions={[
+        { label: "Xem", tone: "primary", onClick: () => onSelect(report) },
+        { label: "JSON", href: reportExportUrl(report, "json") },
+        { label: "MD", href: reportExportUrl(report, "markdown") }
+      ]}
     />
   );
 }
@@ -139,7 +191,10 @@ function OverviewTab({ report }: { report: MarketReportItem }) {
   return <div className={styles.reportTabBody}>
     <section className={styles.reportHero}>
       <div><span>Đánh giá BC</span><strong>{getStatusLabel(report.status)}</strong><p>{report.note}</p></div>
-      <a className="button" href={reportJsonUrl(report)} target="_blank" rel="noreferrer">JSON cho AI</a>
+      <div className="sheet-action-grid">
+        <a className="button primary" href={reportExportUrl(report, "json")} target="_blank" rel="noreferrer">Xuất JSON</a>
+        <a className="button" href={reportExportUrl(report, "markdown")} target="_blank" rel="noreferrer">Xuất Markdown</a>
+      </div>
     </section>
     <div className={styles.reportMetricGrid}>
       <Metric label="Khách trong phiên" value={ov.planned} hint={`${ov.visited} đã ghé · ${ov.pending} chờ`} />
@@ -205,23 +260,90 @@ function CustomersTab({ report }: { report: MarketReportItem }) {
   </div>;
 }
 
-function AiTab({ report }: { report: MarketReportItem }) {
-  const ai = buildAiSummary(report);
+function AgentResultView({ result, source }: { result: AgentResult; source?: string }) {
   return <div className={styles.reportTabBody}>
     <section className={styles.aiPanel}>
-      <span>AI-ready summary</span>
-      <strong>{ai.score}</strong>
-      <p>{ai.summary}</p>
-      <a className="button primary" href={reportJsonUrl(report)} target="_blank" rel="noreferrer">Mở JSON cho Gemini</a>
+      <span>Kết quả ADK Agent{source ? ` · ${source}` : ""}</span>
+      <strong>{result.summary ? "Đã phân tích" : "Chưa có tóm tắt"}</strong>
+      <p>{result.summary || "Agent chưa trả tóm tắt."}</p>
     </section>
     <section className={styles.twoColumnSection}>
-      <div><h3>Cơ hội</h3><TextList items={ai.opportunities} empty="Chưa đủ tín hiệu cơ hội." /></div>
-      <div><h3>Rủi ro</h3><TextList items={ai.risks} empty="Chưa có rủi ro rõ." /></div>
+      <div><h3>Nhận định thị trường</h3><TextList items={result.market_insights} empty="Agent chưa có nhận định thị trường." /></div>
+      <div><h3>Rủi ro</h3><TextList items={result.risks} empty="Agent chưa nêu rủi ro." /></div>
     </section>
     <section>
-      <h3>Next actions đề xuất</h3>
-      <TextList items={ai.nextActions} empty="Chưa có việc đề xuất." />
+      <h3>Sản phẩm</h3>
+      {result.product_insights.length ? <div className={styles.detailList}>{result.product_insights.map((item, index) => <DetailRow key={`${item.product || "product"}-${index}`} title={item.product || `Sản phẩm ${index + 1}`} meta={item.status || "unknown"} note={item.insight} />)}</div> : <EmptyBlock>Agent chưa có nhận định sản phẩm.</EmptyBlock>}
     </section>
+    <section>
+      <h3>Hành động theo khách</h3>
+      {result.customer_actions.length ? <div className={styles.detailList}>{result.customer_actions.map((item, index) => <DetailRow key={`${item.customer || "customer"}-${index}`} title={item.customer || `Khách ${index + 1}`} meta={item.priority || "medium"} note={[item.action, item.reason].filter(Boolean).join(" · ")} />)}</div> : <EmptyBlock>Agent chưa đề xuất hành động theo khách.</EmptyBlock>}
+    </section>
+    <section>
+      <h3>Cơ hội đơn hàng</h3>
+      {result.order_opportunities.length ? <div className={styles.detailList}>{result.order_opportunities.map((item, index) => <DetailRow key={`${item.customer || "order"}-${index}`} title={item.customer || `Khách ${index + 1}`} meta={`${item.confidence || "medium"} · ${(item.products || []).join(", ") || "chưa rõ sản phẩm"}`} note={item.reason} />)}</div> : <EmptyBlock>Agent chưa nêu cơ hội đơn hàng.</EmptyBlock>}
+    </section>
+    <section>
+      <h3>Việc tiếp theo</h3>
+      <TextList items={result.next_steps} empty="Agent chưa đề xuất việc tiếp theo." />
+    </section>
+  </div>;
+}
+
+function AiTab({ report }: { report: MarketReportItem }) {
+  const ai = buildAiSummary(report);
+  const [loading, setLoading] = useState(false);
+  const [agent, setAgent] = useState<{ result: AgentResult; source?: string } | null>(null);
+  const [error, setError] = useState("");
+
+  async function runAgent() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(reportAnalyzeUrl(), {
+        method: "POST",
+        cache: "no-store",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: report.sessionId })
+      });
+      const payload = await response.json().catch(() => ({})) as AgentResponse;
+      const result = normalizeAgentResult(payload.result);
+      if (!response.ok || payload.ok === false) {
+        setError(payload.error || result.summary || "Agent chưa phân tích được BC phiên.");
+      }
+      if (result.summary || result.market_insights.length || result.customer_actions.length || result.risks.length) {
+        setAgent({ result, source: payload.source });
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không gọi được MCP Report Agent.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return <div className={styles.reportTabBody}>
+    <section className={styles.aiPanel}>
+      <span>Phân tích nền có quy tắc</span>
+      <strong>{ai.score}</strong>
+      <p>{ai.summary}</p>
+      <div className="sheet-action-grid">
+        <button className="button primary" type="button" onClick={runAgent} disabled={loading}>{loading ? "Agent đang phân tích..." : "Phân tích bằng ADK Agent"}</button>
+        <a className="button" href={reportExportUrl(report, "json")} target="_blank" rel="noreferrer">Xuất JSON</a>
+        <a className="button" href={reportExportUrl(report, "markdown")} target="_blank" rel="noreferrer">Xuất Markdown</a>
+      </div>
+    </section>
+    {error ? <EmptyBlock>{error}</EmptyBlock> : null}
+    {agent ? <AgentResultView result={agent.result} source={agent.source} /> : <>
+      <section className={styles.twoColumnSection}>
+        <div><h3>Cơ hội</h3><TextList items={ai.opportunities} empty="Chưa đủ tín hiệu cơ hội." /></div>
+        <div><h3>Rủi ro</h3><TextList items={ai.risks} empty="Chưa có rủi ro rõ." /></div>
+      </section>
+      <section>
+        <h3>Next actions đề xuất</h3>
+        <TextList items={ai.nextActions} empty="Chưa có việc đề xuất." />
+      </section>
+    </>}
   </div>;
 }
 
@@ -233,7 +355,7 @@ function ReportSheet({ report, onClose }: { report: MarketReportItem | null; onC
       onClose={onClose}
       title={report ? `BC phiên · ${report.routeName}` : "Chi tiết BC phiên"}
       description={report ? `${report.accountName} · ${report.date}` : undefined}
-      footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button>{report ? <a className="button primary" href={reportJsonUrl(report)} target="_blank" rel="noreferrer">JSON cho AI</a> : null}</div>}
+      footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button>{report ? <><a className="button primary" href={reportExportUrl(report, "json")} target="_blank" rel="noreferrer">JSON</a><a className="button" href={reportExportUrl(report, "markdown")} target="_blank" rel="noreferrer">Markdown</a></> : null}</div>}
     >
       {report ? (
         <div className={styles.reportSheet}>
@@ -244,7 +366,7 @@ function ReportSheet({ report, onClose }: { report: MarketReportItem | null; onC
           {tab === "observations" ? <ObservationsTab report={report} /> : null}
           {tab === "followups" ? <FollowupsTab report={report} /> : null}
           {tab === "customers" ? <CustomersTab report={report} /> : null}
-          {tab === "ai" ? <AiTab report={report} /> : null}
+          {tab === "ai" ? <AiTab key={report.id} report={report} /> : null}
         </div>
       ) : null}
     </BottomSheet>
@@ -258,7 +380,7 @@ export function MarketReportsClientPage({ kpis, reports, focusSessionId = "" }: 
 
   return (
     <AppShell activeHref="/reports">
-      <PageHeader eyebrow="BC phiên MCP" title="BC phiên" subtitle="BC phiên đã chốt, có cấu trúc để xem nhanh và xuất JSON cho Gemini/AI phân tích tiếp."><span className="badge">{needAction} cần xử lý</span></PageHeader>
+      <PageHeader eyebrow="BC phiên MCP" title="BC phiên" subtitle="BC phiên đã chốt, có JSON/Markdown chuẩn và ADK Agent Gemini 2.5 Pro để phân tích khi cần."><span className="badge">{needAction} cần xử lý</span></PageHeader>
       <FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Trạng thái", value: "Đã chốt" }, { label: "Nhóm", value: "Theo phiên" }]} />
       <CompactKpiStrip items={kpis} />
 
@@ -266,7 +388,7 @@ export function MarketReportsClientPage({ kpis, reports, focusSessionId = "" }: 
         <span>Tổng quan</span>
         <span>Đơn/Test</span>
         <span>Quan sát</span>
-        <span>AI-ready JSON</span>
+        <span>AI · JSON · MD</span>
       </div>
 
       <section className={styles.section}>
