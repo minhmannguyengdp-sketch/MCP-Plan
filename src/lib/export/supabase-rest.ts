@@ -12,9 +12,17 @@ type RequestOptions = {
   filters?: Record<string, QueryValue>;
 };
 
-function env() {
+export function supabaseRestConfig() {
   const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim().replace(/\/+$/, "");
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY).trim();
+  const key = String(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    DEFAULT_SUPABASE_PUBLISHABLE_KEY
+  ).trim();
   if (!url || !key) throw new Error("missing_supabase_config");
   return { url, key };
 }
@@ -28,7 +36,7 @@ function filterValue(value: QueryValue) {
 }
 
 export async function restRows<T>(table: string, options: RequestOptions = {}) {
-  const cfg = env();
+  const cfg = supabaseRestConfig();
   const params = new URLSearchParams();
   params.set("select", options.select || "*");
   if (options.order) params.set("order", options.order);
