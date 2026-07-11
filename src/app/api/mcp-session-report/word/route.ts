@@ -4,18 +4,20 @@ import { loadMcpSessionReportSource } from "@/lib/mcp/session-report-source";
 
 export const dynamic = "force-dynamic";
 
+const HTML_ENTITIES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;"
+};
+
 function text(value: unknown) {
   return String(value ?? "").trim();
 }
 
 function html(value: unknown) {
-  return text(value).replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  }[char] || char));
+  return text(value).replace(/[&<>"']/g, (char) => HTML_ENTITIES[char] || char);
 }
 
 function list(items: string[], empty: string) {
