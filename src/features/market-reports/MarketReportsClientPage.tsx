@@ -10,8 +10,6 @@ import { AppShell } from "@/ui/shell/AppShell";
 import type { MarketReportItem, MarketReportKpi, MarketReportStatus, MarketReportType } from "./market-reports.types";
 import styles from "./MarketReportsClientPage.module.css";
 
-const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
-
 function getStatusLabel(status: MarketReportStatus) {
   if (status === "opportunity") return "Cơ hội";
   if (status === "risk") return "Rủi ro";
@@ -20,7 +18,7 @@ function getStatusLabel(status: MarketReportStatus) {
 
 function getTypeLabel(type: MarketReportType) {
   if (type === "price") return "Giá";
-  if (type === "competitor") return "Đối thủ";
+  if (type === "competitor") return "BC phiên";
   if (type === "display") return "Trưng bày";
   return "Tồn kho";
 }
@@ -34,16 +32,13 @@ function getStatusClass(status: MarketReportStatus) {
 function ReportCard({ report, onSelect }: { report: MarketReportItem; onSelect: (report: MarketReportItem) => void }) {
   return (
     <OperationalListCard
-      leading={<span>{getTypeLabel(report.reportType).slice(0, 2)}</span>}
-      eyebrow={`${getTypeLabel(report.reportType)} · ${report.date}`}
+      leading={<span>BC</span>}
+      eyebrow={`BC phiên · ${report.date}`}
       title={report.subject}
       description={report.accountName}
       badge={<strong className={getStatusClass(report.status)}>{getStatusLabel(report.status)}</strong>}
-      meta={[report.routeName, report.price ? money.format(report.price) : "Chưa có giá", report.nextAction]}
-      actions={[
-        { label: "Xem", tone: "primary", onClick: () => onSelect(report) },
-        { label: "Việc" }
-      ]}
+      meta={[report.routeName, report.competitorName ? `Đối thủ: ${report.competitorName}` : "Chưa có đối thủ nổi bật", report.nextAction]}
+      actions={[{ label: "Xem", tone: "primary", onClick: () => onSelect(report) }]}
     />
   );
 }
@@ -53,20 +48,19 @@ function ReportSheet({ report, onClose }: { report: MarketReportItem | null; onC
     <BottomSheet
       open={Boolean(report)}
       onClose={onClose}
-      title={report ? report.subject : "Chi tiết báo cáo"}
+      title={report ? report.subject : "Chi tiết BC phiên"}
       description={report ? `${report.accountName} · ${report.routeName}` : undefined}
-      footer={<div className="sheet-action-grid"><button className="button primary" type="button">Tạo việc xử lý</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
+      footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {report ? (
         <div className="field-sheet-content">
-          <div className="field-focus-card"><span>Đánh giá</span><strong>{getStatusLabel(report.status)}</strong><small>{report.note}</small></div>
+          <div className="field-focus-card"><span>Đánh giá snapshot</span><strong>{getStatusLabel(report.status)}</strong><small>{report.note}</small></div>
           <div className="grid">
             <div className="metric-row"><span>Loại</span><strong>{getTypeLabel(report.reportType)}</strong></div>
-            <div className="metric-row"><span>Đối thủ</span><strong>{report.competitorName || "-"}</strong></div>
-            <div className="metric-row"><span>Giá</span><strong>{report.price ? money.format(report.price) : "-"}</strong></div>
-            <div className="metric-row"><span>Ngày</span><strong>{report.date}</strong></div>
+            <div className="metric-row"><span>Đối thủ nổi bật</span><strong>{report.competitorName || "-"}</strong></div>
+            <div className="metric-row"><span>Ngày phiên</span><strong>{report.date}</strong></div>
           </div>
-          <div className="sheet-note-card"><h3>Hướng xử lý</h3><p>{report.nextAction}</p></div>
+          <div className="sheet-note-card"><h3>Next action</h3><p>{report.nextAction}</p></div>
         </div>
       ) : null}
     </BottomSheet>
@@ -79,20 +73,20 @@ export function MarketReportsClientPage({ kpis, reports }: { kpis: MarketReportK
 
   return (
     <AppShell activeHref="/reports">
-      <PageHeader eyebrow="Market Reports" title="Báo cáo thị trường" subtitle="Ghi nhận giá, đối thủ, trưng bày, tồn kho và việc cần xử lý ngoài thị trường."><span className="badge">{needAction} cần xử lý</span></PageHeader>
-      <FilterBar filters={[{ label: "Ngày", value: "Gần nhất" }, { label: "Tuyến", value: "Tất cả" }, { label: "Loại", value: "Tất cả" }]} />
+      <PageHeader eyebrow="Session Reports" title="Báo cáo phiên" subtitle="Danh sách snapshot BC phiên được tạo khi chốt phiên MCP. Dữ liệu khách chỉ là quan sát đầu vào, không còn là báo cáo rời."><span className="badge">{needAction} cần xử lý</span></PageHeader>
+      <FilterBar filters={[{ label: "Nguồn", value: "MCP phiên" }, { label: "Trạng thái", value: "Snapshot" }, { label: "Nhóm", value: "sessionId" }]} />
       <CompactKpiStrip items={kpis} />
 
       <div className={styles.templateGrid}>
-        <span>Giá</span>
         <span>Đối thủ</span>
-        <span>Trưng bày</span>
-        <span>Tồn kho</span>
+        <span>SP đang dùng</span>
+        <span>Test</span>
+        <span>Đơn</span>
       </div>
 
       <section className={styles.section}>
-        <div className="dashboard-section-head"><h2>Báo cáo mới</h2><span>{reports.length} dòng</span></div>
-        <div className={styles.list}>{reports.map((report) => <ReportCard key={report.id} report={report} onSelect={setSelectedReport} />)}</div>
+        <div className="dashboard-section-head"><h2>BC phiên đã chốt</h2><span>{reports.length} phiên</span></div>
+        <div className={styles.list}>{reports.length ? reports.map((report) => <ReportCard key={report.id} report={report} onSelect={setSelectedReport} />) : <div className="empty-inline">Chưa có snapshot BC phiên. Chốt một phiên MCP để tạo báo cáo chính thức.</div>}</div>
       </section>
 
       <ReportSheet report={selectedReport} onClose={() => setSelectedReport(null)} />
