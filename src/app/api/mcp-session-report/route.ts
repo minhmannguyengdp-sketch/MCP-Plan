@@ -1,5 +1,6 @@
 import { errorResponse } from "@/lib/export/supabase-rest";
-import { buildMcpSessionReportSummary, saveMcpSessionReportSnapshot } from "@/lib/mcp/session-report";
+import { buildMcpSessionReportSummary } from "@/lib/mcp/session-report";
+import { saveMcpSessionReportSnapshot } from "@/lib/mcp/session-report-snapshot";
 
 export const dynamic = "force-dynamic";
 
