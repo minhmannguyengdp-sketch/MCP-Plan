@@ -73,8 +73,8 @@ export function MarketReportsClientPage({ kpis, reports }: { kpis: MarketReportK
 
   return (
     <AppShell activeHref="/reports">
-      <PageHeader eyebrow="Session Reports" title="Báo cáo phiên" subtitle="Danh sách snapshot BC phiên được tạo khi chốt phiên MCP. Dữ liệu khách chỉ là quan sát đầu vào, không còn là báo cáo rời."><span className="badge">{needAction} cần xử lý</span></PageHeader>
-      <FilterBar filters={[{ label: "Nguồn", value: "MCP phiên" }, { label: "Trạng thái", value: "Snapshot" }, { label: "Nhóm", value: "sessionId" }]} />
+      <PageHeader eyebrow="BC phiên MCP" title="Báo cáo phiên" subtitle="Danh sách snapshot BC phiên được tạo khi chốt phiên MCP. Dữ liệu khách chỉ là quan sát đầu vào, không còn là báo cáo rời."><span className="badge">{needAction} cần xử lý</span></PageHeader>
+      <FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Trạng thái", value: "Snapshot" }, { label: "Nhóm", value: "Theo phiên" }]} />
       <CompactKpiStrip items={kpis} />
 
       <div className={styles.templateGrid}>
