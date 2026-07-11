@@ -1,9 +1,9 @@
 import { errorResponse } from "@/lib/export/supabase-rest";
 import {
-  buildSessionReportAiPayload,
-  buildSessionReportMarkdown,
-  sessionReportExportFilename
-} from "@/lib/mcp/session-report-export";
+  buildSessionReportExportPayload,
+  buildSessionReportMarkdownV2,
+  sessionReportExportFilenameV2
+} from "@/lib/mcp/session-report-export-v2";
 import { loadMcpSessionReportSource } from "@/lib/mcp/session-report-source";
 
 export const dynamic = "force-dynamic";
@@ -37,16 +37,16 @@ export async function GET(request: Request) {
     if (!supported.includes(query.format)) throw new Error("unsupported_session_report_export_format");
 
     const source = await loadMcpSessionReportSource(query);
-    const payload = buildSessionReportAiPayload(source);
+    const payload = buildSessionReportExportPayload(source);
 
     if (query.format === "markdown" || query.format === "md") {
-      const filename = sessionReportExportFilename(payload, "md");
-      return new Response(buildSessionReportMarkdown(payload), {
+      const filename = sessionReportExportFilenameV2(payload, "md");
+      return new Response(buildSessionReportMarkdownV2(payload), {
         headers: downloadHeaders(filename, "text/markdown; charset=utf-8")
       });
     }
 
-    const filename = sessionReportExportFilename(payload, "json");
+    const filename = sessionReportExportFilenameV2(payload, "json");
     return new Response(JSON.stringify(payload, null, 2), {
       headers: downloadHeaders(filename, "application/json; charset=utf-8")
     });
