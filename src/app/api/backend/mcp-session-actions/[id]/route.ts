@@ -1,3 +1,5 @@
+import { saveMcpSessionReportSnapshot } from "@/lib/mcp/session-report";
+
 export const dynamic = "force-dynamic";
 
 const SUPABASE_URL = "https://noiadkpkvdohljgopgfb.supabase.co";
@@ -20,6 +22,11 @@ function text(value: unknown) {
 function dateOnly(value: unknown) {
   const result = String(value || "").slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(result) ? result : null;
+}
+
+function isCloseStatus(value: unknown) {
+  const status = String(value || "").trim().toLowerCase();
+  return status === "done" || status === "completed";
 }
 
 async function rpc(name: string, args: Dict) {
@@ -46,7 +53,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       p_status: text(body.status),
       p_note: body.note === undefined ? null : text(body.note)
     });
-    return Response.json({ data, receivedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } });
+    const snapshot = isCloseStatus(body.status) ? await saveMcpSessionReportSnapshot(id, "close_session") : null;
+    return Response.json({ data, snapshot, receivedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return Response.json({ ok: false, error: error instanceof Error ? error.message : "mcp_session_update_failed" }, { status: 400 });
   }
