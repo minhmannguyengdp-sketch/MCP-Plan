@@ -6,6 +6,10 @@ export type MarketCheckItem = {
   customerId: string;
   resultId?: string;
   productId?: string;
+  sessionId?: string;
+  sessionCustomerId?: string;
+  routeId?: string;
+  sessionDate?: string;
   date: string;
   routeName: string;
   accountName: string;
@@ -19,6 +23,24 @@ export type MarketCheckItem = {
   status: MarketCheckStatus;
 };
 
+export type MarketCheckSessionGroup = {
+  id: string;
+  sessionId: string;
+  routeId: string;
+  routeName: string;
+  sessionDate: string;
+  sales?: string;
+  status: string;
+  plannedCustomers: number;
+  visitedCustomers: number;
+  customerCount: number;
+  resultCount: number;
+  pendingCount: number;
+  opportunityCount: number;
+  riskCount: number;
+  items: MarketCheckItem[];
+};
+
 export type MarketCheckKpi = {
   label: string;
   value: string | number;
@@ -28,4 +50,5 @@ export type MarketCheckKpi = {
 export type MarketChecksData = {
   kpis: MarketCheckKpi[];
   checks: MarketCheckItem[];
+  groups?: MarketCheckSessionGroup[];
 };
