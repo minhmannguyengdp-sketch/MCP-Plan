@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       accountName: customer.customerName,
       phone: customer.phone,
       area: customer.area,
-      status: customer.visitStatus || customer.status,
+      status: customer.visitStatus,
       note: [customer.statusReason, customer.note].filter(Boolean).join(" · "),
       hasOrder: customer.orders.length > 0,
       hasTest: customer.tests.length > 0,
