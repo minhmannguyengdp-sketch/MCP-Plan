@@ -227,7 +227,10 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
       const riskCount = items.filter((item) => item.status === "risk").length;
       return { ...group, items, pendingCount, opportunityCount, riskCount, resultCount: items.filter((item) => item.resultId).length };
     }));
-    setSelectedGroup((current) => current?.sessionId === next.sessionId ? { ...current, items: current.items.map((item) => item.id === next.id ? next : item) } : current);
+    setSelectedGroup((current) => {
+      if (!current || current.sessionId !== next.sessionId) return current;
+      return { ...current, items: current.items.map((item) => item.id === next.id ? next : item) };
+    });
   }
 
   return (
