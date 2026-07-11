@@ -4,6 +4,7 @@ import type {
   MarketReportItem,
   MarketReportKpi,
   MarketReportStatus,
+  SessionReportCustomer,
   SessionReportHealth,
   SessionReportInsights,
   SessionReportOverview,
@@ -24,13 +25,6 @@ const EMPTY_OVERVIEW: SessionReportOverview = {
   orders: 0,
   tests: 0,
   followups: 0
-};
-
-const EMPTY_INSIGHTS: SessionReportInsights = {
-  summary: "",
-  reasons: [],
-  opportunities: [],
-  risks: []
 };
 
 function text(value: unknown) {
@@ -86,7 +80,6 @@ function overview(row: ReportRow): SessionReportOverview {
 
 function sections(row: ReportRow): SessionReportSections {
   const data = rawSections(row);
-  const customers = detailList<SessionReportSections["customers"] extends Array<infer T> ? T : never>(row.customer_details);
   return {
     overview: overview(row),
     competitors: countList(data.competitors),
@@ -99,7 +92,7 @@ function sections(row: ReportRow): SessionReportSections {
     tests: detailList(data.tests),
     followups: detailList(data.followups),
     skipped: detailList(data.skipped),
-    customers
+    customers: detailList<SessionReportCustomer>(row.customer_details)
   };
 }
 
@@ -167,7 +160,7 @@ function toItem(row: ReportRow): MarketReportItem {
     health: storedHealth,
     warnings: stringList(row.warnings),
     recommendedActions: actions,
-    insights: storedInsights || EMPTY_INSIGHTS,
+    insights: storedInsights,
     aiPromptContext: object(row.ai_prompt_context),
     aiResult: Object.keys(object(row.ai_result)).length ? object(row.ai_result) : null,
     aiAnalyzedAt: text(row.ai_analyzed_at),
