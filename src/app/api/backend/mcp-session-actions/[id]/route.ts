@@ -1,4 +1,4 @@
-import { saveMcpSessionReportSnapshot } from "@/lib/mcp/session-report";
+import { saveMcpSessionReportSnapshot } from "@/lib/mcp/session-report-snapshot";
 
 export const dynamic = "force-dynamic";
 
