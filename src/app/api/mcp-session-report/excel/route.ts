@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         customer.customerName,
         customer.phone,
         customer.area,
-        customer.visitStatus || customer.status,
+        customer.visitStatus,
         customer.statusReason,
         customer.orders.length,
         orderCodes,
