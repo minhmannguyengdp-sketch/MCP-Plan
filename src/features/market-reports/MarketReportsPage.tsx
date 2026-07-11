@@ -1,100 +1,99 @@
 import { restRows } from "@/lib/export/supabase-rest";
-import type { MarketReportItem, MarketReportKpi, MarketReportStatus, MarketReportType } from "./market-reports.types";
+import type { MarketReportItem, MarketReportKpi, MarketReportStatus } from "./market-reports.types";
 import { MarketReportsClientPage } from "./MarketReportsClientPage";
 
-type ReportRow = Record<string, string | number | boolean | null | Record<string, unknown>>;
+type ReportRow = Record<string, unknown>;
+
+type CountItem = { label?: string; count?: number };
+
+type Sections = {
+  competitors?: CountItem[];
+  usedProducts?: CountItem[];
+  opportunities?: string[];
+  risks?: string[];
+  nextActions?: string[];
+  overview?: Record<string, number>;
+};
 
 function text(value: unknown) {
   return String(value ?? "").trim();
 }
 
-function rawValue(row: ReportRow, path: string) {
-  const raw = row.raw_payload;
-  if (!raw || typeof raw !== "object") return "";
-  return path.split(".").reduce<unknown>((acc, key) => acc && typeof acc === "object" ? (acc as Record<string, unknown>)[key] : undefined, raw);
+function num(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function rawText(row: ReportRow, path: string) {
-  const value = rawValue(row, path);
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => typeof item === "object" && item ? text((item as Record<string, unknown>).label || (item as Record<string, unknown>).value || (item as Record<string, unknown>).id) : text(item))
-      .filter(Boolean)
-      .join(", ");
-  }
-  return text(value);
+function sections(row: ReportRow): Sections {
+  const value = row.sections;
+  return value && typeof value === "object" ? value as Sections : {};
 }
 
-function reportType(row: ReportRow): MarketReportType {
-  const value = text(row.market_type || rawValue(row, "reportType") || rawValue(row, "report_type")).toLowerCase();
-  if (value.includes("competitor") || value.includes("doi-thu") || value.includes("đối")) return "competitor";
-  if (value.includes("display") || value.includes("trung")) return "display";
-  if (value.includes("stock") || value.includes("ton") || value.includes("tồn")) return "stock";
-  return "price";
+function firstLabel(items?: CountItem[]) {
+  return Array.isArray(items) && items.length ? text(items[0]?.label) : "";
+}
+
+function labels(items?: CountItem[]) {
+  return Array.isArray(items) ? items.map((item) => item.label ? `${item.label} (${item.count || 0})` : "").filter(Boolean).join(", ") : "";
 }
 
 function status(row: ReportRow): MarketReportStatus {
-  const explicit = text(row.status || rawValue(row, "status")).toLowerCase();
-  if (explicit === "risk" || explicit === "opportunity" || explicit === "normal") return explicit;
-  if (text(row.risk_summary)) return "risk";
-  if (text(row.opportunity_summary) || text(row.next_action)) return "opportunity";
+  const data = sections(row);
+  if ((data.risks || []).length) return "risk";
+  if ((data.opportunities || []).length || (data.nextActions || []).length) return "opportunity";
   return "normal";
 }
 
 function subject(row: ReportRow) {
-  return text(row.opportunity_summary) || text(row.risk_summary) || text(row.next_action) || text(row.note) || text(row.competitor_summary) || "Báo cáo thị trường";
+  return `BC phiên · ${text(row.route_name) || "MCP"}`;
 }
 
 function note(row: ReportRow) {
-  return [
-    text(row.price_summary),
-    text(row.competitor_summary),
-    text(row.demand_summary),
-    text(row.company_product_summary),
-    text(row.note)
-  ].filter(Boolean).join(" · ") || "Chưa có ghi chú";
-}
-
-function price(row: ReportRow) {
-  const value = Number(rawValue(row, "fields.price") || rawValue(row, "price") || 0);
-  return Number.isFinite(value) && value > 0 ? value : undefined;
+  const data = sections(row);
+  const overview = data.overview || {};
+  return text(row.summary_text) || [
+    `Khách ghé: ${num(overview.visited)}/${num(overview.planned)}`,
+    `Quan sát: ${num(overview.observations)}`,
+    labels(data.competitors) ? `Đối thủ: ${labels(data.competitors)}` : "",
+    labels(data.usedProducts) ? `SP đang dùng: ${labels(data.usedProducts)}` : ""
+  ].filter(Boolean).join(" · ");
 }
 
 function toItem(row: ReportRow): MarketReportItem {
+  const data = sections(row);
   return {
     id: text(row.id),
-    date: text(row.report_date).slice(0, 10),
+    date: text(row.session_date || row.snapshot_at).slice(0, 10),
     routeName: text(row.route_name) || "-",
-    accountName: rawText(row, "context.customerName") || rawText(row, "context.customer_name") || "Báo cáo tổng",
-    reportType: reportType(row),
+    accountName: `Phiên ${text(row.session_id).slice(0, 8)}`,
+    reportType: "competitor",
     subject: subject(row),
-    competitorName: rawText(row, "selected.competitors") || text(row.competitor_summary),
-    price: price(row),
+    competitorName: firstLabel(data.competitors),
     note: note(row),
-    nextAction: text(row.next_action) || "Theo dõi tiếp",
+    nextAction: (data.nextActions || [])[0] || "Theo dõi phiên sau",
     status: status(row)
   };
 }
 
-function kpis(reports: MarketReportItem[]): MarketReportKpi[] {
+function kpis(reports: MarketReportItem[], rows: ReportRow[]): MarketReportKpi[] {
   const opportunities = reports.filter((item) => item.status === "opportunity").length;
   const risks = reports.filter((item) => item.status === "risk").length;
   const routeCount = new Set(reports.map((item) => item.routeName).filter(Boolean)).size;
+  const observations = rows.reduce((sum, row) => sum + num((sections(row).overview || {}).observations), 0);
   return [
-    { label: "Báo cáo", value: reports.length, hint: "Dữ liệu thật" },
-    { label: "Cơ hội", value: opportunities, hint: "Có hướng khai thác" },
-    { label: "Rủi ro", value: risks, hint: "Cần xử lý" },
-    { label: "Tuyến", value: routeCount, hint: "Có phát sinh BC" }
+    { label: "BC phiên", value: reports.length, hint: "Snapshot theo session" },
+    { label: "Quan sát", value: observations, hint: "Gom từ khách trong phiên" },
+    { label: "Cơ hội / Rủi ro", value: `${opportunities}/${risks}`, hint: "Theo snapshot" },
+    { label: "Tuyến", value: routeCount, hint: "Có BC phiên" }
   ];
 }
 
 export async function MarketReportsPage() {
-  const rows = await restRows<ReportRow>("market_reports", {
-    select: "id,report_date,sales,market_area,route_name,market_type,total_shops,competitor_summary,price_summary,demand_summary,company_product_summary,opportunity_summary,risk_summary,next_action,note,sync_status,raw_payload,created_at,updated_at,synced_at",
-    order: "report_date.desc,updated_at.desc",
+  const rows = await restRows<ReportRow>("mcp_session_reports", {
+    select: "id,session_id,route_id,route_name,session_date,sales,status,kpis,overview,sections,summary_text,snapshot_source,snapshot_at,created_at,updated_at",
+    order: "session_date.desc,snapshot_at.desc",
     limit: 500
   });
   const reports = rows.map(toItem);
-
-  return <MarketReportsClientPage kpis={kpis(reports)} reports={reports} />;
+  return <MarketReportsClientPage kpis={kpis(reports, rows)} reports={reports} />;
 }
