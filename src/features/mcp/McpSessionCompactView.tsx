@@ -9,5 +9,5 @@ import type { RouteCustomersData } from "@/features/mcp/route-customers.types";
 import type { RoutesData } from "@/features/routes/routes.types";
 
 export function McpSessionCompactView(props: { activeHref?: string; routesData: RoutesData; mcpDayData: McpDayData; routeCustomersData: RouteCustomersData }) {
-  return <><OrderQuantityStepperEnhancer /><VisitsSessionReportPanel mcpDayData={props.mcpDayData} /><VisitsExportMenu mcpDayData={props.mcpDayData} /><InnerMcpSessionCompactView {...props} /></>;
+  return <><OrderQuantityStepperEnhancer /><VisitsSessionReportPanel mcpDayData={props.mcpDayData}><VisitsExportMenu mcpDayData={props.mcpDayData} variant="inline" /></VisitsSessionReportPanel><InnerMcpSessionCompactView {...props} /></>;
 }
