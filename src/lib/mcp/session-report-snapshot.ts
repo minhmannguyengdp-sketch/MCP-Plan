@@ -1,9 +1,15 @@
 import { supabaseRestConfig } from "@/lib/export/supabase-rest";
-import { buildMcpSessionReportSummary, sessionReportSummaryText } from "./session-report";
+import { buildSessionReportCustomerDetails } from "@/lib/mcp/session-report-customer-details";
+import { buildSessionReportEnrichment } from "@/lib/mcp/session-report-enrichment";
+import { buildMcpSessionReportSummary, sessionReportSummaryText } from "@/lib/mcp/session-report";
 
 export async function saveMcpSessionReportSnapshot(sessionId: string, source = "close_session") {
   const summary = await buildMcpSessionReportSummary({ sessionId });
+  const customerDetails = await buildSessionReportCustomerDetails(summary);
+  const enrichment = buildSessionReportEnrichment(summary, customerDetails);
   const env = supabaseRestConfig();
+  const snapshotAt = new Date().toISOString();
+  const sections = { ...summary.sections, customers: customerDetails };
   const body = {
     session_id: summary.session.id,
     route_id: summary.session.routeId || null,
@@ -12,13 +18,21 @@ export async function saveMcpSessionReportSnapshot(sessionId: string, source = "
     sales: summary.session.sales || null,
     status: "snapshot",
     snapshot_source: source,
+    schema_version: enrichment.schemaVersion,
     kpis: summary.kpis,
     overview: summary.sections.overview,
-    sections: summary.sections,
+    sections,
+    customer_details: customerDetails,
+    insights: enrichment.insights,
+    score: enrichment.score,
+    health: enrichment.health,
+    warnings: enrichment.warnings,
+    recommended_actions: enrichment.recommendedActions,
+    ai_prompt_context: enrichment.aiPromptContext,
     summary_text: sessionReportSummaryText(summary),
-    raw_payload: { summary },
-    snapshot_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    raw_payload: { summary: { ...summary, sections }, enrichment },
+    snapshot_at: snapshotAt,
+    updated_at: snapshotAt
   };
   const response = await fetch(`${env.url}/rest/v1/mcp_session_reports?on_conflict=session_id&select=*`, {
     method: "POST",
