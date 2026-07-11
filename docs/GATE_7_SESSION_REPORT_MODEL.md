@@ -51,13 +51,13 @@ Open MCP session
 → snapshot official session report
 ```
 
-## Gate 7A scope
+## Gate 7A
 
-Document the model only. No database schema change in this step.
+Documented the model only. No database schema change in this step.
 
-## Gate 7B scope
+## Gate 7B
 
-Rename the per-customer report action to Observation / Quan sát.
+Renamed the per-customer report action to Observation / Quan sát.
 
 Implemented:
 
@@ -73,9 +73,9 @@ Implemented:
   - Popup copy changed from customer-level BC to `Quan sát thị trường`.
   - Clarifies that these fields are input data for BC phiên, not a final per-customer report.
 
-## Gate 7C scope
+## Gate 7C
 
-Add `BC phiên` entry point on active `/visits`.
+Added `BC phiên` entry point on active `/visits`.
 
 Implemented:
 
@@ -87,15 +87,20 @@ Implemented:
 - `src/features/mcp/McpSessionCompactView.tsx`
   - Mounts `VisitsSessionReportPanel` for the active visit session.
 
-## Gate 7D scope
+## Gate 7D
 
-Add session report summary API by sessionId.
+Added session report summary API by sessionId.
 
 Implemented:
 
+- `src/lib/mcp/session-report.ts`
+  - Shared aggregation builder for live summary and official snapshot.
+
 - `src/app/api/mcp-session-report/route.ts`
-  - Accepts `sessionId`; also supports `routeId + date` fallback.
-  - Reads:
+  - `GET` accepts `sessionId`; also supports `routeId + date` fallback.
+  - `POST` can create/update a manual snapshot for one `sessionId`.
+
+The aggregation reads:
 
 ```text
 mcp_route_sessions
@@ -105,7 +110,7 @@ orders
 test_customer_results
 ```
 
-  - Aggregates sections:
+And outputs:
 
 ```text
 overview
@@ -120,23 +125,72 @@ tests
 skipped
 ```
 
-  - Current summary is live/read-only. No snapshot table is written in this gate.
+## Gate 7E
 
-## Not changed yet
+Polished the BC phiên popup into a read-only grouped summary.
 
-- Existing API route name remains `/api/backend/mcp-day/session-customer/report` for compatibility.
-- Existing action key remains `market_report` for compatibility.
-- Existing DB table `market_reports` is not changed in this step.
-- Close-session snapshot is not added yet.
-- `/reports` is not changed yet.
+Implemented:
 
-## Next gates
+- No inactive/non-working action buttons.
+- Sections are grouped by business meaning, not raw rows.
+- Customer-level Quan sát is shown only as input inside the session report.
+
+## Gate 7F
+
+Close-session creates the official snapshot.
+
+Database:
 
 ```text
-Gate 7E: Polish read-only BC phiên popup and validate runtime data.
-Gate 7F: Close session -> snapshot official report.
-Gate 7G: Make /reports read session-level reports.
+mcp_session_reports
 ```
+
+Created columns:
+
+```text
+session_id
+route_id
+route_name
+session_date
+sales
+status
+snapshot_source
+kpis
+overview
+sections
+summary_text
+raw_payload
+snapshot_at
+```
+
+Implemented:
+
+- `src/app/api/backend/mcp-session-actions/[id]/route.ts`
+  - When status is updated to `done` or `completed`, the route calls `saveMcpSessionReportSnapshot`.
+  - Snapshot is upserted by `session_id`, so repeated close actions update the official report instead of duplicating.
+
+- `src/features/mcp/VisitsSessionReportPanel.tsx`
+  - Adds `Chốt phiên` action in `/visits`.
+  - Chốt phiên updates the session status and creates the snapshot.
+
+## Gate 7G
+
+`/reports` now reads session-level snapshots.
+
+Implemented:
+
+- `src/features/market-reports/MarketReportsPage.tsx`
+  - Reads `mcp_session_reports`, not raw per-customer `market_reports`.
+
+- `src/features/market-reports/MarketReportsClientPage.tsx`
+  - UI copy changed to `Báo cáo phiên`.
+  - Removed dead `Việc` / `Tạo việc xử lý` buttons.
+
+## Compatibility kept
+
+- Existing API route name remains `/api/backend/mcp-day/session-customer/report`.
+- Existing action key remains `market_report`.
+- Existing DB table `market_reports` remains the customer observation input source.
 
 ## Smoke checks
 
@@ -144,13 +198,15 @@ Gate 7G: Make /reports read session-level reports.
 /visits?routeId=<routeId>&date=<yyyy-mm-dd>
 /api/mcp-session-report?sessionId=<sessionId>
 /api/mcp-session-report?routeId=<routeId>&date=<yyyy-mm-dd>
+/reports
 ```
 
 Expected:
 
 ```text
-- /visits shows BC phiên near the header/export controls.
-- Opening BC phiên does not ask the user to create/select a report.
+- /visits shows BC phiên and Chốt phiên.
+- Opening BC phiên does not ask user to create/select a report.
 - The popup summarizes the current session by section.
-- Quan sát from customers appears as input for the session report.
+- Chốt phiên creates/updates one mcp_session_reports row by session_id.
+- /reports lists BC phiên snapshots, not customer-level observations.
 ```
