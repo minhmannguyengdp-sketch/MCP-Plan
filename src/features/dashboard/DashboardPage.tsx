@@ -8,10 +8,10 @@ import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 
 const MODULE_CARDS = [
-  { href: "/mcp", icon: "◇", title: "MCP", description: "Tuyến, phiên hôm nay, cài đặt", cta: "Mở MCP" },
-  { href: "/orders", icon: "+", title: "Đơn", description: "Đơn hàng và giao", cta: "Xem đơn" },
-  { href: "/field-checks", icon: "◌", title: "Test", description: "Nhập kết quả test", cta: "Nhập" },
-  { href: "/reports", icon: "□", title: "Báo cáo", description: "Giá, đối thủ, tồn kho", cta: "Ghi nhận" }
+  { href: "/mcp", icon: "◇", title: "MCP hôm nay", description: "Mở phiên, đi tuyến, ghi đơn, test và quan sát", cta: "Mở MCP" },
+  { href: "/orders", icon: "+", title: "Đơn hàng", description: "Theo dõi đơn, giá trị và trạng thái xử lý", cta: "Xem đơn" },
+  { href: "/reports", icon: "▣", title: "BC phiên", description: "Snapshot phiên MCP đã chốt", cta: "Xem BC" },
+  { href: "/customers", icon: "□", title: "Khách hàng", description: "Hồ sơ điểm bán và lịch sử chăm sóc", cta: "Xem khách" }
 ];
 
 function getStatusLabel(status: "good" | "watch" | "risk") {
@@ -106,7 +106,7 @@ export async function DashboardPage() {
       <PageHeader
         eyebrow="Dashboard"
         title="Hôm nay"
-        subtitle="Vào nhanh MCP, đơn hàng, test sản phẩm và báo cáo thị trường."
+        subtitle="Vào nhanh phiên MCP, đơn hàng, BC phiên và hồ sơ điểm bán."
       >
         <SourceBadge source={dashboardResult.source} />
       </PageHeader>
