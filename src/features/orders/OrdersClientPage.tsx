@@ -44,6 +44,15 @@ function buildOrderKpis(orders: OrderDto[]) {
   ];
 }
 
+function orderStatusSummary(orders: OrderDto[]) {
+  return {
+    draft: orders.filter((order) => order.status === "draft").length,
+    confirmed: orders.filter((order) => order.status === "confirmed").length,
+    delivered: orders.filter((order) => order.status === "delivered").length,
+    cancelled: orders.filter((order) => order.status === "cancelled").length
+  };
+}
+
 function OrderCard({ order, onSelect }: { order: OrderDto; onSelect: (order: OrderDto) => void }) {
   return (
     <OperationalListCard
@@ -55,8 +64,7 @@ function OrderCard({ order, onSelect }: { order: OrderDto; onSelect: (order: Ord
       meta={[`${order.routeName} · ${order.owner}`, `${order.quantity} sản phẩm`]}
       actions={[
         { label: "Xem", tone: "primary", onClick: () => onSelect(order) },
-        { label: "Xuất file", href: orderExportHref(order) },
-        { label: "Việc" }
+        { label: "Xuất file", href: orderExportHref(order) }
       ]}
     />
   );
@@ -69,7 +77,7 @@ function OrderDetailSheet({ order, onClose }: { order: OrderDto | null; onClose:
       onClose={onClose}
       title={order ? order.code : "Chi tiết đơn"}
       description={order ? `${order.accountName} · ${order.routeName}` : undefined}
-      footer={<div className="sheet-action-grid"><button className="button primary" type="button">Tạo việc</button>{order ? <a className="button" href={orderExportHref(order)}>Xuất file</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}
+      footer={<div className="sheet-action-grid">{order ? <a className="button primary" href={orderExportHref(order)}>Xuất file</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {order ? (
         <div className="order-sheet-content">
@@ -90,6 +98,7 @@ export function OrdersClientPage({ ordersResult }: { ordersResult: ApiResult<Ord
   const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null);
   const kpis = useMemo(() => buildOrderKpis(ordersResult.data), [ordersResult.data]);
   const openOrders = ordersResult.data.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length;
+  const statusSummary = useMemo(() => orderStatusSummary(ordersResult.data), [ordersResult.data]);
 
   return (
     <AppShell activeHref="/orders">
@@ -100,7 +109,7 @@ export function OrdersClientPage({ ordersResult }: { ordersResult: ApiResult<Ord
         <div className="dashboard-section-head"><h2>Danh sách đơn</h2><span>{openOrders} cần xử lý</span></div>
         <div className={styles.list}>{ordersResult.data.map((order) => <OrderCard key={order.id} order={order} onSelect={setSelectedOrder} />)}</div>
       </section>
-      <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Cần xử lý</h2><div className="grid"><div className="metric-row"><span>Đơn mới</span><strong>Cần chốt</strong></div><div className="metric-row"><span>Giao hàng</span><strong>Theo dõi</strong></div><div className="metric-row"><span>Sau bán</span><strong>Chăm sóc</strong></div></div></section>
+      <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Tình trạng đơn</h2><div className="grid"><div className="metric-row"><span>Nháp</span><strong>{statusSummary.draft}</strong></div><div className="metric-row"><span>Đã chốt</span><strong>{statusSummary.confirmed}</strong></div><div className="metric-row"><span>Đã giao</span><strong>{statusSummary.delivered}</strong></div><div className="metric-row"><span>Hủy</span><strong>{statusSummary.cancelled}</strong></div></div></section>
       <OrderDetailSheet order={selectedOrder} onClose={() => setSelectedOrder(null)} />
     </AppShell>
   );
