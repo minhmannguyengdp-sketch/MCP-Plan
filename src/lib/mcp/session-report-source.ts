@@ -1,4 +1,6 @@
 import { restRows } from "@/lib/export/supabase-rest";
+import { buildSessionReportCustomerDetails, type SessionReportCustomerDetail } from "@/lib/mcp/session-report-customer-details";
+import { buildSessionReportEnrichment, type SessionReportEnrichment, type SessionReportHealth, type SessionReportRecommendedAction } from "@/lib/mcp/session-report-enrichment";
 import { buildMcpSessionReportSummary, type SessionReportSummary } from "@/lib/mcp/session-report";
 
 type Row = Record<string, unknown>;
@@ -9,14 +11,33 @@ export type SessionReportSource = {
   snapshotId?: string;
   snapshotSource?: string;
   snapshotAt?: string;
+  schemaVersion: string;
+  customerDetails: SessionReportCustomerDetail[];
+  insights: SessionReportEnrichment["insights"];
+  score: number;
+  health: SessionReportHealth;
+  warnings: string[];
+  recommendedActions: SessionReportRecommendedAction[];
+  aiPromptContext: Record<string, unknown>;
+  aiResult?: Record<string, unknown> | null;
+  aiAnalyzedAt?: string;
 };
 
 function text(value: unknown) {
   return String(value ?? "").trim();
 }
 
+function num(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function object(value: unknown): Row | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Row : null;
+}
+
+function array<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : [];
 }
 
 function summaryFromSnapshot(row: Row): SessionReportSummary | null {
@@ -49,7 +70,7 @@ export async function loadMcpSessionReportSource(input: { sessionId?: string; ro
   const sessionId = text(input.sessionId);
   if (sessionId) {
     const rows = await restRows<Row>("mcp_session_reports", {
-      select: "id,session_id,route_id,route_name,session_date,sales,status,kpis,overview,sections,summary_text,snapshot_source,snapshot_at,raw_payload,created_at,updated_at",
+      select: "id,session_id,route_id,route_name,session_date,sales,status,schema_version,kpis,overview,sections,customer_details,insights,score,health,warnings,recommended_actions,ai_prompt_context,ai_result,ai_analyzed_at,summary_text,snapshot_source,snapshot_at,raw_payload,created_at,updated_at",
       order: "snapshot_at.desc,updated_at.desc",
       limit: 1,
       filters: { session_id: sessionId }
@@ -62,13 +83,42 @@ export async function loadMcpSessionReportSource(input: { sessionId?: string; ro
         origin: "snapshot",
         snapshotId: text(row.id),
         snapshotSource: text(row.snapshot_source),
-        snapshotAt: text(row.snapshot_at || row.updated_at)
+        snapshotAt: text(row.snapshot_at || row.updated_at),
+        schemaVersion: text(row.schema_version) || "mcp.session-report.snapshot.v2",
+        customerDetails: array<SessionReportCustomerDetail>(row.customer_details),
+        insights: object(row.insights) as SessionReportEnrichment["insights"] || {
+          summary: "",
+          reasons: [],
+          opportunities: [],
+          risks: [],
+          dataQuality: { customerDetails: 0, expectedCustomers: 0, completeCustomerCoverage: false, customersWithSignals: 0, visitedWithoutSignals: 0 }
+        },
+        score: num(row.score),
+        health: (text(row.health) || "risk") as SessionReportHealth,
+        warnings: array<string>(row.warnings),
+        recommendedActions: array<SessionReportRecommendedAction>(row.recommended_actions),
+        aiPromptContext: object(row.ai_prompt_context) || {},
+        aiResult: object(row.ai_result),
+        aiAnalyzedAt: text(row.ai_analyzed_at)
       };
     }
   }
 
+  const summary = await buildMcpSessionReportSummary(input);
+  const customerDetails = await buildSessionReportCustomerDetails(summary);
+  const enrichment = buildSessionReportEnrichment(summary, customerDetails);
   return {
-    summary: await buildMcpSessionReportSummary(input),
-    origin: "live"
+    summary,
+    origin: "live",
+    schemaVersion: enrichment.schemaVersion,
+    customerDetails,
+    insights: enrichment.insights,
+    score: enrichment.score,
+    health: enrichment.health,
+    warnings: enrichment.warnings,
+    recommendedActions: enrichment.recommendedActions,
+    aiPromptContext: enrichment.aiPromptContext,
+    aiResult: null,
+    aiAnalyzedAt: ""
   };
 }
