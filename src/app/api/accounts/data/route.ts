@@ -34,6 +34,7 @@ function routeName(row: Row, routes: Record<string, string>) { return routes[rou
 
 export async function GET() {
   try {
+    const currentMonth = new Date().toISOString().slice(0, 7);
     const [routeCustomers, routes, sessionCustomers, orders] = await Promise.all([
       restRows<Row>("mcp_route_customers", { select: "id,route_id,customer_id,customer_name,phone,area,address,active,updated_at", order: "customer_name.asc", limit: 50000 }),
       restRows<Row>("mcp_routes", { select: "id,route_name,active,area", order: "route_name.asc", limit: 5000 }),
@@ -88,8 +89,9 @@ export async function GET() {
     orders.forEach((row) => {
       const item = ensure(row);
       if (!item) return;
-      item.lastOrderDate = maxDate(item.lastOrderDate, dateOnly(row.order_date || row.created_at));
-      item.monthlyRevenue += num(row.grand_total);
+      const orderDate = dateOnly(row.order_date || row.created_at);
+      item.lastOrderDate = maxDate(item.lastOrderDate, orderDate);
+      if (orderDate.startsWith(currentMonth)) item.monthlyRevenue += num(row.grand_total);
       if (item.contactName === "-") item.contactName = text(row.customer_phone) || "-";
       if (item.area === "Chưa rõ") item.area = text(row.area) || item.area;
     });
