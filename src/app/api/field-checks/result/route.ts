@@ -44,6 +44,17 @@ function safeStatus(value: unknown) {
   return "normal";
 }
 
+function rawPayload(body: Dict) {
+  return {
+    ...body,
+    source: "field_checks_session_admin",
+    session_id: text(body.sessionId || body.session_id),
+    session_customer_id: text(body.sessionCustomerId || body.session_customer_id),
+    route_id: text(body.routeId || body.route_id),
+    session_date: text(body.sessionDate || body.session_date)
+  };
+}
+
 async function supabaseWrite(method: "POST" | "PATCH", path: string, body: Dict) {
   const cfg = env();
   const response = await fetch(`${cfg.url}${path}`, {
@@ -74,7 +85,7 @@ export async function POST(request: Request) {
       status: safeStatus(body.status),
       note: text(body.note),
       sync_status: "pending",
-      raw_payload: body
+      raw_payload: rawPayload(body)
     };
 
     const data = resultId
