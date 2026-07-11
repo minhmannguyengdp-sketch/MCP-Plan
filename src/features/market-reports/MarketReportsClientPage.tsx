@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ExportMenu, buildExportLink } from "@/features/exports/ExportLinks";
 import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
 import { OperationalListCard } from "@/ui/cards/OperationalListCard";
 import { FilterBar } from "@/ui/layout/FilterBar";
@@ -104,8 +105,43 @@ function statusClass(status: MarketReportStatus) {
   return `${styles.status} ${styles.normal}`;
 }
 
-function exportUrl(report: MarketReportItem, format: "json" | "markdown") {
+function dataExportUrl(report: MarketReportItem, format: "json" | "markdown") {
   return `/api/mcp-session-report/export?sessionId=${encodeURIComponent(report.sessionId)}&format=${format}`;
+}
+
+function pdfUrl(report: MarketReportItem) {
+  return `/api/pdf/session-day?sessionId=${encodeURIComponent(report.sessionId)}`;
+}
+
+function excelUrl(report: MarketReportItem) {
+  return `/api/backend/exports/mcp-sessions.csv?sessionId=${encodeURIComponent(report.sessionId)}`;
+}
+
+function wordUrl(report: MarketReportItem) {
+  return `/api/mcp-session-report/word?sessionId=${encodeURIComponent(report.sessionId)}`;
+}
+
+function ReportExportMenu({ report, label = "Xuất báo cáo" }: { report: MarketReportItem; label?: string }) {
+  return <ExportMenu
+    label={label}
+    groups={[
+      {
+        title: "Xuất văn phòng",
+        links: [
+          buildExportLink("PDF", pdfUrl(report), "primary", "Xem, in hoặc gửi quản lý"),
+          buildExportLink("Excel", excelUrl(report), undefined, "Lọc và đối chiếu danh sách khách"),
+          buildExportLink("Word", wordUrl(report), undefined, "Bản báo cáo có thể chỉnh sửa")
+        ]
+      },
+      {
+        title: "Dữ liệu AI",
+        links: [
+          buildExportLink("JSON cho Gemini/ADK", dataExportUrl(report, "json"), undefined, "Dữ liệu máy đọc có cấu trúc"),
+          buildExportLink("Markdown", dataExportUrl(report, "markdown"), undefined, "Văn bản để dán vào AI hoặc lưu kỹ thuật")
+        ]
+      }
+    ]}
+  />;
 }
 
 function Empty({ children }: { children: string }) {
@@ -133,11 +169,8 @@ function ReportCard({ report, onOpen }: { report: MarketReportItem; onOpen: () =
     description={`${report.routeName} · ${ov.visited}/${ov.planned} khách · ${ov.orders} đơn · ${ov.tests} test`}
     badge={<strong className={statusClass(report.status)}>{statusLabel(report.status)} · {report.score}</strong>}
     meta={[`Độ phủ ${pct(ov.visited, ov.planned)}`, `${report.sections.customers?.length || 0}/${ov.planned} khách chi tiết`, report.nextAction]}
-    actions={[
-      { label: "Xem", tone: "primary", onClick: onOpen },
-      { label: "JSON", href: exportUrl(report, "json") },
-      { label: "MD", href: exportUrl(report, "markdown") }
-    ]}
+    actions={[{ label: "Xem", tone: "primary", onClick: onOpen }]}
+    actionContent={<ReportExportMenu report={report} />}
   />;
 }
 
@@ -146,7 +179,7 @@ function OverviewTab({ report }: { report: MarketReportItem }) {
   return <div className={styles.reportTabBody}>
     <section className={styles.reportHero}>
       <div><span>Đánh giá snapshot</span><strong>{report.health} · {report.score}/100</strong><p>{report.insights.summary || report.note}</p></div>
-      <div className="sheet-action-grid"><a className="button primary" href={exportUrl(report, "json")}>JSON</a><a className="button" href={exportUrl(report, "markdown")}>Markdown</a></div>
+      <ReportExportMenu report={report} />
     </section>
     <div className={styles.reportMetricGrid}>
       <Metric label="Khách" value={ov.planned} hint={`${ov.visited} đã ghé · ${ov.pending} chờ`} />
@@ -246,7 +279,7 @@ function AiTab({ report }: { report: MarketReportItem }) {
   }
 
   return <div className={styles.reportTabBody}>
-    <section className={styles.aiPanel}><span>AI Prompt Context đã lưu trong snapshot</span><strong>{agent ? "Đã có kết quả AI" : "Chưa chạy AI"}</strong><p>{report.insights.summary || "Snapshot chưa có nhận định."}</p><div className="sheet-action-grid"><button className="button primary" type="button" onClick={runAgent} disabled={loading}>{loading ? "Agent đang phân tích..." : agent ? "Phân tích lại và lưu" : "Phân tích bằng ADK Agent"}</button><a className="button" href={exportUrl(report, "json")}>JSON</a><a className="button" href={exportUrl(report, "markdown")}>Markdown</a></div></section>
+    <section className={styles.aiPanel}><span>AI Prompt Context đã lưu trong snapshot</span><strong>{agent ? "Đã có kết quả AI" : "Agent đã sẵn sàng"}</strong><p>{report.insights.summary || "Snapshot chưa có nhận định."}</p><div className="sheet-action-grid"><button className="button primary" type="button" onClick={runAgent} disabled={loading}>{loading ? "Agent đang phân tích..." : agent ? "Phân tích lại và lưu" : "Phân tích bằng ADK Agent"}</button><ReportExportMenu report={report} label="Xuất dữ liệu" /></div></section>
     {error ? <Empty>{error}</Empty> : null}
     {agent ? <AgentResultView state={agent} /> : <><section className={styles.twoColumnSection}><div><h3>Cơ hội đã lưu</h3><TextList items={report.insights.opportunities} empty="Chưa có cơ hội." /></div><div><h3>Cảnh báo đã lưu</h3><TextList items={report.warnings} empty="Không có cảnh báo." /></div></section><section><h3>Hành động đề xuất đã lưu</h3>{report.recommendedActions.length ? <div className={styles.detailList}>{report.recommendedActions.map((item, index) => <DetailRow key={`${item.type || "action"}-${index}`} title={`${item.customerName ? `${item.customerName} · ` : ""}${item.action || "Việc cần làm"}`} meta={item.priority || "medium"} note={item.reason} />)}</div> : <Empty>Chưa có hành động đề xuất.</Empty>}</section></>}
   </div>;
@@ -254,7 +287,7 @@ function AiTab({ report }: { report: MarketReportItem }) {
 
 function ReportSheet({ report, onClose }: { report: MarketReportItem | null; onClose: () => void }) {
   const [tab, setTab] = useState<ReportTab>("overview");
-  return <BottomSheet open={Boolean(report)} onClose={onClose} title={report ? `BC phiên · ${report.routeName}` : "Chi tiết BC phiên"} description={report ? `${report.accountName} · ${report.date}` : undefined} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button>{report ? <><a className="button primary" href={exportUrl(report, "json")}>JSON</a><a className="button" href={exportUrl(report, "markdown")}>Markdown</a></> : null}</div>}>
+  return <BottomSheet open={Boolean(report)} onClose={onClose} title={report ? `BC phiên · ${report.routeName}` : "Chi tiết BC phiên"} description={report ? `${report.accountName} · ${report.date}` : undefined} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button>{report ? <ReportExportMenu report={report} /> : null}</div>}>
     {report ? <div className={styles.reportSheet}><div className={styles.tabBar}>{TABS.map((item) => <button key={item.id} className={tab === item.id ? styles.activeTab : ""} type="button" onClick={() => setTab(item.id)}>{item.label}</button>)}</div>{tab === "overview" ? <OverviewTab report={report} /> : null}{tab === "orders" ? <OrdersTab report={report} /> : null}{tab === "tests" ? <TestsTab report={report} /> : null}{tab === "observations" ? <ObservationsTab report={report} /> : null}{tab === "followups" ? <FollowupsTab report={report} /> : null}{tab === "customers" ? <CustomersTab report={report} /> : null}{tab === "ai" ? <AiTab key={report.id} report={report} /> : null}</div> : null}
   </BottomSheet>;
 }
@@ -263,5 +296,5 @@ export function MarketReportsClientPage({ kpis, reports, focusSessionId = "" }: 
   const focused = useMemo(() => reports.find((report) => report.sessionId === focusSessionId || report.id === focusSessionId) || null, [focusSessionId, reports]);
   const [selected, setSelected] = useState<MarketReportItem | null>(focused);
   const needAction = reports.filter((report) => report.health === "risk").length;
-  return <AppShell activeHref="/reports"><PageHeader eyebrow="BC phiên MCP" title="BC phiên" subtitle="Snapshot hoàn chỉnh: đủ khách, insight, cảnh báo, hành động và kết quả AI lưu trực tiếp vào BC."><span className="badge">{needAction} cần xử lý</span></PageHeader><FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Schema", value: "Snapshot v2" }, { label: "Nhóm", value: "Theo phiên" }]} /><CompactKpiStrip items={kpis} /><div className={styles.templateGrid}><span>Snapshot v2</span><span>Đủ khách</span><span>Insight đã lưu</span><span>AI lưu kết quả</span></div><section className={styles.section}><div className="dashboard-section-head"><h2>BC phiên đã chốt</h2><span>{reports.length} phiên</span></div><div className={styles.list}>{reports.length ? reports.map((report) => <ReportCard key={report.id} report={report} onOpen={() => setSelected(report)} />) : <div className="empty-inline">Chưa có BC phiên.</div>}</div></section><ReportSheet report={selected} onClose={() => setSelected(null)} /></AppShell>;
+  return <AppShell activeHref="/reports"><PageHeader eyebrow="BC phiên MCP" title="BC phiên" subtitle="Snapshot hoàn chỉnh cho quản lý: xem nhanh, xuất PDF/Excel/Word và dùng AI khi cần."><span className="badge">{needAction} cần xử lý</span></PageHeader><FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Schema", value: "Snapshot v2" }, { label: "Nhóm", value: "Theo phiên" }]} /><CompactKpiStrip items={kpis} /><div className={styles.templateGrid}><span>Snapshot v2</span><span>Đủ khách</span><span>PDF · Excel · Word</span><span>AI lưu kết quả</span></div><section className={styles.section}><div className="dashboard-section-head"><h2>BC phiên đã chốt</h2><span>{reports.length} phiên</span></div><div className={styles.list}>{reports.length ? reports.map((report) => <ReportCard key={report.id} report={report} onOpen={() => setSelected(report)} />) : <div className="empty-inline">Chưa có BC phiên.</div>}</div></section><ReportSheet report={selected} onClose={() => setSelected(null)} /></AppShell>;
 }
