@@ -93,7 +93,7 @@ export function OrdersClientPage({ ordersResult }: { ordersResult: ApiResult<Ord
 
   return (
     <AppShell activeHref="/orders">
-      <PageHeader eyebrow="Orders" title="Đơn hàng" subtitle="Quét nhanh đơn theo nguồn, điểm bán, tuyến, giá trị và trạng thái."><SourceBadge source={ordersResult.source} /></PageHeader>
+      <PageHeader eyebrow="Đơn hàng" title="Đơn hàng" subtitle="Quét nhanh đơn theo nguồn, điểm bán, tuyến, giá trị và trạng thái."><SourceBadge source={ordersResult.source} /></PageHeader>
       <FilterBar filters={[{ label: "Ngày", value: "Gần nhất" }, { label: "Tuyến", value: "Tất cả" }, { label: "Trạng thái", value: "Tất cả" }]} />
       <CompactKpiStrip items={kpis} />
       <section className={styles.section}>
