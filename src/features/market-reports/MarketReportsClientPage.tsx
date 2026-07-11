@@ -279,7 +279,16 @@ function AiTab({ report }: { report: MarketReportItem }) {
   }
 
   return <div className={styles.reportTabBody}>
-    <section className={styles.aiPanel}><span>AI Prompt Context đã lưu trong snapshot</span><strong>{agent ? "Đã có kết quả AI" : "Agent đã sẵn sàng"}</strong><p>{report.insights.summary || "Snapshot chưa có nhận định."}</p><div className="sheet-action-grid"><button className="button primary" type="button" onClick={runAgent} disabled={loading}>{loading ? "Agent đang phân tích..." : agent ? "Phân tích lại và lưu" : "Phân tích bằng ADK Agent"}</button><ReportExportMenu report={report} label="Xuất dữ liệu" /></div></section>
+    <section className={styles.aiPanel}>
+      <span>AI Prompt Context đã lưu trong snapshot</span>
+      <strong>{agent ? "Đã có kết quả AI" : "Agent đã sẵn sàng"}</strong>
+      <p>{report.insights.summary || "Snapshot chưa có nhận định."}</p>
+      <div className="sheet-action-grid">
+        <button className="button primary" type="button" onClick={runAgent} disabled={loading}>{loading ? "Agent đang phân tích..." : agent ? "Phân tích lại và lưu" : "Phân tích bằng ADK Agent"}</button>
+        <a className="button" href={dataExportUrl(report, "json")} target="_blank" rel="noreferrer">JSON cho AI</a>
+        <a className="button" href={dataExportUrl(report, "markdown")} target="_blank" rel="noreferrer">Markdown</a>
+      </div>
+    </section>
     {error ? <Empty>{error}</Empty> : null}
     {agent ? <AgentResultView state={agent} /> : <><section className={styles.twoColumnSection}><div><h3>Cơ hội đã lưu</h3><TextList items={report.insights.opportunities} empty="Chưa có cơ hội." /></div><div><h3>Cảnh báo đã lưu</h3><TextList items={report.warnings} empty="Không có cảnh báo." /></div></section><section><h3>Hành động đề xuất đã lưu</h3>{report.recommendedActions.length ? <div className={styles.detailList}>{report.recommendedActions.map((item, index) => <DetailRow key={`${item.type || "action"}-${index}`} title={`${item.customerName ? `${item.customerName} · ` : ""}${item.action || "Việc cần làm"}`} meta={item.priority || "medium"} note={item.reason} />)}</div> : <Empty>Chưa có hành động đề xuất.</Empty>}</section></>}
   </div>;
