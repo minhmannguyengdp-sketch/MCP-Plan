@@ -105,12 +105,10 @@ export async function buildMcpSessionReportSummary(input: { sessionId?: string; 
   const sessionId = text(session.id);
   const customers = await restRows<Row>("mcp_session_customers", { select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,sort_order,visit_status,status_reason,order_id,test_id,report_id,followup_count,note,created_at,updated_at", order: "sort_order.asc,customer_name.asc", limit: 20000, filters: { session_id: sessionId } });
   const sessionCustomerIds = customers.map((item) => text(item.id)).filter(Boolean);
-  const routeCustomerIds = customers.map((item) => text(item.route_customer_id)).filter(Boolean);
   const reportIds = customers.map((item) => text(item.report_id)).filter(Boolean);
   const orderIds = customers.map((item) => text(item.order_id)).filter(Boolean);
   const testIds = customers.map((item) => text(item.test_id)).filter(Boolean);
   const sessionCustomerIn = inFilter(sessionCustomerIds);
-  const routeCustomerIn = inFilter(routeCustomerIds);
   const [reports, orders, tests, followupRows] = await Promise.all([
     rowsByFilters("market_reports", "id,report_date,sales,market_area,route_name,market_type,competitor_summary,price_summary,demand_summary,company_product_summary,opportunity_summary,risk_summary,next_action,note,raw_payload,created_at,updated_at", "created_at.asc", [
       { id: inFilter(reportIds) },
@@ -127,8 +125,7 @@ export async function buildMcpSessionReportSummary(input: { sessionId?: string; 
       { "raw_payload->>sessionId": sessionId },
       { "raw_payload->>mcp_session_id": sessionId },
       { "raw_payload->>session_customer_id": sessionCustomerIn },
-      { "raw_payload->>sessionCustomerId": sessionCustomerIn },
-      { "raw_payload->>route_customer_id": routeCustomerIn }
+      { "raw_payload->>sessionCustomerId": sessionCustomerIn }
     ]),
     rowsByFilters("test_customer_results", "id,file_id,customer_id,product_id,product_name,status,note,raw_payload,created_at,updated_at", "created_at.asc", [
       { id: inFilter(testIds) },
