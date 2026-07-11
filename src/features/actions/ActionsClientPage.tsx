@@ -50,13 +50,7 @@ function ActionDetailSheet({ item, onClose }: { item: ActionItem | null; onClose
       onClose={onClose}
       title={item ? item.title : "Chi tiết việc"}
       description={item ? `${item.accountName} · ${item.routeName}` : undefined}
-      footer={
-        <div className="sheet-action-grid">
-          <button className="button primary" type="button">Đánh dấu đang làm</button>
-          <button className="button" type="button">Đổi hạn / giao lại</button>
-          <button className="button" type="button" onClick={onClose}>Đóng</button>
-        </div>
-      }
+      footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {item ? (
         <div className="plan-sheet-content">
@@ -86,6 +80,14 @@ function ActionDetailSheet({ item, onClose }: { item: ActionItem | null; onClose
 export function ActionsClientPage({ kpis, items }: { kpis: ActionKpi[]; items: ActionItem[] }) {
   const [selectedItem, setSelectedItem] = useState<ActionItem | null>(null);
   const columns = useMemo(() => buildColumns(setSelectedItem), []);
+  const sourceStats = useMemo(() => {
+    return {
+      session: items.filter((item) => item.source === "session").length,
+      order: items.filter((item) => item.source === "order").length,
+      fieldCheck: items.filter((item) => item.source === "field_check").length,
+      manual: items.filter((item) => item.source === "manual").length
+    };
+  }, [items]);
 
   return (
     <AppShell activeHref="/plans">
@@ -118,11 +120,12 @@ export function ActionsClientPage({ kpis, items }: { kpis: ActionKpi[]; items: A
         </div>
 
         <div className="card">
-          <h2 className="panel-title">Liên kết workflow</h2>
+          <h2 className="panel-title">Nguồn phát sinh</h2>
           <div className="grid">
-            <div className="metric-row"><span>Đơn hàng</span><strong>Theo dõi</strong></div>
-            <div className="metric-row"><span>Kiểm tra</span><strong>Xử lý</strong></div>
-            <div className="metric-row"><span>Phụ trách</span><strong>Rõ ràng</strong></div>
+            <div className="metric-row"><span>Phiên MCP</span><strong>{sourceStats.session}</strong></div>
+            <div className="metric-row"><span>Đơn hàng</span><strong>{sourceStats.order}</strong></div>
+            <div className="metric-row"><span>Quan sát / test</span><strong>{sourceStats.fieldCheck}</strong></div>
+            <div className="metric-row"><span>Thủ công</span><strong>{sourceStats.manual}</strong></div>
           </div>
         </div>
       </section>
