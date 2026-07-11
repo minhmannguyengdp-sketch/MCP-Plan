@@ -15,23 +15,23 @@ function formatMoney(value: number) {
 }
 
 function statusLabel(status: AccountStatus) {
-  if (status === "active") return "Dang cham soc";
-  if (status === "need_visit") return "Can ghe lai";
-  return "Chua du lieu";
+  if (status === "active") return "Đang chăm sóc";
+  if (status === "need_visit") return "Cần ghé lại";
+  return "Chưa có dữ liệu";
 }
 
 function buildColumns(onSelect: (item: AccountItem) => void): DataTableColumn<AccountItem>[] {
   return [
-    { key: "name", header: "Diem ban", render: (row) => row.name },
-    { key: "contactName", header: "Lien he", render: (row) => row.contactName },
-    { key: "area", header: "Khu vuc", render: (row) => row.area },
-    { key: "routeName", header: "Tuyen", render: (row) => row.routeName },
-    { key: "tier", header: "Hang", render: (row) => <span className="badge">Tier {row.tier}</span> },
-    { key: "lastVisitDate", header: "Ghe gan nhat", render: (row) => row.lastVisitDate },
-    { key: "lastOrderDate", header: "Don gan nhat", render: (row) => row.lastOrderDate },
-    { key: "monthlyRevenue", header: "Doanh so", render: (row) => formatMoney(row.monthlyRevenue), align: "right" },
-    { key: "status", header: "Trang thai", render: (row) => <span className="badge">{statusLabel(row.status)}</span> },
-    { key: "detail", header: "", render: (row) => <button className="button compact" type="button" onClick={() => onSelect(row)}>Ho so</button> }
+    { key: "name", header: "Điểm bán", render: (row) => row.name },
+    { key: "contactName", header: "Liên hệ", render: (row) => row.contactName },
+    { key: "area", header: "Khu vực", render: (row) => row.area },
+    { key: "routeName", header: "Tuyến", render: (row) => row.routeName },
+    { key: "tier", header: "Hạng", render: (row) => <span className="badge">Tier {row.tier}</span> },
+    { key: "lastVisitDate", header: "Ghé gần nhất", render: (row) => row.lastVisitDate },
+    { key: "lastOrderDate", header: "Đơn gần nhất", render: (row) => row.lastOrderDate },
+    { key: "monthlyRevenue", header: "Doanh số", render: (row) => formatMoney(row.monthlyRevenue), align: "right" },
+    { key: "status", header: "Trạng thái", render: (row) => <span className="badge">{statusLabel(row.status)}</span> },
+    { key: "detail", header: "", render: (row) => <button className="button compact" type="button" onClick={() => onSelect(row)}>Hồ sơ</button> }
   ];
 }
 
@@ -40,34 +40,34 @@ function OutletSheet({ item, onClose }: { item: AccountItem | null; onClose: () 
     <BottomSheet
       open={Boolean(item)}
       onClose={onClose}
-      title={item ? item.name : "Ho so diem ban"}
+      title={item ? item.name : "Hồ sơ điểm bán"}
       description={item ? `${item.area} · ${item.routeName}` : undefined}
       footer={
         <div className="sheet-action-grid">
-          <button className="button primary" type="button">Len lich ghe lai</button>
-          <button className="button" type="button">Tao don nhanh</button>
-          <button className="button" type="button">Ghi field check</button>
-          <button className="button" type="button">Tao viec theo doi</button>
-          <button className="button" type="button" onClick={onClose}>Dong</button>
+          <button className="button primary" type="button">Lên lịch ghé lại</button>
+          <button className="button" type="button">Tạo đơn nhanh</button>
+          <button className="button" type="button">Ghi quan sát MCP</button>
+          <button className="button" type="button">Tạo việc theo dõi</button>
+          <button className="button" type="button" onClick={onClose}>Đóng</button>
         </div>
       }
     >
       {item ? (
         <div className="outlet-sheet-content">
           <div className="outlet-focus-card">
-            <span>Doanh so thang</span>
+            <span>Doanh số tháng</span>
             <strong>{formatMoney(item.monthlyRevenue)}</strong>
             <small>Tier {item.tier} · {statusLabel(item.status)}</small>
           </div>
           <div className="grid">
-            <div className="metric-row"><span>Nguoi lien he</span><strong>{item.contactName}</strong></div>
-            <div className="metric-row"><span>Tuyen</span><strong>{item.routeName}</strong></div>
-            <div className="metric-row"><span>Ghe gan nhat</span><strong>{item.lastVisitDate}</strong></div>
-            <div className="metric-row"><span>Don gan nhat</span><strong>{item.lastOrderDate}</strong></div>
+            <div className="metric-row"><span>Người liên hệ</span><strong>{item.contactName}</strong></div>
+            <div className="metric-row"><span>Tuyến</span><strong>{item.routeName}</strong></div>
+            <div className="metric-row"><span>Ghé gần nhất</span><strong>{item.lastVisitDate}</strong></div>
+            <div className="metric-row"><span>Đơn gần nhất</span><strong>{item.lastOrderDate}</strong></div>
           </div>
           <div className="sheet-note-card">
-            <h3>Ho so diem ban</h3>
-            <p>Noi tong hop visit, don hang, field check, viec can lam va ghi chu cham soc cua diem ban.</p>
+            <h3>Hồ sơ điểm bán</h3>
+            <p>Nơi tổng hợp lịch ghé, đơn hàng, quan sát MCP, việc cần làm và ghi chú chăm sóc của điểm bán.</p>
           </div>
         </div>
       ) : null}
@@ -81,11 +81,11 @@ export function OutletsClientPage({ kpis, items }: { kpis: AccountKpi[]; items: 
 
   return (
     <AppShell activeHref="/customers">
-      <PageHeader eyebrow="Customers" title="Khach hang / diem ban" subtitle="Ho so diem ban noi visit, don hang, field check va viec can lam trong mot luong cham soc.">
-        <span className="badge">Dang cham soc</span>
+      <PageHeader eyebrow="Khách hàng" title="Khách hàng / điểm bán" subtitle="Hồ sơ điểm bán nối dữ liệu ghé tuyến, đơn hàng, quan sát MCP và việc cần làm trong một luồng chăm sóc.">
+        <span className="badge">Đang chăm sóc</span>
       </PageHeader>
 
-      <FilterBar filters={[{ label: "Khu vuc", value: "Tat ca" }, { label: "Hang diem ban", value: "A/B/C" }, { label: "Trang thai", value: "Dang cham soc + Can ghe lai" }]} />
+      <FilterBar filters={[{ label: "Khu vực", value: "Tất cả" }, { label: "Hạng điểm bán", value: "A/B/C" }, { label: "Trạng thái", value: "Đang chăm sóc + Cần ghé lại" }]} />
 
       <section className="grid cards">
         {kpis.map((row) => <KpiCard key={row.label} label={row.label} value={row.value} hint={row.hint} />)}
@@ -93,27 +93,27 @@ export function OutletsClientPage({ kpis, items }: { kpis: AccountKpi[]; items: 
 
       <section className="hero-panel" style={{ marginTop: 18 }}>
         <div className="card">
-          <h2 className="panel-title">Danh sach diem ban</h2>
-          <DataTable columns={columns} rows={items} getRowKey={(row) => row.id} emptyMessage="Chua co diem ban" />
+          <h2 className="panel-title">Danh sách điểm bán</h2>
+          <DataTable columns={columns} rows={items} getRowKey={(row) => row.id} emptyMessage="Chưa có điểm bán" />
         </div>
         <div className="card">
-          <h2 className="panel-title">Can chuan hoa</h2>
+          <h2 className="panel-title">Cần chuẩn hóa</h2>
           <div className="grid">
-            <div className="metric-row"><span>Can ghe lai</span><strong>2</strong></div>
-            <div className="metric-row"><span>Thieu thong tin</span><strong>1</strong></div>
-            <div className="metric-row"><span>Chua co don</span><strong>3</strong></div>
+            <div className="metric-row"><span>Cần ghé lại</span><strong>2</strong></div>
+            <div className="metric-row"><span>Thiếu thông tin</span><strong>1</strong></div>
+            <div className="metric-row"><span>Chưa có đơn</span><strong>3</strong></div>
             <div className="metric-row"><span>Tier A</span><strong>2</strong></div>
           </div>
         </div>
       </section>
 
       <section className="card">
-        <h2 className="panel-title">Goi y cham soc diem ban</h2>
+        <h2 className="panel-title">Gợi ý chăm sóc điểm bán</h2>
         <article className="action-card">
           <div>
-            <span className="badge">Uu tien</span>
-            <h3>Tap trung diem ban tier cao nhung chua co don moi</h3>
-            <p className="page-subtitle">Nhom nay nen duoc ghe lai truoc de kiem tra ton kho, doi thu va nhu cau dat them hang.</p>
+            <span className="badge">Ưu tiên</span>
+            <h3>Tập trung điểm bán tier cao nhưng chưa có đơn mới</h3>
+            <p className="page-subtitle">Nhóm này nên được ghé lại trước để kiểm tra tồn kho, đối thủ và nhu cầu đặt thêm hàng.</p>
           </div>
           <strong>Sale</strong>
         </article>
