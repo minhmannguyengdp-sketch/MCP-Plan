@@ -56,3 +56,5 @@ POST /api/mcp-session-report/analyze
 
 - GET kiểm tra health của Cloud Run.
 - POST gửi snapshot BC phiên đã chốt, nhận kết quả AI và lưu vào `mcp_session_reports.ai_result`.
+
+Deployment trigger after verified local build: 2026-07-11.
