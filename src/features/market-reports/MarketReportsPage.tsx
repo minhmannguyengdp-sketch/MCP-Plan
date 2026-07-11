@@ -81,9 +81,9 @@ function kpis(reports: MarketReportItem[], rows: ReportRow[]): MarketReportKpi[]
   const routeCount = new Set(reports.map((item) => item.routeName).filter(Boolean)).size;
   const observations = rows.reduce((sum, row) => sum + num((sections(row).overview || {}).observations), 0);
   return [
-    { label: "BC phiên", value: reports.length, hint: "Snapshot theo session" },
+    { label: "BC phiên", value: reports.length, hint: "Theo phiên đã chốt" },
     { label: "Quan sát", value: observations, hint: "Gom từ khách trong phiên" },
-    { label: "Cơ hội / Rủi ro", value: `${opportunities}/${risks}`, hint: "Theo snapshot" },
+    { label: "Cơ hội / Rủi ro", value: `${opportunities}/${risks}`, hint: "Theo BC đã chốt" },
     { label: "Tuyến", value: routeCount, hint: "Có BC phiên" }
   ];
 }
