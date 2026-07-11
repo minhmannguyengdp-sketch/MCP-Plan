@@ -11,7 +11,7 @@ type SessionsPayload = { sessions: SessionRow[]; routes: { id: string; name: str
 type EditDraft = { sessionDate: string; status: string; note: string };
 const labels: Record<string, string> = { active: "Đang chạy", done: "Đã chốt", completed: "Đã chốt", cancelled: "Đã hủy" };
 const actionUrl = (id: string) => `/api/backend/mcp-session-actions/${encodeURIComponent(id)}`;
-const reportJsonUrl = (id: string) => `/api/mcp-session-report?sessionId=${encodeURIComponent(id)}`;
+const reportExportUrl = (id: string, format: "json" | "markdown") => `/api/mcp-session-report/export?sessionId=${encodeURIComponent(id)}&format=${format}`;
 const sessionExcelUrl = (id: string) => `/api/backend/exports/mcp-sessions.csv?sessionId=${encodeURIComponent(id)}`;
 const sessionPdfUrl = (id: string) => `/api/pdf/session-day?sessionId=${encodeURIComponent(id)}`;
 function toDraft(s: SessionRow): EditDraft { return { sessionDate: s.sessionDate, status: s.status === "completed" ? "done" : s.status || "active", note: s.note || "" }; }
@@ -25,7 +25,8 @@ function SessionExportMenu({ session }: { session: SessionRow }) {
   return <ExportMenu
     label={closed ? "Xuất BC" : "Xuất"}
     groups={[{ title: closed ? "BC phiên đã chốt" : "Phiên này", links: [
-      buildExportLink(closed ? "JSON BC phiên" : "JSON BC tạm tính", reportJsonUrl(session.id), "primary", closed ? "Dữ liệu sạch cho AI/Gemini phân tích" : "Dữ liệu tạm tính theo phiên hiện tại"),
+      buildExportLink(closed ? "JSON cho AI" : "JSON BC tạm tính", reportExportUrl(session.id, "json"), "primary", closed ? "Schema sạch cho Gemini/ADK phân tích" : "Dữ liệu tạm tính theo phiên hiện tại"),
+      buildExportLink("Markdown dễ đọc", reportExportUrl(session.id, "markdown"), undefined, "Bản văn bản có cấu trúc để đọc hoặc dán vào AI"),
       buildExportLink("Excel checklist", sessionExcelUrl(session.id), undefined, "Dữ liệu dòng khách trong phiên"),
       buildExportLink("PDF báo cáo ngày", sessionPdfUrl(session.id), undefined, "Bản in theo phiên")
     ] }]}
