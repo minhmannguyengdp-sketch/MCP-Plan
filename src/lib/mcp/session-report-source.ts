@@ -23,6 +23,20 @@ export type SessionReportSource = {
   aiAnalyzedAt?: string;
 };
 
+const EMPTY_INSIGHTS: SessionReportEnrichment["insights"] = {
+  summary: "",
+  reasons: [],
+  opportunities: [],
+  risks: [],
+  dataQuality: {
+    customerDetails: 0,
+    expectedCustomers: 0,
+    completeCustomerCoverage: false,
+    customersWithSignals: 0,
+    visitedWithoutSignals: 0
+  }
+};
+
 function text(value: unknown) {
   return String(value ?? "").trim();
 }
@@ -38,6 +52,30 @@ function object(value: unknown): Row | null {
 
 function array<T>(value: unknown): T[] {
   return Array.isArray(value) ? value as T[] : [];
+}
+
+function healthValue(value: unknown): SessionReportHealth {
+  const normalized = text(value);
+  return normalized === "good" || normalized === "watch" || normalized === "risk" ? normalized : "risk";
+}
+
+function insightsValue(value: unknown): SessionReportEnrichment["insights"] {
+  const row = object(value);
+  if (!row) return EMPTY_INSIGHTS;
+  const quality = object(row.dataQuality);
+  return {
+    summary: text(row.summary),
+    reasons: array<string>(row.reasons),
+    opportunities: array<string>(row.opportunities),
+    risks: array<string>(row.risks),
+    dataQuality: {
+      customerDetails: num(quality?.customerDetails),
+      expectedCustomers: num(quality?.expectedCustomers),
+      completeCustomerCoverage: Boolean(quality?.completeCustomerCoverage),
+      customersWithSignals: num(quality?.customersWithSignals),
+      visitedWithoutSignals: num(quality?.visitedWithoutSignals)
+    }
+  };
 }
 
 function summaryFromSnapshot(row: Row): SessionReportSummary | null {
@@ -86,15 +124,9 @@ export async function loadMcpSessionReportSource(input: { sessionId?: string; ro
         snapshotAt: text(row.snapshot_at || row.updated_at),
         schemaVersion: text(row.schema_version) || "mcp.session-report.snapshot.v2",
         customerDetails: array<SessionReportCustomerDetail>(row.customer_details),
-        insights: object(row.insights) as SessionReportEnrichment["insights"] || {
-          summary: "",
-          reasons: [],
-          opportunities: [],
-          risks: [],
-          dataQuality: { customerDetails: 0, expectedCustomers: 0, completeCustomerCoverage: false, customersWithSignals: 0, visitedWithoutSignals: 0 }
-        },
+        insights: insightsValue(row.insights),
         score: num(row.score),
-        health: (text(row.health) || "risk") as SessionReportHealth,
+        health: healthValue(row.health),
         warnings: array<string>(row.warnings),
         recommendedActions: array<SessionReportRecommendedAction>(row.recommended_actions),
         aiPromptContext: object(row.ai_prompt_context) || {},
