@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -51,11 +51,11 @@ function statusLabel(status: McpDayLine["status"]) {
 }
 
 function actionTitle(action: McpCustomerAction) {
-  return action === "order" ? "Tạo đơn hàng" : action === "test" ? "Ghi test sản phẩm" : action === "market_report" ? "Ghi báo cáo thị trường" : action === "skip" ? "Bỏ qua / không mua" : "Tạo việc follow-up";
+  return action === "order" ? "Tạo đơn hàng" : action === "test" ? "Ghi test sản phẩm" : action === "market_report" ? "Ghi quan sát thị trường" : action === "skip" ? "Bỏ qua / không mua" : "Tạo việc follow-up";
 }
 
 function actionSaveLabel(action?: McpCustomerAction) {
-  return action === "order" ? "Lưu đơn hàng" : action === "test" ? "Lưu test" : action === "market_report" ? "Lưu báo cáo" : action === "skip" ? "Lưu lý do bỏ qua" : action === "follow_up" ? "Lưu follow-up" : "Lưu kết quả";
+  return action === "order" ? "Lưu đơn hàng" : action === "test" ? "Lưu test" : action === "market_report" ? "Lưu quan sát" : action === "skip" ? "Lưu lý do bỏ qua" : action === "follow_up" ? "Lưu follow-up" : "Lưu kết quả";
 }
 
 function toNumber(value: string | number | null | undefined, fallback = 0) {
@@ -147,7 +147,7 @@ function LineList({ lines, onOpen, onAction }: { lines: McpDayLine[]; onOpen: (l
 function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; onClose: () => void; onAction: (line: McpDayLine, action: McpCustomerAction) => void }) {
   if (!line) return null;
   return (
-    <BottomSheet open={Boolean(line)} onClose={onClose} title={line.accountName} description={`${line.area} · ${sourceLabel(line.source)}`} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Tạo đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Ghi test</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Báo cáo</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Follow-up</button><button className="button" type="button" onClick={() => onAction(line, "skip")}>Bỏ qua / không mua</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
+    <BottomSheet open={Boolean(line)} onClose={onClose} title={line.accountName} description={`${line.area} · ${sourceLabel(line.source)}`} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Tạo đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Ghi test</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Quan sát</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Follow-up</button><button className="button" type="button" onClick={() => onAction(line, "skip")}>Bỏ qua / không mua</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
       <div className="visit-sheet-content"><div className="visit-focus-card"><span>Trạng thái</span><strong>{statusLabel(line.status)}</strong><small>{line.note || "Chưa ghi kết quả chi tiết"}</small></div></div>
     </BottomSheet>
   );
@@ -258,7 +258,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
           } else if (selectedAction.action === "test") {
             await postJson("/api/backend/mcp-day/session-customer/test", { sessionCustomerId, fileTitle: "Test nhanh từ checklist", results: [{ productName: draft.productName, status: draft.priority || "tested", note: draft.note }], note: draft.note, status: "tested" });
           } else if (selectedAction.action === "market_report") {
-            if (!marketReportHasInput(marketReport)) throw new Error("Cần tick hoặc nhập ít nhất 1 nội dung báo cáo");
+            if (!marketReportHasInput(marketReport)) throw new Error("Cần tick hoặc nhập ít nhất 1 nội dung quan sát");
             await postJson("/api/backend/mcp-day/session-customer/report", { sessionCustomerId, reportType: "market_report", content: buildMarketReportContent(marketReport), fields: marketReport.fields, selected: { competitors: marketReport.selectedCompetitors, usedProducts: marketReport.selectedUsedProducts, settingItems: marketReport.selectedSettingItems }, context: { routeId: run.routeId || null, routeName: run.routeName, sessionDate: run.date, sales: run.owner, customerName: selectedAction.line.accountName, area: selectedAction.line.area, routeCustomerId: selectedAction.line.routeCustomerId || null } });
           } else if (selectedAction.action === "follow_up") {
             await postJson("/api/backend/mcp-day/session-customer/followup", { sessionCustomerId, title: draft.productName || "Follow-up khách", dueDate: draft.dueDate || undefined, priority: draft.priority, owner: draft.owner, note: draft.note, followupType: "general" });
@@ -277,3 +277,4 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
 
   return <AppShell activeHref={activeHref}><PageHeader eyebrow="Checklist phiên" title="Checklist phiên" subtitle={`Tuyến gốc: ${run.routeName} · Ngày: ${run.date} · Sale: ${run.owner}`} /><section className="mcp-gate-banner mcp-session-compact-head"><strong>{counters.pending} chờ ghé</strong><span>{counters.visited} đã ghé · {counters.skipped} bỏ qua · {counters.added} phát sinh · {counters.followups} follow-up · mở lúc {run.openedAt}</span></section><div className="mcp-status-chips" role="tablist" aria-label="Checklist phiên"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>Tất cả khách <b>{counters.all}</b></button><button className={tab === "pending" ? "active" : ""} type="button" onClick={() => setTab("pending")}>Chờ ghé <b>{counters.pending}</b></button><button className={tab === "visited" ? "active" : ""} type="button" onClick={() => setTab("visited")}>Đã ghé <b>{counters.visited}</b></button><button className={tab === "skipped" ? "active" : ""} type="button" onClick={() => setTab("skipped")}>Bỏ qua <b>{counters.skipped}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Có follow-up <b>{counters.followups}</b></button></div><LineList lines={linesByTab[tab]} onOpen={setSelectedLine} onAction={openCustomerAction} /><CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} /><CustomerActionSheet selection={selectedAction} draft={draft} marketReport={marketReport} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} message={message} onChange={updateDraft} onMarketReportChange={setMarketReport} onSearchChange={(value) => setProductSearch((current) => ({ ...current, q: value }))} onCategoryChange={changeProductCategory} onRunSearch={runProductSearch} onPickProduct={pickProduct} onCommitPickerItems={commitPickerItems} onRemoveOrderItem={removeOrderItem} onChangeItemQuantity={changeItemQuantity} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} /></AppShell>;
 }
+
