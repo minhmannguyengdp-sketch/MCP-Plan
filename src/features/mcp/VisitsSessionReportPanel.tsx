@@ -76,7 +76,7 @@ export function VisitsSessionReportPanel({ mcpDayData, children }: { mcpDayData:
 
   async function closeSession() {
     if (!mcpDayData.run.id || closing) return;
-    if (!window.confirm("Chốt phiên và tạo snapshot BC phiên chính thức?")) return;
+    if (!window.confirm("Chốt phiên và lưu BC phiên chính thức?")) return;
     setClosing(true);
     setError(null);
     try {
