@@ -33,6 +33,9 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Apply final backend boundary patch
+        run: node scripts/apply-mcp-v1-boundary-backend.mjs
+
       - name: Audit mutation boundary
         run: node scripts/audit-mcp-v1-boundary.mjs
 
@@ -58,6 +61,7 @@ jobs:
         if: success()
         run: |
           rm scripts/audit-mcp-v1-boundary.mjs
+          rm scripts/apply-mcp-v1-boundary-backend.mjs
           rm .github/workflows/audit-mcp-v1-boundary.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
