@@ -1,624 +1,376 @@
-# MCP Execution Plan
+# MCP v1 — Canonical Execution Plan
 
-> Mục tiêu của file này: gom toàn bộ logic MCP hiện tại, lỗi đã phát hiện, DB contract và checklist làm tiếp để không làm lý thuyết suông, không sửa chắp vá.
+> Trạng thái: **CORE COMPLETE / FROZEN**  
+> Ngày khóa: **2026-07-12**  
+> Tài liệu chi tiết: `docs/MCP_V1_FREEZE.md`
 
-## 0. Nguyên tắc bắt buộc
+Tài liệu này thay thế các checklist MCP cũ. Không dùng lại các mục `todo` hoặc contract cũ trước ngày freeze.
 
-```text
-1. Không sửa UI trước khi biết action đó ghi vào bảng nào.
-2. Không thêm nút nếu chưa có nghiệp vụ, API, payload, DB output rõ ràng.
-3. Không fallback latest session khi người dùng đã chọn route/date.
-4. Không dùng mock cho flow có routeId/sessionId.
-5. Không tạo dữ liệu trùng khi bấm lại hoặc mở lại phiên.
-6. Không dùng service role key ở Vercel/browser.
-7. Backend/VPS chịu trách nhiệm nghiệp vụ; frontend chỉ truyền đúng payload và hiển thị kết quả.
-8. Mỗi gate phải có smoke test và output kỳ vọng.
-```
-
-## 1. Runtime hiện tại
+## 1. Kiến trúc bắt buộc
 
 ```text
-Frontend: Vercel / Next.js
-Live URL: https://mcp-plan.vercel.app
-
-Backend VPS:
-- Host: backend-DO-02
-- IP: 165.22.109.61
-- Source path: /var/www/mcp-plan-source
-- Runtime path: /var/www/mcp-plan-backend
-- PM2 app: mcp-plan-backend
-- Internal API: http://127.0.0.1:3001
-- Public rewrite target: http://165.22.109.61
-
-Supabase:
-- Project ref: noiadkpkvdohljgopgfb
+Browser
+  -> Next.js/Vercel proxy
+  -> VPS backend 165.22.109.61
+  -> Supabase bằng service role trên VPS
 ```
 
-Vercel chỉ cần biến trỏ về backend:
+Runtime:
 
 ```text
-BACKEND_API_BASE_URL=http://165.22.109.61
+Frontend: https://mcp-plan.vercel.app
+VPS source: /var/www/mcp-plan-source
+VPS runtime: /var/www/mcp-plan-backend
+PM2 app: mcp-plan-backend
+Internal backend: http://127.0.0.1:3001
+Deploy backend: pullmcp
+Supabase project: noiadkpkvdohljgopgfb
 ```
 
-Không đưa `SUPABASE_SERVICE_ROLE_KEY` lên Vercel. Supabase service role chỉ ở VPS backend hoặc Supabase Edge Function.
+Nguyên tắc cố định:
 
-## 2. Trạng thái live đã xác nhận
+1. Không đặt `SUPABASE_SERVICE_ROLE_KEY` trên Vercel hoặc browser.
+2. Vercel chỉ render frontend và proxy request.
+3. Mutation MCP chỉ chạy tại VPS backend.
+4. VPS gọi Supabase bằng service role.
+5. Không fallback mock/latest session khi đã có `routeId`, `sessionId`, `sessionCustomerId` hoặc ngày cụ thể.
+6. Không trả thành công nếu DB không áp dụng mutation.
 
-### Đã sửa xong
-
-```text
-✅ /visits không còn được mở trống routeId.
-✅ /mcp -> /routes -> open-session -> /visits?routeId=...&date=...
-✅ Backend live đã load đúng session theo routeId + date.
-✅ Trường hợp test route Thứ 6 2026-07-04 đã trả đúng:
-   - routeId: mcp-route-mr45ai4r-u7qf4g
-   - routeName: Thứ 6
-   - date: 2026-07-04
-   - lines: 18
-✅ 3 card MCP home đã route-first, không tự vào latest /visits.
-✅ Card khách trong phiên đã có quick actions: Đơn / Test / BC / FU.
-```
-
-### Chưa đạt nghiệp vụ thật
-
-```text
-❌ Popup Đơn/Test/BC/FU chưa phải form nghiệp vụ thật.
-❌ Đơn chỉ set cờ hasOrder, chưa tạo orders/order_items.
-❌ Test chỉ set cờ hasTest, chưa tạo file test / khách test / kết quả test.
-❌ Báo cáo chỉ set cờ hasReport, chưa tạo market report thật.
-❌ Follow-up còn payload mặc định, chưa có ngày hẹn/owner/priority/nội dung thật từ người dùng.
-❌ Tab /mcp/settings còn placeholder, chưa có template thao tác.
-❌ Nhiều nút ở Orders/Test/Reports như “Việc”, “Tạo việc xử lý” chưa có handler hoặc chưa ghi DB.
-```
-
-## 3. Logic nghiệp vụ MCP chuẩn
-
-### 3.1 Tuyến cố định / route master
-
-Tuyến cố định là dữ liệu gốc để lập lịch đi tuyến.
+## 2. Contract phiên đã khóa
 
 ```text
 mcp_routes
-  -> một tuyến cố định: Thứ 2, Thứ 3, Thứ 6...
+  -> route master
 
 mcp_route_customers
-  -> danh sách khách thuộc tuyến cố định
-  -> có sort_order, active, GPS, note
+  -> khách gốc của route
+
+mcp_route_sessions
+  -> một phiên theo route_id + session_date
+
+mcp_session_customers
+  -> snapshot khách trong phiên
+
+mcp_visits
+  -> kết quả ghé
+
+mcp_followups
+  -> việc theo dõi
+
+mcp_session_reports
+  -> snapshot báo cáo phiên
 ```
 
 Quy tắc:
 
-```text
-1. Sửa khách trong tuyến cố định không được làm thay đổi phiên cũ đã mở.
-2. Khách active trong route master sẽ được copy sang session khi mở phiên mới.
-3. Khách inactive/hidden không copy vào session mới.
-4. Thứ tự ghé trong phiên lấy từ sort_order của route master tại thời điểm mở phiên.
-5. GPS thuộc route master; phiên chỉ snapshot thông tin cần đi trong ngày.
-```
+1. Unique `(route_id, session_date)`.
+2. Mở lại cùng tuyến/ngày trả lại đúng session cũ.
+3. Khách route master chỉ snapshot khi session vừa được tạo lần đầu.
+4. Mở lại session không chèn khách mới từ route master, kể cả session ban đầu có 0 khách.
+5. Snapshot không duplicate theo `(session_id, route_customer_id)`.
+6. Visit dùng `session.session_date`, không dùng ngày hiện tại của server.
+7. `done`, `completed`, `cancelled` là read-only cho checklist, visit và follow-up.
+8. Chốt phiên tạo/upsert snapshot `mcp_session_reports`.
+9. Phiên rỗng được xóa.
+10. Phiên có visit/đơn/test/báo cáo/follow-up không được xóa; trả conflict.
+11. Hard-delete route/khách chỉ chạy bằng RPC nội bộ có transaction-local bypass.
 
-### 3.2 Tuyến trong ngày / session snapshot
+## 3. Contract nghiệp vụ đã khóa
 
-Phiên trong ngày là bản chụp của tuyến cố định tại một ngày cụ thể.
+### 3.1 Đơn hàng
 
-```text
-mcp_route_sessions
-  -> một phiên đi tuyến theo route_id + session_date
-
-mcp_session_customers
-  -> snapshot khách trong phiên đó
-  -> không phụ thuộc trực tiếp vào route master sau khi mở phiên
-
-mcp_visits
-  -> kết quả ghé thật / check-in / has_order / has_test / has_report
-
-mcp_followups
-  -> việc cần theo dõi sau ghé
-```
-
-Quy tắc:
-
-```text
-1. Một route chỉ có tối đa một session cho một ngày.
-2. Một route_customer chỉ được snapshot một lần trong cùng một session.
-3. Khách phát sinh trong ngày source = added, route_customer_id có thể null.
-4. Bấm lại open-session không duplicate session và không duplicate snapshot.
-5. Visit phải dùng session.session_date, không dùng ngày server hiện tại.
-6. Nếu action phát sinh từ một phiên, payload phải có sessionId hoặc sessionCustomerId rõ ràng.
-7. Không được action vào latest session nếu người dùng đang ở phiên cụ thể.
-```
-
-## 4. DB hiện có và vai trò
-
-### MCP core
-
-```text
-mcp_routes
-- Tuyến cố định.
-
-mcp_route_customers
-- Khách trong tuyến cố định.
-
-mcp_route_sessions
-- Phiên MCP theo ngày.
-
-mcp_session_customers
-- Snapshot khách trong phiên.
-
-mcp_visits
-- Kết quả ghé thật.
-
-mcp_followups
-- Việc theo dõi phát sinh từ phiên/khách.
-```
-
-### Nghiệp vụ liên quan
-
-```text
-orders
-order_items
-- Đơn hàng thật.
-
-test_files
-test_file_products
-test_customers
-test_customer_results
-- Đợt test, sản phẩm test, khách test và kết quả từng sản phẩm.
-
-market_reports
-market_report_products
-market_report_competitors
-- Báo cáo thị trường thật.
-```
-
-## 5. Các khóa DB cần harden tiếp
-
-### Đã có
-
-```sql
-create unique index if not exists mcp_session_customers_session_route_customer_uidx
-on public.mcp_session_customers(session_id, route_customer_id)
-where route_customer_id is not null;
-```
-
-### Cần thêm trước khi làm form
-
-```sql
--- Một tuyến chỉ có một phiên cho một ngày.
-create unique index if not exists mcp_route_sessions_route_date_uidx
-on public.mcp_route_sessions(route_id, session_date);
-
--- Một visit chính cho một session_customer, nếu DB đã có session_customer_id sau này.
--- Hiện mcp_visits chưa có session_customer_id, nên cân nhắc thêm cột này hoặc giữ visit_id ở mcp_session_customers.
-```
-
-## 6. Backend/API contract cần chuẩn hóa
-
-### 6.1 Endpoint hiện có
-
-```text
-GET  /api/mcp-day/data?routeId=...&date=...
-POST /api/mcp-day/open-session
-POST /api/mcp-day/session-customer/status
-POST /api/mcp-day/session-customer/result
-POST /api/mcp-day/session-customer/add
-POST /api/mcp-day/session-customer/followup
-```
-
-### 6.2 Endpoint nên tách rõ nghiệp vụ
-
-Không nên dùng một endpoint result chung cho mọi nghiệp vụ lâu dài. Cần tách để payload/DB rõ:
+Endpoint:
 
 ```text
 POST /api/mcp-day/session-customer/order
-POST /api/mcp-day/session-customer/test
-POST /api/mcp-day/session-customer/report
-POST /api/mcp-day/session-customer/followup
-POST /api/mcp-day/session-customer/add-customer
-POST /api/mcp-day/session/close
 ```
 
-### 6.3 Payload yêu cầu
-
-#### Order từ MCP
+Input chính:
 
 ```json
 {
-  "sessionId": "mrs_...",
   "sessionCustomerId": "msc_...",
-  "routeId": "mcp-route-...",
-  "orderDate": "2026-07-04",
-  "customerName": "Tên khách",
-  "phone": "...",
-  "area": "...",
+  "status": "confirmed",
+  "note": "...",
   "items": [
-    { "productId": "...", "productName": "Trà Đen", "quantity": 1, "unitPrice": 0, "unit": "gói", "note": "" }
-  ],
-  "note": ""
+    {
+      "productId": "...",
+      "variantId": "...",
+      "productName": "...",
+      "sku": "...",
+      "unit": "...",
+      "quantity": 1,
+      "unitPrice": 0,
+      "discount": 0,
+      "note": "..."
+    }
+  ]
 }
 ```
 
-Output DB:
+DB output:
 
 ```text
 orders
 order_items
-mcp_visits.has_order = true
-mcp_visits.order_id = order.id
-mcp_session_customers.order_id = order.id
-mcp_route_sessions.order_count recalc
+mcp_visits.has_order / order_id
+mcp_session_customers.order_id
+mcp_route_sessions.order_count
 ```
 
-#### Test từ MCP
+### 3.2 Test sản phẩm
 
-```json
-{
-  "sessionId": "mrs_...",
-  "sessionCustomerId": "msc_...",
-  "testFileId": "test-file-...",
-  "customerName": "Tên khách",
-  "products": [
-    { "productId": "...", "productName": "Trà Gạo Rang", "status": "ok", "note": "Khách thích" }
-  ],
-  "note": ""
-}
-```
-
-Output DB:
+Endpoint:
 
 ```text
+POST /api/mcp-day/session-customer/test
+```
+
+Trạng thái kết quả:
+
+```text
+pending | tested | ok | interested | sample | follow | bad | retry
+```
+
+DB output:
+
+```text
+test_files
 test_customers
 test_customer_results
-mcp_visits.has_test = true
-mcp_visits.test_id = test_customer.id hoặc test_result group id
-mcp_session_customers.test_id = ...
-mcp_route_sessions.test_count recalc
+mcp_visits.has_test / test_id
+mcp_session_customers.test_id
+mcp_route_sessions.test_count
 ```
 
-#### Báo cáo từ MCP
+### 3.3 Báo cáo thị trường
 
-```json
-{
-  "sessionId": "mrs_...",
-  "sessionCustomerId": "msc_...",
-  "reportType": "price | competitor | display | stock | demand",
-  "subject": "Giá đối thủ",
-  "competitorName": "...",
-  "price": 0,
-  "status": "normal | opportunity | risk",
-  "nextAction": "...",
-  "note": ""
-}
+Endpoint:
+
+```text
+POST /api/mcp-day/session-customer/report
 ```
 
-Output DB:
+Report type:
+
+```text
+market_report | price | competitor | display | stock | demand | general
+```
+
+Payload giữ nguyên `fields`, `selected`, `context` và nội dung báo cáo.
+
+DB output:
 
 ```text
 market_reports
-market_report_products / market_report_competitors nếu có chi tiết
-mcp_visits.has_report = true
-mcp_visits.report_id = market_report.id
-mcp_session_customers.report_id = market_report.id
-mcp_route_sessions.report_count recalc
+mcp_visits.has_report / report_id
+mcp_session_customers.report_id
+mcp_route_sessions.report_count
 ```
 
-#### Follow-up từ MCP
+### 3.4 Follow-up
 
-```json
-{
-  "sessionId": "mrs_...",
-  "sessionCustomerId": "msc_...",
-  "title": "Gọi lại khách",
-  "dueDate": "2026-07-08",
-  "priority": "low | medium | high",
-  "owner": "Sale",
-  "followupType": "general | order | test | report | debt | delivery",
-  "note": ""
-}
+Endpoint:
+
+```text
+POST /api/mcp-day/session-customer/followup
 ```
 
-Output DB:
+Input gồm:
+
+```text
+title
+dueDate
+owner
+priority: low | medium | high | urgent
+followupType
+note
+```
+
+DB output:
 
 ```text
 mcp_followups
-mcp_session_customers.followup_count recalc
+mcp_session_customers.followup_count
+mcp_route_sessions.followup_count
 ```
 
-## 7. UI form cần làm thật
-
-### 7.1 Popup MCP customer
-
-Card khách trong phiên cần mở popup có 2 lớp:
+## 4. Mutation API qua VPS
 
 ```text
-Lớp 1: Thông tin khách
-- Tên khách
-- Khu vực
-- Phone
-- Nguồn: planned/added
-- Trạng thái: pending/visited/skipped/cancelled
-- Ghi chú tuyến/session
-- GPS/maps nếu có
+POST   /api/mcp-day/open-session
+POST   /api/mcp-day/session-customer/status
+POST   /api/mcp-day/session-customer/order
+POST   /api/mcp-day/session-customer/test
+POST   /api/mcp-day/session-customer/report
+POST   /api/mcp-day/session-customer/followup
+POST   /api/mcp-session-report
+POST   /api/mcp-session-report/ai-result
+PATCH  /api/mcp-sessions/:id
+DELETE /api/mcp-sessions/:id
 
-Lớp 2: Hành động
-- Ghi đơn
-- Test sản phẩm
-- Báo cáo
-- Follow-up
-- Bỏ qua / đóng cửa / hẹn lại
+POST   /api/routes
+PATCH  /api/routes/:id
+POST   /api/routes/:id/archive
+POST   /api/route-customers
+PATCH  /api/route-customers/:id
+POST   /api/route-customers/:id/archive
+
+POST   /api/mcp-report-settings
+PATCH  /api/mcp-report-settings
+
+POST   /api/mcp-settings/order-template
+POST   /api/mcp-settings/test-template
+POST   /api/mcp-settings/report-template
+POST   /api/mcp-settings/followup-template
+POST   /api/mcp-settings/skip-reason-template
+POST   /api/mcp-settings/customer-add-rule
+POST   /api/mcp-settings/session-status
 ```
 
-### 7.2 Form Đơn
+Read API có thể đi qua VPS hoặc route server phù hợp, nhưng không được mở lại đường mutation trực tiếp tại Vercel.
+
+## 5. Khóa DB
+
+Các bảng `public.mcp_*`:
 
 ```text
-- Chọn sản phẩm từ template hoặc nhập nhanh.
-- Số lượng.
-- Đơn vị.
-- Đơn giá.
-- Chiết khấu nếu cần.
-- Ghi chú giao hàng.
-- Lưu nháp / Chốt đơn.
+PUBLIC / anon / authenticated:
+- không INSERT
+- không UPDATE
+- không DELETE
+- không TRUNCATE
+- không REFERENCES
+- không TRIGGER
+
+service_role:
+- đường mutation duy nhất
 ```
 
-### 7.3 Form Test
+Đã gỡ toàn bộ RLS policy ghi trên bảng `mcp_*`.
+
+Đã thu hồi quyền gọi trực tiếp cho `anon/authenticated` đối với:
 
 ```text
-- Chọn file test hiện có hoặc tạo nhanh file test.
-- Danh sách sản phẩm test lấy từ file/template.
-- Mỗi sản phẩm có status:
-  pending / ok / interested / sample / follow / bad / retry
-- Ghi chú từng sản phẩm.
-- Ghi chú khách test.
+create / update / set / delete / open
+backfill / import / save / recalc
+assert / block / sync / upsert
+trigger/helper mutation functions
 ```
 
-### 7.4 Form Báo cáo
+Read-only RPC có chủ đích vẫn giữ theo contract đọc.
+
+Migration khóa cuối:
 
 ```text
-- Loại báo cáo: giá / đối thủ / trưng bày / tồn kho / nhu cầu.
-- Sản phẩm liên quan.
-- Đối thủ nếu có.
-- Giá nếu có.
-- Đánh giá: normal / opportunity / risk.
-- Next action.
-- Ghi chú.
+20260712025937_freeze_mcp_v1_contract_20260711.sql
+20260712025959_fix_mcp_v1_session_update_order_20260711.sql
+20260712030259_allow_internal_mcp_hard_delete_cleanup_20260711.sql
+20260712030333_use_internal_flag_for_mcp_hard_delete_20260712.sql
+20260712033916_fix_mcp_open_session_snapshot_once_20260712.sql
+20260712034606_lock_mcp_v1_database_mutation_boundary_20260712.sql
 ```
 
-### 7.5 Form Follow-up
+## 6. Error contract
 
 ```text
-- Tiêu đề.
-- Ngày hẹn.
-- Người phụ trách.
-- Ưu tiên.
-- Loại follow-up.
-- Ghi chú.
+400: payload thiếu hoặc giá trị không hợp lệ
+404: route/session/session customer không tồn tại
+409: phiên đã khóa, phiên có hoạt động hoặc conflict nghiệp vụ
+500: lỗi backend/DB
+502/503: VPS, upstream hoặc cấu hình runtime lỗi
 ```
 
-## 8. Tab Cài đặt tuyến cần có gì
+## 7. Kết quả kiểm thử freeze
 
-`/mcp/settings` không được là placeholder. Cần chia thành các tab cấu hình nghiệp vụ:
+Boundary audit:
 
 ```text
-1. Mẫu đơn hàng
-2. Mẫu test sản phẩm
-3. Mẫu báo cáo thị trường
-4. Mẫu follow-up
-5. Lý do bỏ qua/không mua
-6. Luật thêm khách phát sinh
-7. Luật chốt phiên
+32 MCP-relevant Next API files
+PASS: không còn mutation trực tiếp từ Next.js/Vercel vào Supabase
 ```
 
-### 8.1 Mẫu đơn hàng
+Production DB service-role smoke:
 
 ```text
-- Product/SKU nhanh.
-- Combo nhanh.
-- Giá mặc định.
-- Đơn vị tính.
-- Ghi chú giao hàng mẫu.
+✅ mở lần đầu created=true
+✅ mở lần hai created=false
+✅ cùng session, không duplicate
+✅ snapshot khách chỉ chạy một lần
+✅ session mở lúc 0 khách vẫn giữ snapshot 0 khi route master thêm khách
+✅ visit ghi đúng session_date
+✅ tạo đơn + order item thật
+✅ tạo test result thật
+✅ tạo market report thật
+✅ tạo follow-up thật
+✅ counter đơn/test/report/follow-up đúng
+✅ xóa session có hoạt động bị chặn
+✅ close trả done và tạo snapshot
+✅ mutation sau close bị chặn
+✅ direct DELETE child row sau close bị chặn
+✅ empty cancelled session xóa được
+✅ hard-delete nội bộ dọn được dữ liệu đã khóa
+✅ anon bị chặn ghi bảng trực tiếp
+✅ anon bị chặn gọi RPC mutation
+✅ không còn dữ liệu smoke
 ```
 
-### 8.2 Mẫu test sản phẩm
+Build/deploy frontend:
 
 ```text
-- Tên file test mẫu.
-- Danh sách sản phẩm test mặc định.
-- Status test.
-- Ghi chú gợi ý.
+✅ backend syntax check
+✅ npm build
+✅ Vercel preview
+✅ Vercel production main
 ```
 
-### 8.3 Mẫu báo cáo
-
-```text
-- Giá đối thủ.
-- Tồn kho.
-- Trưng bày.
-- Nhu cầu.
-- Cơ hội/rủi ro.
-- Next action mẫu.
-```
-
-### 8.4 Luật thêm khách
-
-```text
-Khi thêm khách phát sinh trong phiên:
-1. Chỉ thêm vào phiên hôm nay.
-2. Thêm vào tuyến cố định.
-3. Thêm cả phiên hôm nay và tuyến cố định.
-
-Default đề xuất: hỏi người dùng mỗi lần.
-```
-
-## 9. Repo tham khảo `gustavjung01/report` - nguyên tắc lấy về
-
-Không copy UI nguyên xi. Chỉ lấy nghiệp vụ:
-
-```text
-1. Home có 4 nghiệp vụ chính: MCP / Đơn / Test / Báo cáo.
-2. Data hub cũng chia 4 nhóm: MCP / Đơn / Test / Báo cáo.
-3. Test flow phải là:
-   tạo file test -> chọn sản phẩm -> thêm khách -> nhập kết quả từng sản phẩm.
-4. Local DB/offline queue là hướng tốt cho app mobile sau này, nhưng MCP-Plan hiện ưu tiên backend live trước.
-5. Form phải tạo data thật, không chỉ set flag.
-```
-
-## 10. Gate triển khai tiếp theo
-
-### Gate MCP-5: Backend correctness hardening
-
-Trạng thái: `todo`
-
-Checklist:
-
-```text
-[ ] Thêm unique index mcp_route_sessions(route_id, session_date).
-[ ] Sửa backend updateMcpSessionCustomerStatus: visit_date = session.session_date.
-[ ] Sửa Edge Function mcp-day-8b3 ensureVisit: visit_date = session.session_date.
-[ ] Không cho add/result fallback latest session nếu action đến từ UI phiên cụ thể.
-[ ] Smoke open-session cùng route/date 2 lần không duplicate.
-[ ] Smoke action trên session quá khứ không ghi visit_date hôm nay.
-```
-
-Output kỳ vọng:
-
-```text
-GET /api/mcp-day/data?routeId=...&date=...
--> luôn đúng route/date.
-
-POST result/order/test/report/followup
--> luôn ghi vào đúng sessionCustomerId.
-```
-
-### Gate MCP-6: Action form contract
-
-Trạng thái: `todo`
-
-Checklist:
-
-```text
-[ ] Chốt payload cho Order/Test/Report/Follow-up.
-[ ] Chốt bảng ghi cho từng action.
-[ ] Chốt response trả về cho UI.
-[ ] Chốt error code nghiệp vụ.
-[ ] Viết API contract docs.
-```
-
-### Gate MCP-7: Real MCP popup forms
-
-Trạng thái: `todo`
-
-Checklist:
-
-```text
-[ ] Popup khách có tab/thao tác rõ.
-[ ] Form Đơn tạo orders/order_items thật.
-[ ] Form Test tạo/ghi test data thật.
-[ ] Form Báo cáo tạo market report thật.
-[ ] Form Follow-up nhập đầy đủ fields.
-[ ] Nút không có handler thì bỏ hoặc disable có lý do.
-[ ] Field nhập phải nhập được trên mobile.
-```
-
-### Gate MCP-8: MCP Settings templates
-
-Trạng thái: `todo`
-
-Checklist:
-
-```text
-[ ] Tạo UI /mcp/settings thật.
-[ ] DB template nếu cần.
-[ ] CRUD template đơn hàng.
-[ ] CRUD template test.
-[ ] CRUD template báo cáo.
-[ ] CRUD template follow-up/lý do.
-[ ] Áp template vào popup MCP.
-```
-
-### Gate MCP-9: Route master management
-
-Trạng thái: `todo`
-
-Checklist:
-
-```text
-[ ] Thêm/sửa tuyến.
-[ ] Thêm/sửa khách tuyến.
-[ ] Ẩn/khôi phục khách tuyến.
-[ ] Reorder sort_order.
-[ ] Update GPS/maps.
-[ ] Luật thêm khách phát sinh vào route master.
-```
-
-### Gate MCP-10: Session close/report
-
-Trạng thái: `todo`
-
-Checklist:
-
-```text
-[ ] Chốt phiên.
-[ ] Không cho sửa dữ liệu quan trọng sau khi chốt, trừ quyền admin.
-[ ] Tổng kết phiên: khách đã ghé/chưa ghé, đơn, test, báo cáo, follow-up.
-[ ] Xuất báo cáo ngày/tuyến.
-```
-
-## 11. Smoke test chuẩn sau mỗi gate
-
-### Test route/session
+Post-deploy API smoke:
 
 ```bash
-curl -fsS "http://127.0.0.1:3001/api/mcp-day/data?routeId=mcp-route-mr45ai4r-u7qf4g&date=2026-07-04" | head -c 500
+cd /var/www/mcp-plan-source
+MCP_API_BASE_URL=http://127.0.0.1:3001 node scripts/smoke-mcp-v1-api.mjs
 ```
 
-Kỳ vọng:
+## 8. Quy trình triển khai release MCP v1
+
+Local:
+
+```powershell
+cd "F:\1_A_Disk_D\Tool\mcp-plan"
+git pull origin main
+npm run build
+```
+
+VPS:
+
+```bash
+pullmcp
+pm2 status
+pm2 logs mcp-plan-backend --lines 100
+curl -fsS http://127.0.0.1:3001/api/health
+cd /var/www/mcp-plan-source
+MCP_API_BASE_URL=http://127.0.0.1:3001 node scripts/smoke-mcp-v1-api.mjs
+```
+
+Không sửa code trực tiếp trong `/var/www/mcp-plan-backend`.
+
+## 9. Phạm vi update sau MCP v1
+
+Được phát triển tiếp mà không thay contract MCP v1:
 
 ```text
-routeName: Thứ 6
-date: 2026-07-04
-routeId: mcp-route-mr45ai4r-u7qf4g
+Warehouse
+Transport
+Accounting
+Dashboard/report mở rộng
+AI/ADK trên snapshot báo cáo
+Offline/mobile queue
+Template nâng cao ngoài core hiện tại
 ```
 
-### Test Vercel rewrite
+Khi cần thay core MCP v1:
 
-```text
-https://mcp-plan.vercel.app/api/backend/mcp-day/data?routeId=mcp-route-mr45ai4r-u7qf4g&date=2026-07-04
-```
-
-Kỳ vọng giống VPS.
-
-### Test UI
-
-```text
-/mcp
--> chọn tuyến
--> mở phiên
--> URL phải có routeId + date
--> card khách đúng tuyến
--> bấm Đơn/Test/BC/FU
--> form phải nhập được
--> lưu xong reload vẫn còn data đúng khách/session
-```
-
-## 12. Không làm trong phase này
-
-```text
-- Không làm AI/mindmap trước khi action data thật ổn định.
-- Không làm dashboard đẹp thêm nếu popup còn không ghi được nghiệp vụ.
-- Không thêm biến Supabase lên Vercel.
-- Không tạo mock mới che lỗi backend.
-- Không sửa DB thủ công không migration.
-```
-
-
-## 13. MCP v1 freeze
-
-Trạng thái: **core complete / frozen**.
-
-- Mutation MCP chạy theo luồng Vercel proxy -> VPS backend -> Supabase service role.
-- Mở phiên idempotent theo route_id + session_date; snapshot khách chỉ tạo lần đầu.
-- Đơn, test, báo cáo và follow-up ghi dữ liệu thật và liên kết về session customer/visit.
-- Visit dùng session_date, kể cả phiên quá khứ.
-- Phiên done/completed/cancelled là read-only; chốt phiên tạo snapshot báo cáo.
-- Phiên rỗng được xóa; phiên có hoạt động bị chặn.
-- RPC mutation chỉ cấp execute cho service_role.
-- Template nâng cao ngoài report chips và các module Warehouse/Transport/Accounting thuộc update sau MCP v1.
+1. Tạo migration mới.
+2. Version contract mới.
+3. Thêm smoke test tương ứng.
+4. Không sửa âm thầm contract đã freeze.
