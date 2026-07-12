@@ -1,0 +1,5 @@
+-- Production migration: use_internal_flag_for_mcp_hard_delete_20260712.
+-- Final behavior is consolidated in the main MCP v1 freeze migration:
+-- mcp_assert_session_mutable permits only the transaction-local
+-- `mcp.internal_hard_delete=on` flag used inside service-role hard-delete RPCs.
+-- Normal user mutations on done/completed/cancelled sessions remain blocked.

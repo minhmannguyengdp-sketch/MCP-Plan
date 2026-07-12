@@ -1,4 +1,4 @@
-import { supabaseRestConfig } from "@/lib/export/supabase-rest";
+import { backendApiBaseUrl } from "@/lib/api/backend-proxy";
 import { mcpReportAgentHealthUrl, mcpReportAgentUrl } from "@/lib/mcp/report-agent-config";
 import { buildSessionReportExportPayload } from "@/lib/mcp/session-report-export-v2";
 import { loadMcpSessionReportSource } from "@/lib/mcp/session-report-source";
@@ -23,7 +23,9 @@ function text(value: unknown) {
 }
 
 function object(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function parseJson(value: string) {
@@ -53,11 +55,22 @@ function fallbackResult(reason: string): AgentResult {
 }
 
 function extractResult(payload: Record<string, unknown>) {
-  const candidate = payload.result || payload.output || payload.analysis || payload.response || payload.answer || payload.content || payload;
+  const candidate =
+    payload.result ||
+    payload.output ||
+    payload.analysis ||
+    payload.response ||
+    payload.answer ||
+    payload.content ||
+    payload;
+
   if (typeof candidate === "string") {
     const parsed = parseJson(candidate);
-    return typeof parsed === "object" && parsed ? parsed as Record<string, unknown> : { summary: candidate };
+    return typeof parsed === "object" && parsed
+      ? (parsed as Record<string, unknown>)
+      : { summary: candidate };
   }
+
   return object(candidate);
 }
 
@@ -76,79 +89,133 @@ function normalizeResult(value: unknown): AgentResult {
   };
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 55000) {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 55000
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
-    return await fetch(url, { ...init, signal: controller.signal, cache: "no-store" });
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      cache: "no-store"
+    });
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function persistAgentResult(sessionId: string, payload: Record<string, unknown>) {
-  const env = supabaseRestConfig();
+async function persistAgentResult(
+  sessionId: string,
+  aiResult: Record<string, unknown>
+) {
   const analyzedAt = new Date().toISOString();
-  const response = await fetch(`${env.url}/rest/v1/mcp_session_reports?session_id=eq.${encodeURIComponent(sessionId)}&select=id,session_id,ai_result,ai_analyzed_at`, {
-    method: "PATCH",
-    cache: "no-store",
-    headers: {
-      apikey: env.key,
-      Authorization: `Bearer ${env.key}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Prefer: "return=representation"
-    },
-    body: JSON.stringify({ ai_result: payload, ai_analyzed_at: analyzedAt, updated_at: analyzedAt })
-  });
-  const rows = await response.json().catch(() => ([]));
-  if (!response.ok) throw new Error(`save_ai_result_${response.status}`);
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error("session_report_snapshot_not_found_for_ai_result");
-  return { row: rows[0], analyzedAt };
+  const response = await fetch(
+    `${backendApiBaseUrl()}/api/mcp-session-report/ai-result`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ sessionId, aiResult, analyzedAt })
+    }
+  );
+
+  const payload = object(await response.json().catch(() => ({})));
+  if (!response.ok) {
+    throw new Error(text(payload.error || payload.message) || `save_ai_result_${response.status}`);
+  }
+
+  const data = object(payload.data);
+  return {
+    row: data.row,
+    analyzedAt: text(data.analyzedAt) || analyzedAt
+  };
 }
 
 export async function GET() {
   try {
-    const response = await fetchWithTimeout(mcpReportAgentHealthUrl(), {
-      method: "GET",
-      headers: { Accept: "application/json" }
-    }, 15000);
+    const response = await fetchWithTimeout(
+      mcpReportAgentHealthUrl(),
+      {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      },
+      15000
+    );
+
     const rawText = await response.text();
     const health = object(parseJson(rawText));
-    return Response.json({
-      ok: response.ok && health.ok !== false,
-      status: response.status,
-      source: "mcp_report_agent_health",
-      health,
-      receivedAt: new Date().toISOString()
-    }, { status: response.ok ? 200 : 502, headers: { "Cache-Control": "no-store" } });
+
+    return Response.json(
+      {
+        ok: response.ok && health.ok !== false,
+        status: response.status,
+        source: "mcp_report_agent_health",
+        health,
+        receivedAt: new Date().toISOString()
+      },
+      {
+        status: response.ok ? 200 : 502,
+        headers: { "Cache-Control": "no-store" }
+      }
+    );
   } catch (error) {
-    const reason = error instanceof Error ? error.message : "mcp_report_agent_health_failed";
-    return Response.json({ ok: false, error: reason }, { status: 502, headers: { "Cache-Control": "no-store" } });
+    const reason =
+      error instanceof Error
+        ? error.message
+        : "mcp_report_agent_health_failed";
+
+    return Response.json(
+      { ok: false, error: reason },
+      { status: 502, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }
 
 export async function POST(request: Request) {
   const body = object(await request.json().catch(() => ({})));
   const sessionId = text(body.sessionId || body.session_id);
+
   if (!sessionId) {
-    return Response.json({ ok: false, error: "session_id_required", result: fallbackResult("Thiếu sessionId để phân tích BC phiên.") }, { status: 400 });
+    return Response.json(
+      {
+        ok: false,
+        error: "session_id_required",
+        result: fallbackResult("Thiếu sessionId để phân tích BC phiên.")
+      },
+      { status: 400 }
+    );
   }
 
   try {
     const source = await loadMcpSessionReportSource({ sessionId });
     if (source.origin !== "snapshot" || !source.snapshotId) {
-      return Response.json({
-        ok: false,
-        source: "missing_snapshot",
-        error: "session_report_snapshot_required",
-        result: fallbackResult("BC phiên chưa có snapshot chính thức. Hãy rebuild BC trước khi chạy AI.")
-      }, { status: 409, headers: { "Cache-Control": "no-store" } });
+      return Response.json(
+        {
+          ok: false,
+          source: "missing_snapshot",
+          error: "session_report_snapshot_required",
+          result: fallbackResult(
+            "BC phiên chưa có snapshot chính thức. Hãy rebuild BC trước khi chạy AI."
+          )
+        },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     const snapshot = buildSessionReportExportPayload(source);
     const agentUrl = mcpReportAgentUrl();
-    const token = text(process.env.MCP_REPORT_AGENT_TOKEN || process.env.AI_AGENT_TOKEN || process.env.ADK_AGENT_TOKEN);
+    const token = text(
+      process.env.MCP_REPORT_AGENT_TOKEN ||
+        process.env.AI_AGENT_TOKEN ||
+        process.env.ADK_AGENT_TOKEN
+    );
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json; charset=utf-8"
@@ -167,6 +234,7 @@ export async function POST(request: Request) {
         task: "mcp_session_report_analysis"
       })
     });
+
     const responseText = await response.text();
     const raw = object(parseJson(responseText));
     const result = normalizeResult(extractResult(raw));
@@ -174,16 +242,19 @@ export async function POST(request: Request) {
     const agentSource = text(raw.source) || "mcp_report_agent_url";
 
     if (!agentOk) {
-      return Response.json({
-        ok: false,
-        source: agentSource,
-        status: response.status,
-        result,
-        reportSource: source.origin,
-        snapshotId: source.snapshotId,
-        persisted: false,
-        receivedAt: new Date().toISOString()
-      }, { status: 502, headers: { "Cache-Control": "no-store" } });
+      return Response.json(
+        {
+          ok: false,
+          source: agentSource,
+          status: response.status,
+          result,
+          reportSource: source.origin,
+          snapshotId: source.snapshotId,
+          persisted: false,
+          receivedAt: new Date().toISOString()
+        },
+        { status: 502, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     const saved = await persistAgentResult(sessionId, {
@@ -194,26 +265,36 @@ export async function POST(request: Request) {
       generatedAt: new Date().toISOString()
     });
 
-    return Response.json({
-      ok: true,
-      source: agentSource,
-      status: response.status,
-      result,
-      reportSource: source.origin,
-      snapshotId: source.snapshotId,
-      persisted: true,
-      aiAnalyzedAt: saved.analyzedAt,
-      receivedAt: new Date().toISOString()
-    }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json(
+      {
+        ok: true,
+        source: agentSource,
+        status: response.status,
+        result,
+        reportSource: source.origin,
+        snapshotId: source.snapshotId,
+        persisted: true,
+        aiAnalyzedAt: saved.analyzedAt,
+        receivedAt: new Date().toISOString()
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
-    const reason = error instanceof Error
-      ? (error.name === "AbortError" ? "Agent phân tích quá thời gian chờ." : error.message)
-      : "mcp_report_agent_failed";
-    return Response.json({
-      ok: false,
-      source: "mcp_report_agent_exception",
-      error: reason,
-      result: fallbackResult(reason)
-    }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    const reason =
+      error instanceof Error
+        ? error.name === "AbortError"
+          ? "Agent phân tích quá thời gian chờ."
+          : error.message
+        : "mcp_report_agent_failed";
+
+    return Response.json(
+      {
+        ok: false,
+        source: "mcp_report_agent_exception",
+        error: reason,
+        result: fallbackResult(reason)
+      },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }
