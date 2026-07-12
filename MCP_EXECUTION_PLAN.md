@@ -608,3 +608,17 @@ Kỳ vọng giống VPS.
 - Không tạo mock mới che lỗi backend.
 - Không sửa DB thủ công không migration.
 ```
+
+
+## 13. MCP v1 freeze
+
+Trạng thái: **core complete / frozen**.
+
+- Mutation MCP chạy theo luồng Vercel proxy -> VPS backend -> Supabase service role.
+- Mở phiên idempotent theo route_id + session_date; snapshot khách chỉ tạo lần đầu.
+- Đơn, test, báo cáo và follow-up ghi dữ liệu thật và liên kết về session customer/visit.
+- Visit dùng session_date, kể cả phiên quá khứ.
+- Phiên done/completed/cancelled là read-only; chốt phiên tạo snapshot báo cáo.
+- Phiên rỗng được xóa; phiên có hoạt động bị chặn.
+- RPC mutation chỉ cấp execute cho service_role.
+- Template nâng cao ngoài report chips và các module Warehouse/Transport/Accounting thuộc update sau MCP v1.
