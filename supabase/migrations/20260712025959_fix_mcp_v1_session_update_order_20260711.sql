@@ -1,0 +1,5 @@
+-- Production migration: fix_mcp_v1_session_update_order_20260711.
+-- The final mcp_update_route_session definition is consolidated in
+-- 20260712025937_freeze_mcp_v1_contract_20260711.sql.
+-- It updates historical visit_date while the session is mutable, then changes
+-- the session status, recalculates counters and creates the close snapshot.
