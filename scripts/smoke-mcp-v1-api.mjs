@@ -313,8 +313,9 @@ async function frozenEmptySnapshotSmoke() {
 }
 
 try {
-  const health = await must("/api/health");
-  assert(health.ok === true, "health_not_ok");
+  const healthResult = await call("/api/health");
+  assert(healthResult.response.ok, `health_http_${healthResult.response.status}`);
+  assert(healthResult.payload.ok === true, "health_not_ok");
 
   const fullSession = await fullSessionSmoke();
   const frozenEmptySnapshot = await frozenEmptySnapshotSmoke();
