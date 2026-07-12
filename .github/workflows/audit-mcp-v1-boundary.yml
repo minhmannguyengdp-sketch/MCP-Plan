@@ -1,0 +1,66 @@
+name: Audit MCP v1 boundary
+
+on:
+  push:
+    branches:
+      - fix/mcp-v1-finalize-20260711
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: audit-mcp-v1-boundary
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_API_BASE_URL: http://165.22.109.61
+      NEXT_PUBLIC_API_BASE_URL: http://165.22.109.61
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/mcp-v1-finalize-20260711
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Audit mutation boundary
+        run: node scripts/audit-mcp-v1-boundary.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check backend syntax
+        run: node --check apps/backend/server.js
+
+      - name: Build application
+        run: npm run build
+
+      - name: Save failed audit report
+        if: failure()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/MCP_V1_BOUNDARY_AUDIT.md
+          git commit -m "Record MCP v1 boundary audit failure" || true
+          git push origin fix/mcp-v1-finalize-20260711
+
+      - name: Commit successful audit
+        if: success()
+        run: |
+          rm scripts/audit-mcp-v1-boundary.mjs
+          rm .github/workflows/audit-mcp-v1-boundary.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Verify MCP v1 mutation boundary and build"
+          git push origin fix/mcp-v1-finalize-20260711
