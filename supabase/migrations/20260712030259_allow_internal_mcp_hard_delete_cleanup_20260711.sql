@@ -1,0 +1,4 @@
+-- Production migration: allow_internal_mcp_hard_delete_cleanup_20260711.
+-- This intermediate migration was superseded by the transaction-local bypass
+-- recorded in the following migration. Final hard-delete behavior is also
+-- consolidated in 20260712025937_freeze_mcp_v1_contract_20260711.sql.
