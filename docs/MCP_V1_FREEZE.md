@@ -50,6 +50,14 @@ POST  /api/mcp-report-settings
 PATCH /api/mcp-report-settings
 ```
 
+## Khóa ở tầng DB
+
+- Các bảng `public.mcp_*` không cấp `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES` hoặc `TRIGGER` cho `PUBLIC`, `anon`, `authenticated`.
+- Chỉ giữ quyền đọc theo các policy SELECT hiện có.
+- Toàn bộ policy RLS ghi trên bảng `mcp_*` đã được gỡ.
+- RPC mutation, RPC save template, import, recalc và trigger/helper không cho `anon/authenticated` gọi trực tiếp.
+- `service_role` trên VPS là đường ghi duy nhất vào MCP.
+
 ## Contract nghiệp vụ
 
 ### Đơn
@@ -126,9 +134,10 @@ Không được trả thành công giả khi DB không áp dụng mutation.
 ```text
 20260712025937_freeze_mcp_v1_contract_20260711.sql
 20260712033916_fix_mcp_open_session_snapshot_once_20260712.sql
+20260712034606_lock_mcp_v1_database_mutation_boundary_20260712.sql
 ```
 
-Migration cuối bảo đảm snapshot khách chỉ chạy khi session thật sự vừa được tạo, thêm DELETE guard cho child rows của phiên đã khóa và vẫn cho phép các RPC hard-delete nội bộ dọn dữ liệu đúng logic.
+Hai migration cuối bảo đảm snapshot khách chỉ chạy khi session thật sự vừa được tạo, thêm DELETE guard cho child rows của phiên đã khóa, cho phép RPC hard-delete nội bộ dọn đúng logic và khóa toàn bộ đường ghi trực tiếp từ `anon/authenticated`.
 
 ## Smoke test đã chạy trên production DB
 
@@ -148,6 +157,8 @@ Các route/khách/phiên tạm được tạo rồi dọn sạch. Kết quả:
 - hard-delete nội bộ vẫn dọn sạch được phiên đã chốt;
 - phiên mở lần đầu với 0 khách vẫn giữ snapshot 0 sau khi route master được thêm khách rồi mở lại;
 - phiên `cancelled` rỗng vẫn xóa được đúng logic;
+- `anon` bị chặn cả ghi bảng trực tiếp lẫn gọi RPC mutation;
+- service-role smoke toàn phiên vẫn pass sau khi khóa ACL;
 - dữ liệu smoke được hard-delete sạch.
 
 ## Phạm vi để update sau
