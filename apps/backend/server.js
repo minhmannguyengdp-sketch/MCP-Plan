@@ -442,6 +442,42 @@ async function createMcpSessionReportSnapshotV1(body) {
   });
 }
 
+async function loadMcpReportContextV1(url) {
+  const sessionCustomerId = v1Text(
+    url.searchParams.get("sessionCustomerId") ||
+      url.searchParams.get("session_customer_id")
+  );
+  if (!sessionCustomerId) throw badRequest("session_customer_id_required");
+  return supabaseRpc("mcp_get_report_context", {
+    p_session_customer_id: sessionCustomerId
+  });
+}
+
+async function persistMcpSessionAiResultV1(body) {
+  const sessionId = v1Text(body.sessionId || body.session_id);
+  if (!sessionId) throw badRequest("session_id_required");
+
+  const aiResult = v1Object(body.aiResult || body.ai_result);
+  const analyzedAt = v1Text(body.analyzedAt || body.ai_analyzed_at) || new Date().toISOString();
+  const rows = await supabasePatch(
+    "mcp_session_reports",
+    {
+      ai_result: aiResult,
+      ai_analyzed_at: analyzedAt,
+      updated_at: analyzedAt
+    },
+    { session_id: `eq.${sessionId}` }
+  );
+
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    const error = new Error("session_report_snapshot_not_found_for_ai_result");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return { row: rows[0], analyzedAt };
+}
+
 function mcpSettingSlugV1(value) {
   return String(value || "")
     .normalize("NFD")
@@ -1752,6 +1788,7 @@ async function handlePost(req, url) {
   if (routeCustomerArchiveId) return wrap(await supabaseRpc("mcp_delete_route_customer_hard", { p_route_customer_id: routeCustomerArchiveId }));
   if (url.pathname === "/api/mcp-report-settings") return wrap(await createMcpReportSettingV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-session-report") return wrap(await createMcpSessionReportSnapshotV1(await readJsonBody(req)));
+  if (url.pathname === "/api/mcp-session-report/ai-result") return wrap(await persistMcpSessionAiResultV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/open-session") return wrap(await openMcpDaySessionV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/status") return wrap(await updateMcpSessionCustomerStatusV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/order") return wrap(await createMcpSessionCustomerOrderV1(await readJsonBody(req)));
@@ -1775,6 +1812,7 @@ async function handlePost(req, url) {
 async function handleGet(url) {
   if (url.pathname === "/" || url.pathname === "/health" || url.pathname === "/api/health") return healthPayload();
   if (url.pathname === "/api/mcp-report-settings") return wrap(await loadMcpReportSettingsV1(url));
+  if (url.pathname === "/api/mcp-report-context") return wrap(await loadMcpReportContextV1(url));
   if (url.pathname === "/api/dashboard/summary") return wrap(await getDashboardSummary());
   if (url.pathname === "/api/dashboard/overview") return wrap(await getDashboardOverview());
   if (url.pathname === "/api/routes") return wrap(await getRoutesList());

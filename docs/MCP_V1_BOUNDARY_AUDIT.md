@@ -2,8 +2,7 @@
 
 Scanned: 32 MCP-relevant API source files.
 
-FAIL: 1 direct mutation route(s) remain.
+PASS: no live MCP mutation route writes directly from Next.js/Vercel to Supabase.
 
-- src/app/api/mcp-session-report/analyze/route.ts
 
 Expected runtime boundary: Browser -> Vercel proxy -> VPS backend -> Supabase service role.
