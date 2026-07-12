@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: mcp-v1-finalize
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
