@@ -15,6 +15,9 @@ jobs:
   finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    env:
+      BACKEND_API_BASE_URL: http://165.22.109.61
+      NEXT_PUBLIC_API_BASE_URL: http://165.22.109.61
     steps:
       - uses: actions/checkout@v4
         with:
