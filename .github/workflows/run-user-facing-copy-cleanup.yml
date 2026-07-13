@@ -1,17 +1,19 @@
 name: Run verified user-facing copy cleanup
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/run-user-facing-copy-cleanup.yml
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   cleanup:
+    if: github.actor != 'github-actions[bot]' && github.event.pull_request.head.ref == 'chore/user-facing-language-audit-20260713'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout cleanup branch
