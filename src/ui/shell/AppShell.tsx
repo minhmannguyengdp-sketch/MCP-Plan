@@ -12,7 +12,7 @@ function NavLinks({ activeHref, items, mode }: { activeHref: string; items: NavI
   const style = mode === "bottom" ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined;
 
   return (
-    <nav className={mode === "sidebar" ? "sidebar-nav" : "bottom-nav"} style={style} aria-label="Main navigation">
+    <nav className={mode === "sidebar" ? "sidebar-nav" : "bottom-nav"} style={style} aria-label="Điều hướng chính">
       {items.map((item) => {
         const isActive = item.href === activeHref;
         const className = mode === "sidebar" ? (isActive ? "sidebar-link active" : "sidebar-link") : isActive ? "bottom-nav-link active" : "bottom-nav-link";
@@ -34,17 +34,17 @@ export function AppShell({ children, activeHref = "/" }: AppShellProps) {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-title">MCP-Plan</div>
-          <div className="sidebar-subtitle">Công cụ quản lý NPP, report và kế hoạch hành động.</div>
+          <div className="sidebar-subtitle">Quản lý tuyến bán hàng, điểm bán, đơn hàng và công việc.</div>
         </div>
 
         <NavLinks activeHref={activeHref} items={SIDEBAR_NAV_ITEMS} mode="sidebar" />
 
         <Link className={activeHref === "/settings" ? "sidebar-link active utility-link" : "sidebar-link utility-link"} href="/settings" prefetch>
-          <span className="nav-icon" aria-hidden="true">{"\u2699"}</span>
-          <span>Cài đặt</span>
+          <span className="nav-icon" aria-hidden="true">{"⚙"}</span>
+          <span>Cài đặt ứng dụng</span>
         </Link>
 
-        <div className="sidebar-footer">Frontend sạch trước. Backend/VPS và Supabase nối sau theo API contract.</div>
+        <div className="sidebar-footer">MCP-Plan · Quản lý phân phối</div>
       </aside>
 
       <SettingsQuickButton />
