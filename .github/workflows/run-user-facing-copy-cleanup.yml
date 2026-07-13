@@ -1,11 +1,9 @@
 name: Run verified user-facing copy cleanup
 
 on:
-  pull_request_target:
+  issue_comment:
     types:
-      - opened
-      - reopened
-      - synchronize
+      - created
 
 permissions:
   contents: write
@@ -13,7 +11,7 @@ permissions:
 
 jobs:
   cleanup:
-    if: github.actor != 'github-actions[bot]' && github.event.pull_request.head.ref == 'chore/user-facing-language-audit-20260713'
+    if: github.actor != 'github-actions[bot]' && github.event.issue.pull_request && github.event.issue.number == 3 && github.event.comment.body == '/run-copy-cleanup'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout cleanup branch
