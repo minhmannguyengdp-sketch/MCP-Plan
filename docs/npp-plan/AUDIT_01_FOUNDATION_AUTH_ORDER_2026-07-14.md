@@ -1,33 +1,57 @@
 # Audit 01 — Foundation, Auth và luồng Đơn hàng hiện tại
 
-> Trạng thái: **COMPLETE / READ-ONLY AUDIT**  
+> Trạng thái: **COMPLETE / READ-ONLY AUDIT / ARCHITECTURE CORRECTED**  
 > Ngày audit: **2026-07-14**  
-> Phạm vi: foundation portability, tenant/auth boundary, `orders`, `order_items`, luồng tạo đơn từ MCP  
-> Kết luận triển khai: **NO-GO cho Order Core mới trước khi hoàn thành Foundation Slice F0**
+> Mô hình đã khóa: **một NPP mỗi source clone/deployment, backend và database riêng**  
+> Phạm vi: portability, auth boundary, `orders`, `order_items`, luồng tạo đơn từ MCP  
+> Kết luận: **NO-GO cho full Order Core trước Foundation Slice F0 portability**
 
-## 1. Mục tiêu
+## 1. Ghi chú hiệu chỉnh kiến trúc
 
-Audit hiện trạng trước khi phát triển App NPP nhiều tenant nhằm trả lời:
+Bản audit ban đầu giả định hệ thống sẽ vận hành shared multi-tenant. Giả định đó đã được chủ dự án hiệu chỉnh.
+
+Hướng chính thức:
 
 ```text
-1. Backend hiện đang phụ thuộc Supabase tới mức nào?
-2. Request có actor/tenant context đã xác thực hay chưa?
-3. orders/order_items có đủ constraint và mutation boundary hay chưa?
-4. Luồng tạo đơn từ MCP có idempotent và an toàn khi gọi lặp hay chưa?
-5. Dữ liệu order production hiện có vấn đề gì cần migration/backfill?
-6. Có thể bắt đầu ngay order lifecycle mới hay phải khóa foundation tối thiểu trước?
+Source template gốc
+-> clone cho từng NPP
+-> frontend riêng
+-> backend riêng
+-> database riêng
+-> storage/config riêng
+```
+
+Vì vậy:
+
+- việc `orders/order_items` chưa có `tenant_id` **không phải blocker**;
+- không cần TenantContext, tenant membership, tenant selector hoặc cross-tenant isolation trong phase hiện tại;
+- database riêng là ranh giới tách dữ liệu giữa các NPP;
+- yêu cầu đúng là code, migration và deployment phải giúp thay DB/backend instance mới dễ dàng mà không sửa business logic.
+
+Tài liệu foundation chính thức: [`FOUNDATION_SINGLE_NPP_PORTABILITY.md`](./FOUNDATION_SINGLE_NPP_PORTABILITY.md).
+
+## 2. Mục tiêu audit sau hiệu chỉnh
+
+```text
+1. Backend hiện phụ thuộc Supabase tới mức nào?
+2. Request có actor/auth/requestId đủ cho business audit hay chưa?
+3. orders/order_items có constraint và mutation boundary đủ chặt hay chưa?
+4. Luồng tạo đơn từ MCP có idempotent và an toàn khi retry hay chưa?
+5. Dữ liệu order production có bất thường gì cần cleanup/backfill?
+6. Source hiện có đủ điều kiện dựng một DB/backend mới hay chưa?
+7. Có thể code full order lifecycle ngay hay phải làm foundation portability trước?
 ```
 
 Audit này không sửa code, không chạy migration, không thay dữ liệu và không deploy.
 
-## 2. Phạm vi đã kiểm tra
+## 3. Phạm vi đã kiểm tra
 
 ### Code/runtime
 
-- `apps/backend/server.js` và helper gọi Supabase.
+- `apps/backend/server.js` và các helper gọi Supabase.
 - Đường UI tạo đơn trong phiên MCP.
-- Endpoint/proxy và RPC dùng để tạo đơn từ session customer.
-- Wrapper response và cách normalize lỗi hiện tại.
+- Endpoint/proxy và RPC tạo đơn từ session customer.
+- Success wrapper và cách normalize lỗi hiện tại.
 
 ### Database production
 
@@ -35,44 +59,51 @@ Audit này không sửa code, không chạy migration, không thay dữ liệu v
 - Liên kết với `mcp_session_customers`, sản phẩm và biến thể.
 - Constraint, index, trigger, RLS policy và table grants.
 - Function `mcp_create_order_from_session_customer`.
-- Thống kê chất lượng dữ liệu order hiện tại.
-- Sự tồn tại của tenant/organization/membership/role/permission model.
+- Thống kê aggregate chất lượng dữ liệu order.
+- Auth users hiện có.
 
-### Giới hạn
+### Chưa hoàn tất trong audit này
 
-- Storage, queue và background job chưa tham gia trực tiếp vào luồng tạo order hiện tại; khi các thành phần này được đưa vào Order/Fulfillment phải audit tenant scope lại trước khi dùng.
-- Không đọc dữ liệu cá nhân chi tiết; audit chỉ dùng metadata schema, aggregate count và function definition.
+- Chưa đối chiếu toàn bộ migrations trong repo với schema/function/policy/grant production.
+- Chưa chạy dựng DB trắng.
+- Chưa clone/deploy backend thứ hai.
+- Chưa audit toàn bộ hardcoded URL, project ID, VPS path, domain và secret reference.
+- Storage, queue và background job chưa tham gia trực tiếp vào luồng order hiện tại; audit lại khi đưa vào use case mới.
 
-## 3. Kết luận điều hành
+Các mục trên là portability gate tiếp theo, không được coi là đã pass.
 
-Không nên bắt đầu code toàn bộ vòng đời đơn hàng ngay.
+## 4. Kết luận điều hành
 
-Lý do không phải vì thiếu UI, mà vì bốn nền bắt buộc chưa tồn tại hoặc chưa khóa:
+Không nên bắt đầu full vòng đời đơn hàng ngay.
+
+Blocker đúng sau hiệu chỉnh:
 
 ```text
-BLOCKER 1: orders/order_items chưa có tenant ownership.
-BLOCKER 2: anon/authenticated vẫn có đường ghi trực tiếp vào orders/order_items.
-BLOCKER 3: request tạo đơn chưa có TenantContext/actor business context.
+BLOCKER 1: anon/authenticated vẫn có đường ghi trực tiếp orders/order_items.
+BLOCKER 2: request tạo đơn chưa có actor/auth/requestId business context đầy đủ.
+BLOCKER 3: backend order đang khóa chặt vào Supabase table/RPC trong server lớn.
 BLOCKER 4: tạo đơn từ MCP chưa idempotent theo source và có thể tạo lặp.
+BLOCKER 5: constraint/order lifecycle hiện quá yếu cho sửa-hủy-giao-trả-đổi.
+PORTABILITY GATE: chưa chứng minh DB/backend mới dựng được hoàn toàn từ source.
 ```
 
-Hướng đúng:
+Không còn blocker “thiếu tenant ownership”.
+
+Thứ tự đúng:
 
 ```text
 Audit hoàn tất
--> Foundation Slice F0 tối thiểu
--> làm sạch/migrate order legacy có kiểm soát
+-> Foundation Slice F0 portability
+-> clean-DB/bootstrap rehearsal
+-> làm sạch order legacy
 -> Order draft -> confirmed vertical slice
 -> Fulfillment/Inventory
 -> Receivable/Payment
 -> Return/Exchange
+-> clone/deploy installation thử nghiệm thứ hai
 ```
 
-Không xây trọn bộ nền SaaS trước. Chỉ xây foundation tối thiểu đủ để Order Core không phải đập lại.
-
-## 4. Kiến trúc hiện tại
-
-Luồng runtime:
+## 5. Kiến trúc runtime hiện tại
 
 ```text
 Browser/PWA
@@ -81,7 +112,7 @@ Browser/PWA
       -> Supabase REST/RPC/Edge Function bằng service role
 ```
 
-Backend hiện tại có các helper gọi trực tiếp:
+Backend hiện có các helper trực tiếp:
 
 ```text
 supabaseGet(table, params)
@@ -93,12 +124,24 @@ proxySupabaseFunction(functionName, body)
 
 Nhận xét:
 
-- Transport/controller, application logic và provider access còn nằm gần nhau trong một server lớn.
-- Tên bảng, RPC và lỗi provider vẫn là khái niệm nội bộ trực tiếp của backend.
-- Chưa có lớp `OrderRepository`, `TransactionManager`, `IdempotencyStore` hoặc use case trung tính cho order.
-- Cách hiện tại chạy được cho MCP v1 nhưng không phù hợp để mở rộng Order Core đa tenant và chuyển provider sau này.
+- Transport/controller, application logic và provider access còn nằm gần nhau.
+- Tên bảng, RPC và lỗi provider là khái niệm trực tiếp trong backend.
+- Chưa có `OrderRepository`, `TransactionManager`, `IdempotencyStore` hoặc application use case độc lập.
+- Cấu trúc hiện tại chạy được cho MCP v1 nhưng không thuận lợi khi trỏ source clone sang DB/backend mới hoặc thay adapter.
 
-## 5. Response và request context hiện tại
+Quyết định:
+
+```text
+Controller/API
+-> Application use case
+-> Domain rules
+-> Ports
+-> Supabase/PostgreSQL adapter hiện tại
+```
+
+Không cần viết nhiều provider ngay; cần tách boundary để installation mới chỉ đổi config và dùng lại adapter hiện tại.
+
+## 6. Request/response context hiện tại
 
 Success wrapper hiện tại:
 
@@ -113,67 +156,56 @@ Chưa thấy trong đường order đã audit:
 
 ```text
 requestId
-tenantId đã xác thực
 actorId
-membershipId
+employeeId nếu có
 permission/scope
+installationId từ server config
 idempotency key chuẩn
 canonical business error object
 ```
 
-CORS trong backend hiện cho phép origin cấu hình, mặc định `*`. Danh sách header thể hiện trong code chỉ gồm `Content-Type, Accept`; chưa thấy `Authorization`, tenant selector hoặc idempotency header được xử lý ở đoạn audit.
+CORS backend hiện cho phép origin cấu hình, mặc định `*`. Danh sách header trong đoạn code audit chỉ gồm `Content-Type, Accept`; chưa thấy `Authorization` hoặc idempotency header được xử lý rõ ở đường order.
 
 Kết luận:
 
-- Backend hiện xác thực hạ tầng bằng service role, nhưng chưa chứng minh được actor nghiệp vụ nào đang thực hiện request.
-- Service role không thể thay thế tenant scope hoặc business permission.
-- `created_by`/`updated_by` trong `orders` đang nullable và luồng RPC hiện tại không cung cấp actor đầy đủ.
+- Service role xác thực hạ tầng, không xác định actor nghiệp vụ.
+- `created_by`/`updated_by` trong `orders` nullable và RPC hiện chưa cung cấp actor đầy đủ.
+- Mutation mới cần `InstallationContext` + actor + requestId, nhưng không cần tenant context.
 
-## 6. Tenant và auth model
+## 7. Auth và phân quyền hiện tại
 
-Kết quả schema audit:
+Kết quả:
 
-- Có `auth.users`; số tài khoản hiện tại: **3**.
-- Không tìm thấy public model rõ ràng cho:
+- Có `auth.users`; tại thời điểm audit có **3** tài khoản.
+- Chưa tìm thấy public model rõ ràng cho role, permission, scope assignment và employee-user linking trong phạm vi đã kiểm tra.
+
+Đây là vấn đề auth/permission nội bộ một NPP, không phải multi-tenant.
+
+Cần tối thiểu:
 
 ```text
-tenants / organizations
+identity/user
+employee
+role
+permission
+role assignment
+branch/warehouse/territory scope
+policy/threshold
+actor/audit context
+```
+
+Không cần tạo:
+
+```text
+tenants
 tenant_memberships
-roles / permissions
-scope assignments
-installations
-entitlements
+tenant selector
+platform admin cross-NPP
 ```
 
-Các bảng nghiệp vụ đã kiểm tra chưa có `tenant_id` hoặc `organization_id`:
+## 8. Schema `orders`
 
-```text
-orders
-order_items
-mcp_session_customers
-mcp_route_customers
-products
-product_variants
-product_unit_rules
-```
-
-Rủi ro:
-
-- Không thể chứng minh một row thuộc NPP nào khi dùng shared database.
-- Unique/index/FK hiện chưa tenant-scoped.
-- Khi bán cho NPP thứ hai, chỉ filter ở UI hoặc body request là không đủ an toàn.
-- Không có foundation để chuyển một tenant sang DB/backend riêng mà giữ cùng identity/domain contract.
-
-Quyết định:
-
-- App NPP mới phải bắt đầu bằng `TenantContext` được backend xác thực.
-- MCP v1 frozen chưa được thêm `tenant_id` âm thầm.
-- Trong giai đoạn chuyển tiếp, MCP legacy dùng `fixedTenantContext` do backend cấu hình và client không được đổi.
-- Migration MCP sang multi-tenant phải versioned, có backfill, smoke và isolation test riêng.
-
-## 7. Schema `orders`
-
-Các nhóm field hiện có:
+Field hiện có:
 
 ```text
 id, order_code
@@ -191,22 +223,23 @@ created_by, updated_by
 Thiếu cho Order Core:
 
 ```text
-tenant_id / organization_id
 version hoặc optimistic lock
 idempotency_key
 order lifecycle constraint
 fulfillment_status riêng
 payment_status riêng
-currency/rounding contract rõ ràng
-business document sequence tenant-scoped
+currency/rounding contract
+atomic business document sequence
 actor bắt buộc cho mutation quan trọng
 ```
 
-`status` hiện là text mặc định `draft`, nhưng chưa có check constraint giới hạn trạng thái hợp lệ.
+Không bắt buộc `tenant_id` vì database chỉ phục vụ một NPP.
 
-## 8. Schema `order_items`
+`status` hiện là text mặc định `draft`, chưa có check constraint giới hạn trạng thái hợp lệ.
 
-Các field chính:
+## 9. Schema `order_items`
+
+Field chính:
 
 ```text
 id
@@ -226,7 +259,6 @@ Constraint hiện có:
 Thiếu:
 
 ```text
-tenant_id
 quantity > 0 check
 product_id/variant_id FK đáng tin cậy
 unit snapshot/conversion contract
@@ -235,9 +267,9 @@ version/audit event
 ordered/cancelled/allocated/shipped/delivered/returned quantities
 ```
 
-`ON DELETE CASCADE` hiện phù hợp với dữ liệu draft/legacy đơn giản, nhưng không được dùng để xóa lịch sử order đã ảnh hưởng kho/công nợ trong Order Core mới.
+`ON DELETE CASCADE` chỉ phù hợp cho draft/legacy đơn giản; không được xóa lịch sử order đã ảnh hưởng kho/công nợ.
 
-## 9. Constraint và index audit
+## 10. Constraint và index audit
 
 Đã xác nhận:
 
@@ -247,18 +279,18 @@ ordered/cancelled/allocated/shipped/delivered/returned quantities
 - Không có unique constraint cho source reference.
 - Không có check `quantity > 0`.
 - Không có check order status.
-- Không có tenant-aware composite FK/index.
 - Không tìm thấy trigger active trên `orders`/`order_items` trong truy vấn audit.
 
 Hệ quả:
 
-- Duplicate source/order code hiện không bị DB chặn.
-- Dữ liệu dòng số lượng 0 có thể tồn tại.
-- Tính tiền và invariant phụ thuộc hoàn toàn vào từng đường mutation, dễ lệch khi có endpoint khác.
+- Duplicate source/order code không bị DB chặn.
+- Dòng quantity 0 có thể tồn tại.
+- Tính tiền/invariant phụ thuộc từng mutation path.
+- Không thể an toàn mở rộng lifecycle phức tạp trước cleanup + constraint.
 
-## 10. Security boundary của `orders` và `order_items`
+## 11. Security boundary của `orders` và `order_items`
 
-RLS đang bật nhưng chưa phải boundary an toàn.
+RLS đang bật nhưng chưa tạo boundary an toàn.
 
 Policy ghi nhận:
 
@@ -274,38 +306,36 @@ order_items:
 - anon UPDATE USING true / WITH CHECK true
 ```
 
-Table grants còn rộng hơn:
+Table grants của `anon` và `authenticated` còn gồm nhiều quyền trên `orders`/`order_items`, trong đó có `INSERT`, `UPDATE`, `DELETE` và `TRUNCATE`.
+
+Với policy `INSERT/UPDATE ... true`, client anon còn đường ghi trực tiếp hợp lệ.
+
+Đây là blocker vì:
+
+- VPS backend chưa phải mutation boundary duy nhất.
+- Client có thể bypass transition, idempotency, actor/permission và audit.
+- Source clone mới sẽ mang theo lỗ hổng này nếu không sửa bằng migration.
+
+Không revoke nóng trước khi audit toàn bộ consumer. Phải:
 
 ```text
-anon và authenticated có:
-SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-trên orders và order_items
+consumer audit
+-> chuyển mutation hợp lệ về backend
+-> smoke tests
+-> migration revoke/gỡ policy write=true
+-> verify read contract
+-> forward-fix plan
 ```
 
-RLS có thể chặn một số thao tác không có policy tương ứng, nhưng với `INSERT/UPDATE ... true`, client dùng anon key vẫn còn đường ghi trực tiếp hợp lệ.
+## 12. Luồng tạo đơn từ MCP
 
-Đây là **BLOCKER** vì:
-
-- VPS backend chưa phải mutation boundary duy nhất cho order.
-- Không có actor/tenant permission được backend kiểm soát.
-- Một client có thể bypass use case, transition, idempotency và audit.
-
-So sánh:
-
-- Các bảng `mcp_*` đã được khóa mutation về `service_role` theo MCP v1 freeze.
-- `orders` và `order_items` chưa được khóa tương đương vì chúng là bảng dùng chung ngoài boundary `mcp_*`.
-
-Không được revoke ngay mà không audit consumer. Việc revoke phải đi trong migration có kiểm thử toàn bộ đường tạo/read/export order và rollback/forward-fix rõ ràng.
-
-## 11. Luồng tạo đơn từ MCP
-
-UI hiện tạo đơn bằng request dạng:
+UI tạo đơn qua:
 
 ```text
 POST /api/mcp-orders/from-session-customer
 ```
 
-Payload chứa:
+Payload hiện có:
 
 ```text
 sessionCustomerId
@@ -314,55 +344,54 @@ note
 status = confirmed
 ```
 
-Chưa gửi:
+Chưa có:
 
 ```text
-tenant context
 actor context
 idempotency key
 expected version
+requestId chuẩn
 ```
 
-RPC `mcp_create_order_from_session_customer` có các điểm tốt:
+RPC `mcp_create_order_from_session_customer` có điểm tốt:
 
-- Chạy transaction tại DB.
-- Lock session customer.
-- Chặn phiên đã đóng.
-- Tạo `orders` và `order_items` thật.
-- Gắn order vào session customer/visit và cập nhật counter.
-- Quyền execute RPC đã giới hạn cho `service_role`.
+- transaction DB;
+- lock session customer;
+- chặn phiên đóng;
+- tạo order/items thật;
+- gắn order với session customer/visit;
+- cập nhật counter;
+- quyền execute RPC giới hạn cho `service_role`.
 
-Nhưng có lỗi thiết kế cần xử lý trước Order Core:
+Vấn đề:
 
-### 11.1 Không idempotent theo source
+### 12.1 Không idempotent theo source
 
-Không có unique/check trước khi tạo theo:
+Không có unique/check theo:
 
 ```text
 (source_type, source_id, operation)
 ```
 
-Gọi lại request có thể tạo order mới.
+Retry có thể tạo order mới.
 
-### 11.2 Có thể ghi đè liên kết order của session customer
+### 12.2 Có thể ghi đè liên kết order
 
-RPC cập nhật `mcp_session_customers.order_id` bằng order mới. Nếu gọi lại, liên kết hiện tại có thể bị thay bằng order sau, trong khi order cũ vẫn còn.
+RPC cập nhật `mcp_session_customers.order_id` bằng order mới. Gọi lại có thể thay liên kết trong khi order cũ còn tồn tại.
 
-### 11.3 Chấp nhận quantity bằng 0
+### 12.3 Chấp nhận quantity bằng 0
 
-Quantity được chuẩn hóa không âm nhưng vẫn có thể bằng 0. Dữ liệu thực tế đã có dòng nonpositive.
+Quantity được chuẩn hóa không âm nhưng vẫn có thể bằng 0.
 
-### 11.4 Mã đơn phụ thuộc timestamp
+### 12.4 Mã đơn theo timestamp nhưng không unique atomic
 
-Order code sinh theo timestamp nhưng không có unique constraint/sequence atomic. Dữ liệu hiện đã có nhóm order code trùng.
+Dữ liệu đã xuất hiện nhóm order code trùng.
 
-### 11.5 Tạo thẳng `confirmed`
+### 12.5 Tạo thẳng `confirmed`
 
-MCP v1 đang tạo order đã xác nhận theo contract hiện hành. Order Core tương lai không được biến endpoint này thành toàn bộ vòng đời đơn. Cần adapter/source integration để đưa order MCP vào domain order mới mà không phá contract frozen.
+Đây là contract MCP v1 hiện hành. Order Core mới phải tiếp nhận MCP như một source adapter, không mở rộng endpoint MCP thành toàn bộ order lifecycle.
 
-## 12. Chất lượng dữ liệu order hiện tại
-
-Snapshot aggregate tại thời điểm audit:
+## 13. Chất lượng dữ liệu order tại thời điểm audit
 
 | Chỉ số | Kết quả |
 |---|---:|
@@ -377,7 +406,7 @@ Snapshot aggregate tại thời điểm audit:
 | Order thiếu status | 0 |
 | Header total lệch tổng item | 0 |
 
-Phân bố status:
+Status:
 
 | Status | Số lượng |
 |---|---:|
@@ -385,16 +414,16 @@ Phân bố status:
 | draft | 7 |
 | created | 1 |
 
-`created` là trạng thái legacy không nằm trong contract order dự kiến.
+`created` là trạng thái legacy ngoài contract dự kiến.
 
-Phân bố source:
+Source:
 
 | Source type | Số lượng |
 |---|---:|
 | mcp_session_customer | 13 |
 | null | 5 |
 
-Bất thường dữ liệu:
+Bất thường:
 
 | Vấn đề | Kết quả |
 |---|---:|
@@ -408,80 +437,67 @@ Bất thường dữ liệu:
 | Giá âm | 0 |
 | Discount âm | 0 |
 
-Kết luận dữ liệu:
+Không được thêm constraint trực tiếp trước khi phân loại/backfill row legacy. Không tự xóa duplicate hoặc suy đoán fulfillment/payment.
 
-- Không được thêm constraint `NOT NULL`, unique hoặc `quantity > 0` trực tiếp trước khi phân loại/backfill các row legacy.
-- Bảy order không có item cần phân loại: draft hợp lệ, dữ liệu cũ, order shell hay lỗi.
-- Duplicate source/order code phải được xử lý bằng mapping/quarantine, không tự xóa.
-- Không backfill fulfillment/payment status bằng suy đoán.
+## 14. Portability gap cần audit tiếp
 
-## 13. Risk register
+Chưa đủ bằng chứng để khẳng định source hiện tại có thể dựng NPP mới chỉ bằng config.
+
+Cần kiểm tra:
+
+```text
+1. Tất cả migrations có tái tạo đủ tables/indexes/functions/triggers/RLS/grants không?
+2. Có schema/function chỉ tồn tại trên production không?
+3. Có URL, Supabase project ID, VPS IP/path, domain hardcode trong source không?
+4. Có `.env.example` đầy đủ không?
+5. Seed/bootstrap NPP mới đã tồn tại và idempotent chưa?
+6. Backend mới có build/start/health/deploy contract rõ chưa?
+7. DB trắng có chạy full MCP smoke được không?
+8. Frontend có chỉ cần đổi API URL/config không?
+```
+
+Đây là việc đầu tiên của Foundation Slice F0, không được bỏ qua.
+
+## 15. Risk register
 
 | Mức | Rủi ro | Tác động | Điều kiện gỡ |
 |---|---|---|---|
-| BLOCKER | Không có tenant ownership | Rò dữ liệu chéo NPP, không thể shared SaaS an toàn | Tenant model + backfill + isolation tests |
-| BLOCKER | Anon/auth ghi trực tiếp order | Bypass backend/domain/audit | Migration revoke/policy sau consumer audit |
-| BLOCKER | Không có TenantContext/actor boundary | Không biết ai làm gì trong NPP nào | Auth middleware + membership/scope |
-| BLOCKER | Tạo order MCP không idempotent | Duplicate order, ghi đè link | Idempotency/source uniqueness + retry tests |
-| HIGH | Backend khóa chặt provider | Khó chuyển DB/backend, khó test domain | Use case/ports/adapters |
-| HIGH | Một order status gánh nhiều ý nghĩa | Sai giao hàng/thanh toán | Tách order/fulfillment/payment status |
-| HIGH | Constraint order yếu | Dữ liệu xấu tiếp tục tăng | Backfill rồi thêm check/unique/FK |
-| HIGH | Mã order không sequence atomic | Trùng số khi concurrent | Tenant-scoped document sequence |
-| HIGH | Legacy data không đồng nhất | Migration thất bại/suy diễn sai | Mapping + review queue + reconciliation |
-| MEDIUM | Response chưa có requestId/error object | Khó trace và đổi provider | Canonical API envelope |
-| MEDIUM | CORS/header chưa phục vụ auth context | Auth integration chưa rõ | Explicit CORS/auth/idempotency headers |
+| BLOCKER | Anon/auth ghi trực tiếp order | Bypass backend/domain/audit | Consumer audit + migration khóa write |
+| BLOCKER | Thiếu actor/auth/request context | Không biết ai làm gì | InstallationContext + auth/permission middleware |
+| BLOCKER | Tạo order MCP không idempotent | Duplicate order, ghi đè link | Source/idempotency contract + retry tests |
+| BLOCKER | Constraint/order lifecycle yếu | Dữ liệu xấu và sai transition | Cleanup + checks/unique/version/events |
+| HIGH | Backend khóa chặt provider | Khó thay DB/backend instance/adapter | Use cases + ports/adapters |
+| HIGH | Một order status gánh nhiều nghĩa | Sai giao hàng/thanh toán | Tách ba trục status |
+| HIGH | Mã order không sequence atomic | Trùng số concurrent | Atomic document sequence |
+| HIGH | Legacy data không đồng nhất | Migration thất bại | Mapping/review/reconciliation |
+| HIGH | Chưa chứng minh clean-DB bootstrap | Clone NPP mới có thể thiếu schema | Migration inventory + rehearsal |
+| MEDIUM | Response chưa requestId/error object | Khó trace/đổi provider | Canonical API envelope |
+| MEDIUM | Config/hardcode chưa audit | Clone có thể trỏ nhầm production cũ | Config inventory + clone scan |
 
-## 14. Quyết định kiến trúc sau audit
+## 16. Foundation Slice F0 đúng
 
-### 14.1 Chưa làm full Order Core
-
-Không bắt đầu ngay sửa/hủy/giao thiếu/trả/đổi khi foundation chưa khóa.
-
-### 14.2 Chỉ làm Foundation Slice F0 tối thiểu
-
-Không xây toàn bộ màn hình tenant administration hoặc dedicated deployment ngay.
-
-F0 chỉ cần đủ để:
-
-- request có tenant/actor context;
-- order use case không phụ thuộc Supabase;
-- DB mutation chỉ đi qua backend;
-- retry không duplicate;
-- Tenant A không đọc/ghi dữ liệu Tenant B;
-- API trả DTO/error trung tính.
-
-### 14.3 Không sửa MCP v1 âm thầm
-
-- Giữ MCP frozen.
-- Dùng `fixedTenantContext` cho installation hiện tại.
-- Thay đổi tenant/idempotency liên quan MCP phải migration/version/test rõ ràng.
-
-### 14.4 Không xem service role là permission
-
-Service role chỉ là credential hạ tầng. Backend vẫn phải kiểm tra actor, membership, tenant, scope và policy.
-
-## 15. Thứ tự triển khai bắt buộc tiếp theo
-
-### F0.1 — Canonical request context
+### F0.1 — Audit portability/config
 
 ```text
-requestId
-TenantContext
-actorId
-membershipId
-permission/scope
-fixedTenantContext cho MCP legacy
+URL/domain/IP/path/project ID hardcode
+required environment variables
+secret boundaries
+build/start/deploy/health commands
+production DB vs migration inventory
 ```
 
-Acceptance:
+### F0.2 — InstallationContext + auth
 
-- Client không thể tự đổi tenant nếu không có membership.
-- Request thiếu context bị chặn ở mutation mới.
-- MCP legacy chỉ dùng tenant cố định do server cấu hình.
+```text
+installationId từ server config
+distributorCode
+actorId
+employeeId
+permission/scope
+requestId
+```
 
-### F0.2 — Tách application/use case và ports
-
-Tối thiểu:
+### F0.3 — Application/use case và ports
 
 ```text
 CreateOrderDraft
@@ -496,87 +512,47 @@ IdGenerator
 
 Supabase/PostgreSQL chỉ nằm trong adapter.
 
-### F0.3 — Canonical API envelope
+### F0.4 — Canonical API envelope
 
-Success:
+Giữ success/error DTO trung tính và thêm requestId.
 
-```json
-{
-  "data": {},
-  "receivedAt": "...",
-  "requestId": "req_..."
-}
-```
+### F0.5 — Consumer audit rồi khóa direct DB mutation
 
-Error:
+Không revoke trước khi biết mọi consumer; sau đó migration khóa anon/auth write.
 
-```json
-{
-  "error": {
-    "code": "...",
-    "message": "...",
-    "details": {},
-    "retryable": false
-  },
-  "receivedAt": "...",
-  "requestId": "req_..."
-}
-```
-
-### F0.4 — Consumer audit rồi khóa mutation table
-
-Trước khi revoke:
+### F0.6 — Migration/bootstrap contract
 
 ```text
-1. Liệt kê mọi Next route/VPS route/RPC/export/import đang dùng orders/order_items.
-2. Chuyển mutation hợp lệ về backend service/use case.
-3. Thêm smoke test.
-4. Migration revoke anon/auth write và gỡ policy write=true.
-5. Xác nhận read contract không bị phá.
+production schema inventory
+missing migrations/functions/policies/grants
+clean DB migration
+idempotent bootstrap/seed
+full MCP smoke
 ```
 
-### F0.5 — Tenant model và migration plan
-
-Tối thiểu:
+### F0.7 — Làm sạch order legacy
 
 ```text
-tenants/organizations
-tenant_memberships
-installations hoặc fixed installation mapping
-actor/audit context
+7 order không có item
+status created
+5 order thiếu source
+source/order code duplicate
+3 dòng quantity <= 0
+các dòng thiếu product/variant/SKU/unit
 ```
 
-Sau đó thiết kế backfill tenant cho order/product/customer/MCP legacy.
-
-### F0.6 — Làm sạch order legacy
+### F0.8 — Constraint/idempotency
 
 ```text
-- phân loại 7 order không có item;
-- map status created;
-- map 5 order thiếu source;
-- xử lý duplicate source/order code;
-- xử lý 3 dòng quantity <= 0;
-- phân loại các dòng thiếu product/variant/SKU/unit;
-- không xóa hoặc suy diễn fulfillment/payment.
-```
-
-### F0.7 — Constraint và idempotency
-
-Sau backfill:
-
-```text
-unique tenant-scoped order number
+unique order number
 unique source/idempotency contract
 quantity > 0
 status checks
-FK/invariant tenant-safe
 optimistic version
 audit event
 ```
 
-### F0.8 — Order vertical slice đầu tiên
-
-Chỉ khi F0 pass:
+### F0.9 — Order vertical slice đầu tiên
 
 ```text
 create draft
@@ -585,55 +561,72 @@ create draft
 -> cancel before fulfillment
 ```
 
-Chưa làm fulfillment/payment/return trong slice đầu.
-
-## 16. Gate trước khi code Order Core
-
-Order Core chỉ được bắt đầu khi toàn bộ mục sau đạt:
+### F0.10 — Clone rehearsal
 
 ```text
-[ ] TenantContext đã xác thực ở backend
-[ ] Actor/audit context hoạt động
-[ ] Repository/application boundary có test
-[ ] Public API không lộ lỗi provider
-[ ] Anon/auth không còn mutation trực tiếp orders/order_items
-[ ] Legacy order anomalies có mapping/backfill plan
-[ ] Idempotency contract đã khóa
-[ ] Tenant isolation tests pass
-[ ] MCP v1 smoke vẫn pass
-[ ] Migration và rollback/forward-fix plan được duyệt
+clone source
+-> DB mới
+-> backend mới
+-> env/secrets mới
+-> migrations/bootstrap
+-> frontend config mới
+-> MCP/order smoke
 ```
 
-## 17. Checklist audit
+## 17. Gate trước Order Core
 
 ```text
-[x] MT-01A Audit tenant scope trên đường Order/MCP hiện tại
-[x] S-01 Audit auth/user/RLS/permission liên quan order
-[x] O-01 Audit orders/order_items/API/UI/production aggregates
+[ ] InstallationContext + actor/requestId hoạt động
+[ ] Permission/scope được backend enforce
+[ ] Application/repository boundary có test
+[ ] Public API không lộ provider/schema
+[ ] Anon/auth không còn mutation trực tiếp orders/order_items
+[ ] Legacy anomalies có mapping/backfill plan
+[ ] Idempotency contract đã khóa
+[ ] Production DB đã đối chiếu với migrations/functions/policies/grants
+[ ] DB trắng chạy migrations/bootstrap thành công
+[ ] Full MCP smoke pass trên DB trắng
+[ ] Không còn hardcode installation gốc trong source clone
+[ ] Migration/forward-fix plan được duyệt
+```
+
+## 18. Checklist audit
+
+```text
+[x] Audit provider coupling trên đường Order/MCP
+[x] Audit auth/user/RLS/permission liên quan order
+[x] Audit orders/order_items/API/UI/production aggregates
 [x] Audit RPC tạo order từ MCP
 [x] Audit constraint/index/RLS/table grant
 [x] Audit dữ liệu legacy bằng aggregate, không đọc PII
-[x] Xác định blockers và thứ tự remediation
+[x] Hiệu chỉnh bỏ giả định shared multi-tenant
+[x] Xác định blocker và remediation order
 
-[ ] MT-02 Chốt tenant/organization/membership/installation model
-[ ] MT-03 Implement TenantContext
-[ ] MT-04 Canonical API envelope
-[ ] MT-05 Repository/transaction/idempotency ports
-[ ] S-02 Permission catalog tối thiểu
-[ ] O-02 Khóa lifecycle/transition matrix
-[ ] Viết migration/backfill
-[ ] Sửa code
-[ ] Deploy
+[ ] Audit hardcoded config/URL/project ID/path
+[ ] Đối chiếu production DB với migrations/functions/policies/grants
+[ ] Chạy clean-DB migration rehearsal
+[ ] Viết bootstrap/seed
+[ ] Implement InstallationContext
+[ ] Chuẩn hóa API envelope
+[ ] Tách ports/adapters
+[ ] Làm sạch order legacy
+[ ] Sửa code order
+[ ] Clone/deploy installation test thứ hai
 ```
 
-## 18. Kết luận cuối
+## 19. Kết luận cuối
 
 ```text
-Audit Bước 1 đã hoàn thành.
+Audit Bước 1 đã hoàn thành và đã hiệu chỉnh đúng mô hình kinh doanh.
 
-MCP v1 core đang frozen và mutation mcp_* đã được bảo vệ tốt hơn.
-Tuy nhiên order domain dùng chung chưa đủ điều kiện để mở rộng thành App NPP nhiều tenant.
+MCP v1 core vẫn frozen.
+DB/backend hiện tại tiếp tục là môi trường phát triển và test thật.
+Mỗi NPP bán mới sẽ có source clone + backend + DB riêng.
+Thiếu tenant_id không phải blocker.
 
-Việc tiếp theo đúng logic là Foundation Slice F0,
-không phải làm thêm UI đơn hàng và cũng không phải xây toàn bộ SaaS administration.
+Việc tiếp theo đúng logic là Foundation Slice F0 portability:
+config -> InstallationContext -> ports/adapters -> migrations/bootstrap
+-> cleanup/idempotency -> clean DB rehearsal.
+
+Không làm thêm UI đơn hàng hoặc full lifecycle trước khi foundation này pass.
 ```
