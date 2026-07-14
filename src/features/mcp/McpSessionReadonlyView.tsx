@@ -24,9 +24,9 @@ function sourceLabel(source: McpDayLine["source"]) {
 function resultSummary(line: McpDayLine) {
   const values = [
     line.hasOrder ? "Có đơn" : null,
-    line.hasTest ? "Có test" : null,
+    line.hasTest ? "Có thử sản phẩm" : null,
     line.hasReport ? "Có báo cáo" : null,
-    Number(line.followupCount || 0) > 0 ? `${line.followupCount} follow-up` : null
+    Number(line.followupCount || 0) > 0 ? `${line.followupCount} việc theo dõi` : null
   ].filter(Boolean);
 
   return values.length > 0 ? values.join(" · ") : line.result || line.note || "Chưa ghi kết quả";
@@ -43,20 +43,20 @@ export function McpSessionReadonlyView({ activeHref = "/visits", mcpDayData }: {
 
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader eyebrow="Checklist phiên" title="Checklist phiên" subtitle={`Tuyến gốc: ${run.routeName} · Ngày: ${run.date} · Sale: ${run.owner}`} />
+      <PageHeader eyebrow="Phiên đi tuyến" title="Phiên đi tuyến" subtitle={`Tuyến: ${run.routeName} · Ngày: ${run.date} · Phụ trách: ${run.owner}`} />
 
       <section className="mcp-gate-banner mcp-session-compact-head">
         <strong>{lockedLabel}</strong>
         <span>Phiên chỉ xem · {visitedCount} đã ghé · {pendingCount} chờ ghé · {skippedCount} bỏ qua · mở lúc {run.openedAt}</span>
       </section>
 
-      <div className="mcp-status-chips" role="tablist" aria-label="Checklist phiên chỉ xem">
+      <div className="mcp-status-chips" role="tablist" aria-label="Phiên đi tuyến chỉ xem">
         <button className="active" type="button">Tất cả khách <b>{mcpDayData.lines.length}</b></button>
         <button type="button">Chờ ghé <b>{pendingCount}</b></button>
         <button type="button">Đã ghé <b>{visitedCount}</b></button>
         <button type="button">Bỏ qua <b>{skippedCount}</b></button>
         <button type="button">Phát sinh <b>{addedCount}</b></button>
-        <button type="button">Có follow-up <b>{followupCount}</b></button>
+        <button type="button">Có việc theo dõi <b>{followupCount}</b></button>
       </div>
 
       <div className="mcp-line-list">

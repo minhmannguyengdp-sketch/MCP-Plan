@@ -49,7 +49,7 @@ function fieldName(label: string) {
   if (lower.includes("nhu")) return "Nhu cầu";
   if (lower.includes("cơ hội")) return "Cơ hội";
   if (lower.includes("rủi")) return "Rủi ro";
-  if (lower.includes("next")) return "Next action";
+  if (lower.includes("next")) return "Việc tiếp theo";
   return label;
 }
 
@@ -61,7 +61,7 @@ function renderPanel(groups: ApiGroup[], textarea: HTMLTextAreaElement) {
   panel.style.padding = "10px";
   panel.style.display = "grid";
   panel.style.gap = "10px";
-  panel.innerHTML = `<div><strong>Tick nhanh báo cáo</strong><p class="page-subtitle" style="margin:4px 0 0">Dữ liệu lấy từ MCP Setting dùng chung.</p></div>`;
+  panel.innerHTML = `<div><strong>Ghi nhận nhanh</strong><p class="page-subtitle" style="margin:4px 0 0">Các lựa chọn được thiết lập dùng chung cho báo cáo thị trường.</p></div>`;
   groups.forEach((group) => {
     const box = document.createElement("div");
     box.className = "report-quick-group";

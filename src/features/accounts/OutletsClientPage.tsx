@@ -26,7 +26,7 @@ function buildColumns(onSelect: (item: AccountItem) => void): DataTableColumn<Ac
     { key: "contactName", header: "Liên hệ", render: (row) => row.contactName },
     { key: "area", header: "Khu vực", render: (row) => row.area },
     { key: "routeName", header: "Tuyến", render: (row) => row.routeName },
-    { key: "tier", header: "Hạng", render: (row) => <span className="badge">Tier {row.tier}</span> },
+    { key: "tier", header: "Hạng", render: (row) => <span className="badge">Hạng {row.tier}</span> },
     { key: "lastVisitDate", header: "Ghé gần nhất", render: (row) => row.lastVisitDate },
     { key: "lastOrderDate", header: "Đơn gần nhất", render: (row) => row.lastOrderDate },
     { key: "monthlyRevenue", header: "Doanh số", render: (row) => formatMoney(row.monthlyRevenue), align: "right" },
@@ -49,7 +49,7 @@ function OutletSheet({ item, onClose }: { item: AccountItem | null; onClose: () 
           <div className="outlet-focus-card">
             <span>Doanh số tháng</span>
             <strong>{formatMoney(item.monthlyRevenue)}</strong>
-            <small>Tier {item.tier} · {statusLabel(item.status)}</small>
+            <small>Hạng {item.tier} · {statusLabel(item.status)}</small>
           </div>
           <div className="grid">
             <div className="metric-row"><span>Người liên hệ</span><strong>{item.contactName}</strong></div>
@@ -59,7 +59,7 @@ function OutletSheet({ item, onClose }: { item: AccountItem | null; onClose: () 
           </div>
           <div className="sheet-note-card">
             <h3>Hồ sơ điểm bán</h3>
-            <p>Dữ liệu được tổng hợp từ tuyến, phiên MCP và đơn hàng. Các thao tác tạo đơn, ghi quan sát hoặc follow-up nên thực hiện trong phiên MCP để giữ đúng ngữ cảnh tuyến/ngày.</p>
+            <p>Dữ liệu được tổng hợp từ tuyến, phiên MCP và đơn hàng. Các thao tác tạo đơn, ghi quan sát hoặc việc theo dõi nên thực hiện trong phiên MCP để giữ đúng ngữ cảnh tuyến/ngày.</p>
           </div>
         </div>
       ) : null}
@@ -79,11 +79,11 @@ export function OutletsClientPage({ kpis, items }: { kpis: AccountKpi[]; items: 
   }, [items]);
   const priorityText = stats.needVisit > 0
     ? `Có ${stats.needVisit} điểm bán cần ghé lại. Ưu tiên nhóm có doanh số hoặc chưa có đơn gần đây.`
-    : "Tệp điểm bán đang ổn định. Tiếp tục duy trì lịch ghé và cập nhật quan sát trong phiên MCP.";
+    : "Danh sách điểm bán đang ổn định. Tiếp tục duy trì lịch ghé và cập nhật quan sát trong phiên MCP.";
 
   return (
     <AppShell activeHref="/customers">
-      <PageHeader eyebrow="Khách hàng" title="Khách hàng / điểm bán" subtitle="Hồ sơ điểm bán nối dữ liệu ghé tuyến, đơn hàng, quan sát MCP và việc cần làm trong một luồng chăm sóc.">
+      <PageHeader eyebrow="Khách hàng" title="Khách hàng / điểm bán" subtitle="Hồ sơ điểm bán nối dữ liệu ghé tuyến, đơn hàng, ghi nhận thị trường và việc cần làm trong một luồng chăm sóc.">
         <span className="badge">Đang chăm sóc</span>
       </PageHeader>
 
@@ -104,7 +104,7 @@ export function OutletsClientPage({ kpis, items }: { kpis: AccountKpi[]; items: 
             <div className="metric-row"><span>Cần ghé lại</span><strong>{stats.needVisit}</strong></div>
             <div className="metric-row"><span>Thiếu liên hệ</span><strong>{stats.missingContact}</strong></div>
             <div className="metric-row"><span>Chưa có đơn</span><strong>{stats.noOrder}</strong></div>
-            <div className="metric-row"><span>Tier A</span><strong>{stats.tierA}</strong></div>
+            <div className="metric-row"><span>Hạng A</span><strong>{stats.tierA}</strong></div>
           </div>
         </div>
       </section>

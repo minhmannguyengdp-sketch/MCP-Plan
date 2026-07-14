@@ -44,9 +44,9 @@ const TABS: Array<{ id: ReportTab; label: string }> = [
   { id: "orders", label: "Đơn hàng" },
   { id: "tests", label: "Test" },
   { id: "observations", label: "Quan sát" },
-  { id: "followups", label: "Follow-up" },
+  { id: "followups", label: "Việc theo dõi" },
   { id: "customers", label: "Khách" },
-  { id: "ai", label: "AI Summary" }
+  { id: "ai", label: "Phân tích AI" }
 ];
 
 function text(value: unknown) {
@@ -137,7 +137,7 @@ function ReportExportMenu({ report, label = "Xuất báo cáo" }: { report: Mark
         title: "Dữ liệu AI",
         links: [
           buildExportLink("JSON cho Gemini/ADK", dataExportUrl(report, "json"), undefined, "Dữ liệu máy đọc có cấu trúc"),
-          buildExportLink("Markdown", dataExportUrl(report, "markdown"), undefined, "Văn bản để dán vào AI hoặc lưu kỹ thuật")
+          buildExportLink("Xuất văn bản", dataExportUrl(report, "markdown"), undefined, "Văn bản để dán vào AI hoặc lưu kỹ thuật")
         ]
       }
     ]}
@@ -164,7 +164,7 @@ function ReportCard({ report, onOpen }: { report: MarketReportItem; onOpen: () =
   const ov = report.overview;
   return <OperationalListCard
     leading={<span>BC</span>}
-    eyebrow={`BC phiên · ${report.date}`}
+    eyebrow={`Báo cáo phiên · ${report.date}`}
     title={report.subject}
     description={`${report.routeName} · ${ov.visited}/${ov.planned} khách · ${ov.orders} đơn · ${ov.tests} test`}
     badge={<strong className={statusClass(report.status)}>{statusLabel(report.status)} · {report.score}</strong>}
@@ -188,10 +188,10 @@ function OverviewTab({ report }: { report: MarketReportItem }) {
       <Metric label="Chi tiết khách" value={`${report.sections.customers?.length || 0}/${ov.planned}`} hint={report.insights.dataQuality?.completeCustomerCoverage ? "Đã đủ" : "Chưa đủ"} />
     </div>
     <div className="grid">
-      <div className="metric-row"><span>Schema</span><strong>{report.schemaVersion || "-"}</strong></div>
+      <div className="metric-row"><span>Nhân viên phụ trách</span><strong>{report.schemaVersion || "-"}</strong></div>
       <div className="metric-row"><span>Tuyến</span><strong>{report.routeName}</strong></div>
       <div className="metric-row"><span>Ngày phiên</span><strong>{report.date}</strong></div>
-      <div className="metric-row"><span>Nguồn snapshot</span><strong>{report.snapshotSource || "-"}</strong></div>
+      <div className="metric-row"><span>Thời điểm chốt</span><strong>{report.snapshotSource || "-"}</strong></div>
     </div>
     <section className={styles.twoColumnSection}>
       <div><h3>Lý do đánh giá</h3><TextList items={report.insights.reasons} empty="Chưa có lý do đánh giá." /></div>
@@ -206,7 +206,7 @@ function OrdersTab({ report }: { report: MarketReportItem }) {
 }
 
 function TestsTab({ report }: { report: MarketReportItem }) {
-  return report.sections.tests.length ? <div className={styles.detailList}>{report.sections.tests.map((item) => <DetailRow key={item.id} title={`${item.customerName || "Khách"} · ${item.productName || "Sản phẩm test"}`} meta={item.status || "-"} note={item.note} />)}</div> : <Empty>Phiên này chưa có test sản phẩm.</Empty>;
+  return report.sections.tests.length ? <div className={styles.detailList}>{report.sections.tests.map((item) => <DetailRow key={item.id} title={`${item.customerName || "Khách"} · ${item.productName || "Sản phẩm được thử"}`} meta={item.status || "-"} note={item.note} />)}</div> : <Empty>Phiên này chưa có test sản phẩm.</Empty>;
 }
 
 function ObservationsTab({ report }: { report: MarketReportItem }) {
@@ -219,7 +219,7 @@ function ObservationsTab({ report }: { report: MarketReportItem }) {
 }
 
 function FollowupsTab({ report }: { report: MarketReportItem }) {
-  return report.sections.followups.length ? <div className={styles.detailList}>{report.sections.followups.map((item) => <DetailRow key={item.id} title={`${item.customerName || "Khách"} · ${item.title || "Follow-up"}`} meta={`${item.priority || "-"} · ${item.status || "-"} · ${item.dueDate || "chưa hẹn"}`} note={item.note || item.owner} />)}</div> : <Empty>Phiên này chưa có follow-up.</Empty>;
+  return report.sections.followups.length ? <div className={styles.detailList}>{report.sections.followups.map((item) => <DetailRow key={item.id} title={`${item.customerName || "Khách"} · ${item.title || "Việc theo dõi"}`} meta={`${item.priority || "-"} · ${item.status || "-"} · ${item.dueDate || "chưa hẹn"}`} note={item.note || item.owner} />)}</div> : <Empty>Phiên này chưa có follow-up.</Empty>;
 }
 
 function customerMeta(customer: SessionReportCustomer) {
@@ -235,14 +235,14 @@ function CustomersTab({ report }: { report: MarketReportItem }) {
   const rows = report.sections.customers || [];
   return <div className={styles.reportTabBody}>
     <div className={styles.reportMetricGrid}><Metric label="Tổng khách" value={report.overview.planned} /><Metric label="Đã ghé" value={report.overview.visited} /><Metric label="Chờ" value={report.overview.pending} /><Metric label="Đã lưu chi tiết" value={rows.length} hint={rows.length === report.overview.planned ? "Đủ 100%" : "Chưa đủ"} /></div>
-    {rows.length ? <div className={styles.detailList}>{rows.map((item, index) => <DetailRow key={item.id || index} title={`${item.sortOrder || index + 1}. ${item.customerName || `Khách ${index + 1}`}`} meta={customerMeta(item)} note={customerNote(item)} />)}</div> : <Empty>Snapshot chưa có customer_details. Hãy rebuild BC phiên.</Empty>}
+    {rows.length ? <div className={styles.detailList}>{rows.map((item, index) => <DetailRow key={item.id || index} title={`${item.sortOrder || index + 1}. ${item.customerName || `Khách ${index + 1}`}`} meta={customerMeta(item)} note={customerNote(item)} />)}</div> : <Empty>Báo cáo chưa có đủ chi tiết điểm bán. Vui lòng tạo lại báo cáo phiên.</Empty>}
   </div>;
 }
 
 function AgentResultView({ state }: { state: AgentState }) {
   const { result } = state;
   return <div className={styles.reportTabBody}>
-    <section className={styles.aiPanel}><span>Kết quả AI đã lưu{state.source ? ` · ${state.source}` : ""}</span><strong>{state.analyzedAt || "Đã phân tích"}</strong><p>{result.summary || "Agent chưa trả tóm tắt."}</p></section>
+    <section className={styles.aiPanel}><span>Kết quả AI đã lưu{state.source ? ` · ${state.source}` : ""}</span><strong>{state.analyzedAt || "Đã phân tích"}</strong><p>{result.summary || "Chưa có nội dung tóm tắt."}</p></section>
     <section className={styles.twoColumnSection}><div><h3>Nhận định thị trường</h3><TextList items={result.market_insights} empty="Chưa có nhận định." /></div><div><h3>Rủi ro</h3><TextList items={result.risks} empty="Chưa có rủi ro." /></div></section>
     <section><h3>Sản phẩm</h3>{result.product_insights.length ? <div className={styles.detailList}>{result.product_insights.map((item, index) => <DetailRow key={`${item.product || "product"}-${index}`} title={item.product || `Sản phẩm ${index + 1}`} meta={item.status || "unknown"} note={item.insight} />)}</div> : <Empty>Chưa có nhận định sản phẩm.</Empty>}</section>
     <section><h3>Hành động theo khách</h3>{result.customer_actions.length ? <div className={styles.detailList}>{result.customer_actions.map((item, index) => <DetailRow key={`${item.customer || "customer"}-${index}`} title={item.customer || `Khách ${index + 1}`} meta={item.priority || "medium"} note={[item.action, item.reason].filter(Boolean).join(" · ")} />)}</div> : <Empty>Chưa có hành động theo khách.</Empty>}</section>
@@ -269,7 +269,7 @@ function AiTab({ report }: { report: MarketReportItem }) {
       });
       const payload = await response.json().catch(() => ({})) as AgentResponse;
       const result = normalizeAgentResult(payload.result);
-      if (!response.ok || payload.ok === false) setError(payload.error || result.summary || "Agent chưa phân tích được BC phiên.");
+      if (!response.ok || payload.ok === false) setError(payload.error || result.summary || "Agent chưa phân tích được Báo cáo phiên.");
       if (payload.ok && payload.persisted) setAgent({ result, source: payload.source || "mcp_report_agent", analyzedAt: payload.aiAnalyzedAt || new Date().toISOString() });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không gọi được MCP Report Agent.");
@@ -280,13 +280,13 @@ function AiTab({ report }: { report: MarketReportItem }) {
 
   return <div className={styles.reportTabBody}>
     <section className={styles.aiPanel}>
-      <span>AI Prompt Context đã lưu trong snapshot</span>
+      <span>Dữ liệu báo cáo đã sẵn sàng để phân tích</span>
       <strong>{agent ? "Đã có kết quả AI" : "Agent đã sẵn sàng"}</strong>
       <p>{report.insights.summary || "Snapshot chưa có nhận định."}</p>
       <div className="sheet-action-grid">
-        <button className="button primary" type="button" onClick={runAgent} disabled={loading}>{loading ? "Agent đang phân tích..." : agent ? "Phân tích lại và lưu" : "Phân tích bằng ADK Agent"}</button>
-        <a className="button" href={dataExportUrl(report, "json")} target="_blank" rel="noreferrer">JSON cho AI</a>
-        <a className="button" href={dataExportUrl(report, "markdown")} target="_blank" rel="noreferrer">Markdown</a>
+        <button className="button primary" type="button" onClick={runAgent} disabled={loading}>{loading ? "Đang phân tích..." : agent ? "Phân tích lại và lưu" : "Phân tích báo cáo"}</button>
+        <a className="button" href={dataExportUrl(report, "json")} target="_blank" rel="noreferrer">Xuất dữ liệu</a>
+        <a className="button" href={dataExportUrl(report, "markdown")} target="_blank" rel="noreferrer">Xuất văn bản</a>
       </div>
     </section>
     {error ? <Empty>{error}</Empty> : null}
@@ -296,7 +296,7 @@ function AiTab({ report }: { report: MarketReportItem }) {
 
 function ReportSheet({ report, onClose }: { report: MarketReportItem | null; onClose: () => void }) {
   const [tab, setTab] = useState<ReportTab>("overview");
-  return <BottomSheet open={Boolean(report)} onClose={onClose} title={report ? `BC phiên · ${report.routeName}` : "Chi tiết BC phiên"} description={report ? `${report.accountName} · ${report.date}` : undefined} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button>{report ? <ReportExportMenu report={report} /> : null}</div>}>
+  return <BottomSheet open={Boolean(report)} onClose={onClose} title={report ? `Báo cáo phiên · ${report.routeName}` : "Chi tiết Báo cáo phiên"} description={report ? `${report.accountName} · ${report.date}` : undefined} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={onClose}>Đóng</button>{report ? <ReportExportMenu report={report} /> : null}</div>}>
     {report ? <div className={styles.reportSheet}><div className={styles.tabBar}>{TABS.map((item) => <button key={item.id} className={tab === item.id ? styles.activeTab : ""} type="button" onClick={() => setTab(item.id)}>{item.label}</button>)}</div>{tab === "overview" ? <OverviewTab report={report} /> : null}{tab === "orders" ? <OrdersTab report={report} /> : null}{tab === "tests" ? <TestsTab report={report} /> : null}{tab === "observations" ? <ObservationsTab report={report} /> : null}{tab === "followups" ? <FollowupsTab report={report} /> : null}{tab === "customers" ? <CustomersTab report={report} /> : null}{tab === "ai" ? <AiTab key={report.id} report={report} /> : null}</div> : null}
   </BottomSheet>;
 }
@@ -305,5 +305,5 @@ export function MarketReportsClientPage({ kpis, reports, focusSessionId = "" }: 
   const focused = useMemo(() => reports.find((report) => report.sessionId === focusSessionId || report.id === focusSessionId) || null, [focusSessionId, reports]);
   const [selected, setSelected] = useState<MarketReportItem | null>(focused);
   const needAction = reports.filter((report) => report.health === "risk").length;
-  return <AppShell activeHref="/reports"><PageHeader eyebrow="BC phiên MCP" title="BC phiên" subtitle="Snapshot hoàn chỉnh cho quản lý: xem nhanh, xuất PDF/Excel/Word và dùng AI khi cần."><span className="badge">{needAction} cần xử lý</span></PageHeader><FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Schema", value: "Snapshot v2" }, { label: "Nhóm", value: "Theo phiên" }]} /><CompactKpiStrip items={kpis} /><div className={styles.templateGrid}><span>Snapshot v2</span><span>Đủ khách</span><span>PDF · Excel · Word</span><span>AI lưu kết quả</span></div><section className={styles.section}><div className="dashboard-section-head"><h2>BC phiên đã chốt</h2><span>{reports.length} phiên</span></div><div className={styles.list}>{reports.length ? reports.map((report) => <ReportCard key={report.id} report={report} onOpen={() => setSelected(report)} />) : <div className="empty-inline">Chưa có BC phiên.</div>}</div></section><ReportSheet report={selected} onClose={() => setSelected(null)} /></AppShell>;
+  return <AppShell activeHref="/reports"><PageHeader eyebrow="Báo cáo phiên MCP" title="Báo cáo phiên" subtitle="Snapshot hoàn chỉnh cho quản lý: xem nhanh, xuất PDF/Excel/Word và dùng AI khi cần."><span className="badge">{needAction} cần xử lý</span></PageHeader><FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Nhân viên phụ trách", value: "Báo cáo đã chốt" }, { label: "Nhóm", value: "Theo phiên" }]} /><CompactKpiStrip items={kpis} /><div className={styles.templateGrid}><span>Báo cáo đã chốt</span><span>Đủ khách</span><span>PDF · Excel · Word</span><span>AI lưu kết quả</span></div><section className={styles.section}><div className="dashboard-section-head"><h2>Báo cáo phiên đã chốt</h2><span>{reports.length} phiên</span></div><div className={styles.list}>{reports.length ? reports.map((report) => <ReportCard key={report.id} report={report} onOpen={() => setSelected(report)} />) : <div className="empty-inline">Chưa có Báo cáo phiên.</div>}</div></section><ReportSheet report={selected} onClose={() => setSelected(null)} /></AppShell>;
 }

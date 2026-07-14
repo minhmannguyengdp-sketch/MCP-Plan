@@ -52,7 +52,7 @@ function RouteSheet({ route, onClose }: { route: RouteItem | null; onClose: () =
       description={route ? `${route.area} · ${route.salesOwner}` : undefined}
       footer={
         <div className="sheet-action-grid">
-          <button className="button primary" type="button">Mở phiên MCP ngày</button>
+          <button className="button primary" type="button">Mở phiên đi tuyến</button>
           <button className="button" type="button">Xem điểm bán trong tuyến</button>
           <button className="button" type="button">Tạo việc theo dõi</button>
           <button className="button" type="button" onClick={onClose}>Đóng</button>
@@ -75,8 +75,8 @@ function RouteSheet({ route, onClose }: { route: RouteItem | null; onClose: () =
           </div>
 
           <div className="sheet-note-card">
-            <h3>Mở phiên MCP</h3>
-            <p>Khi nối backend thật, nút mở phiên sẽ tạo Daily Session và snapshot danh sách khách trong tuyến. Sau khi mở phiên, thay đổi tuyến gốc không tự động làm đổi dữ liệu ngày đã mở.</p>
+            <h3>Mở phiên đi tuyến</h3>
+            <p>Mỗi phiên lưu danh sách điểm bán tại thời điểm bắt đầu. Các thay đổi sau đó của tuyến không làm thay đổi phiên đã mở.</p>
           </div>
         </div>
       ) : null}
@@ -90,18 +90,18 @@ export function RoutesClientPage({ kpis, routes }: { kpis: RouteKpi[]; routes: R
   return (
     <AppShell activeHref="/routes">
       <PageHeader
-        eyebrow="Routes"
+        eyebrow="Tuyến bán hàng"
         title="Tuyến bán hàng"
-        subtitle="Quản lý tuyến và mở phiên MCP ngày bằng popup mobile-first."
+        subtitle="Theo dõi tuyến, điểm bán và tiến độ đi thị trường theo ngày."
       >
-        <span className="badge">Dữ liệu mẫu</span>
+        <span className="badge">Theo dõi tuyến</span>
       </PageHeader>
 
       <FilterBar
         filters={[
           { label: "Khu vực", value: "Tất cả" },
-          { label: "Phụ trách", value: "Tất cả sale" },
-          { label: "Trạng thái", value: "Active + Cần theo dõi" }
+          { label: "Phụ trách", value: "Tất cả nhân viên" },
+          { label: "Trạng thái", value: "Đang chạy hoặc cần theo dõi" }
         ]}
       />
 

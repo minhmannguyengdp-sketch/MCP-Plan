@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
+import { userFacingError } from "@/lib/ui/user-facing-error";
 
 const REPORT_SETTINGS_API = "/api/mcp-report-settings";
 
@@ -74,7 +75,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
       setGroups(nextGroups);
       setActiveGroupId((current) => current || nextGroups[0]?.id || "");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Không tải được mẫu báo cáo");
+      setMessage(userFacingError(error, "Không tải được cài đặt báo cáo. Vui lòng thử lại."));
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
           resetForm();
           await loadSettings();
         } catch (error) {
-          setMessage(error instanceof Error ? error.message : "Không lưu được mẫu");
+          setMessage(userFacingError(error, "Không lưu được lựa chọn. Vui lòng thử lại."));
         }
       })();
     });
@@ -136,7 +137,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
           });
           await loadSettings();
         } catch (error) {
-          setMessage(error instanceof Error ? error.message : "Không đổi trạng thái được");
+          setMessage(userFacingError(error, "Không thay đổi được trạng thái. Vui lòng thử lại."));
         }
       })();
     });
@@ -145,14 +146,14 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
   return (
     <AppShell activeHref={activeHref}>
       <PageHeader
-        eyebrow="MCP Setting"
-        title="Mẫu báo cáo thị trường"
-        subtitle="Quản lý mẫu dùng chung cho toàn hệ thống: đối thủ, sản phẩm đang dùng và field báo cáo."
+        eyebrow="Cài đặt MCP"
+        title="Lựa chọn nhanh cho báo cáo thị trường"
+        subtitle="Quản lý đối thủ, sản phẩm đang dùng và nội dung ghi nhận để nhân viên sử dụng thống nhất."
       />
 
       <section className="mcp-gate-banner">
-        <strong>Global template</strong>
-        <span>Không gắn mẫu riêng theo tuyến. Nút BC trong phiên sẽ dùng dữ liệu chung ở đây.</span>
+        <strong>Mẫu dùng chung</strong>
+        <span>Các lựa chọn đang bật sẽ xuất hiện trong biểu mẫu báo cáo của mọi tuyến.</span>
       </section>
 
       {message ? <p className="page-subtitle order-message">{message}</p> : null}
@@ -177,18 +178,18 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
         <div className="grid" style={{ gap: 10 }}>
           <label className="form-field">
             <small>Tên mẫu</small>
-            <input value={draft.label} onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))} placeholder="VD: Mama / Golden Farm / Thu Hương" />
+            <input value={draft.label} onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Nhập tên đối thủ, thương hiệu hoặc lựa chọn" />
           </label>
           <label className="form-field">
             <small>Giá trị lưu</small>
             <input value={draft.value} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Bỏ trống sẽ lấy theo tên mẫu" />
           </label>
           <label className="form-field">
-            <small>Nhóm SP</small>
+            <small>Nhóm sản phẩm</small>
             <input value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} placeholder="Siro / Sinh tố / Trà / Sữa / Topping" />
           </label>
           <label className="form-field">
-            <small>Brand</small>
+            <small>Thương hiệu</small>
             <input value={draft.brandName} onChange={(event) => setDraft((current) => ({ ...current, brandName: event.target.value }))} placeholder="Mama / Vina / Berrino..." />
           </label>
           <label className="form-field">
@@ -215,7 +216,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
               <div style={{ minWidth: 0 }}>
                 <strong>{item.label}</strong>
                 <p className="page-subtitle" style={{ margin: "4px 0 0" }}>
-                  {item.category || "Không nhóm"} · {item.brandName || "Không brand"} · thứ tự {item.sortOrder}
+                  {item.category || "Không nhóm"} · {item.brandName || "Chưa có thương hiệu"} · thứ tự {item.sortOrder}
                 </p>
               </div>
               <span className="pill">{statusText(item.status)}</span>

@@ -25,7 +25,7 @@ export function InstallAppCard() {
     if (userAgent.includes("iphone") || userAgent.includes("ipad")) {
       return "iPhone/iPad: bam Chia se, chon Them vao man hinh chinh.";
     }
-    return "Android/Chrome: bam Tai app, hoac mo menu trinh duyet va chon Them vao man hinh chinh.";
+    return "Android/Chrome: bam Cài ứng dụng, hoac mo menu trinh duyet va chon Them vao man hinh chinh.";
   }, []);
 
   useEffect(() => {
@@ -93,17 +93,17 @@ export function InstallAppCard() {
     <div className="card settings-card">
       <div>
         <span className="badge">Ung dung</span>
-        <h2 className="panel-title">Tai app va lam moi phien ban</h2>
+        <h2 className="panel-title">Cài ứng dụng va lam moi phien ban</h2>
         <p className="page-subtitle">{message}</p>
         <p className="settings-hint">{platformHint}</p>
       </div>
 
       <div className="settings-actions">
         <button className="button primary" disabled={isInstalling || isUpdating} onClick={handleInstall} type="button">
-          {isInstalling ? "Dang mo..." : "Tai app"}
+          {isInstalling ? "Dang mo..." : "Cài ứng dụng"}
         </button>
         <button className="button" disabled={isUpdating} onClick={handleRefreshApp} type="button">
-          {isUpdating ? "Dang lam moi..." : "Cap nhat ban moi"}
+          {isUpdating ? "Dang lam moi..." : "Cập nhật bản mới"}
         </button>
       </div>
     </div>

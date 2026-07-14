@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "MCP-Plan",
     short_name: "MCP-Plan",
-    description: "Quan ly NPP, tuyen ban hang, don hang va ke hoach hanh dong.",
+    description: "Quản lý nhà phân phối, tuyến bán hàng, điểm bán, đơn hàng và công việc.",
     start_url: "/",
     scope: "/",
     display: "standalone",

@@ -237,7 +237,7 @@ export async function DashboardPage() {
   const hasLatestReport = Boolean(latestReport?.id);
   const latestSessionStatus = text(latestSession?.status) || "active";
   const latestSessionTitle = latestSession?.id ? `${text(latestSession.route_name) || "Phiên MCP"} · ${dateText(latestSession.session_date)}` : "Chưa thấy phiên MCP gần đây";
-  const latestReportTitle = latestReport?.id ? `${text(latestReport.route_name) || "MCP"} · ${dateText(latestReport.session_date || latestReport.snapshot_at)}` : "Chưa có BC phiên đã chốt";
+  const latestReportTitle = latestReport?.id ? `${text(latestReport.route_name) || "MCP"} · ${dateText(latestReport.session_date || latestReport.snapshot_at)}` : "Chưa có báo cáo phiên đã chốt";
 
   const homeCards: HomeCard[] = [
     {
@@ -245,18 +245,18 @@ export async function DashboardPage() {
       eyebrow: hasActiveSession ? "Phiên đang mở" : "Phiên gần nhất",
       title: latestSessionTitle,
       value: latestSession?.id ? `${sessionMetrics.visited}/${sessionMetrics.planned || "-"}` : `${totalVisited}/${totalPlanned || "-"}`,
-      description: latestSession?.id ? `${sessionStatusText(latestSessionStatus)} · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} test · ${sessionMetrics.observations} quan sát` : "Mở phiên từ tuyến gốc để bắt đầu ghi đơn, test và quan sát.",
-      meta: latestSession?.id ? [`${sessionMetrics.pending} chờ`, `${sessionMetrics.followups} follow-up`, text(latestSession.sales) || "Sale"] : [`${totalRoutes} tuyến`, `${totalVisitRate}% ghé`, "Chưa có phiên"],
+      description: latestSession?.id ? `${sessionStatusText(latestSessionStatus)} · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} lượt thử sản phẩm · ${sessionMetrics.observations} quan sát` : "Mở phiên từ tuyến gốc để bắt đầu ghi đơn, lượt thử sản phẩm và quan sát.",
+      meta: latestSession?.id ? [`${sessionMetrics.pending} chờ`, `${sessionMetrics.followups} việc theo dõi`, text(latestSession.sales) || "Sale"] : [`${totalRoutes} tuyến`, `${totalVisitRate}% ghé`, "Chưa có phiên"],
       cta: hasActiveSession ? "Tiếp tục phiên" : "Xem phiên",
       tone: hasActiveSession ? "watch" : latestSession?.id ? "good" : "risk"
     },
     {
       href: "/reports",
-      eyebrow: "BC phiên mới nhất",
+      eyebrow: "Báo cáo phiên mới nhất",
       title: latestReportTitle,
       value: hasLatestReport ? `${reportOrders}/${reportTests}` : "-",
-      description: hasLatestReport ? `${reportVisited}/${reportPlanned || "-"} khách đã ghé · ${reportObservations} quan sát · ${reportFollowups} follow-up` : "Chưa có snapshot BC phiên để quản lý đọc nhanh hoặc đưa vào AI phân tích.",
-      meta: hasLatestReport ? ["đơn/test", `${reportPlanned ? visitRate(reportVisited, reportPlanned) : 0}% độ phủ`, text(latestReport.snapshot_source) || "snapshot"] : ["cần chốt phiên", "cần snapshot", "AI chưa có dữ liệu"],
+      description: hasLatestReport ? `${reportVisited}/${reportPlanned || "-"} khách đã ghé · ${reportObservations} quan sát · ${reportFollowups} việc theo dõi` : "Chưa có báo cáo phiên để quản lý đọc nhanh hoặc đưa vào AI phân tích.",
+      meta: hasLatestReport ? ["đơn/test", `${reportPlanned ? visitRate(reportVisited, reportPlanned) : 0}% độ phủ`, text(latestReport.snapshot_source) || "snapshot"] : ["cần chốt phiên", "cần snapshot", "chưa có kết quả phân tích"],
       cta: hasLatestReport ? "Xem BC" : "Mở BC",
       tone: hasLatestReport ? (reportPlanned > 0 && visitRate(reportVisited, reportPlanned) < 50 ? "watch" : "good") : "risk"
     },
@@ -266,7 +266,7 @@ export async function DashboardPage() {
       title: dashboard.actions[0]?.title || "Không có việc khẩn cấp",
       value: dashboard.actions.length,
       description: dashboard.actions[0]?.description || "Chưa có cảnh báo vận hành nổi bật từ dữ liệu hiện tại.",
-      meta: [`${highActions} ưu tiên cao`, `${dashboard.actions.length - highActions} còn lại`, "theo dashboard"],
+      meta: [`${highActions} ưu tiên cao`, `${dashboard.actions.length - highActions} còn lại`, "theo dữ liệu hiện tại"],
       cta: dashboard.actions.length ? "Xem việc" : "Mở danh sách",
       tone: highActions ? "risk" : dashboard.actions.length ? "watch" : "good"
     },
@@ -285,21 +285,21 @@ export async function DashboardPage() {
   const alerts: HomeAlert[] = [
     !hasLatestReport && latestSession?.id && ["done", "completed"].includes(latestSessionStatus) ? {
       title: "Phiên đã chốt nhưng chưa có BC",
-      description: `${text(latestSession.route_name) || "Phiên MCP"} ngày ${dateText(latestSession.session_date)} cần rebuild snapshot để /reports có dữ liệu chính thức.`,
+      description: `${text(latestSession.route_name) || "Phiên MCP"} ngày ${dateText(latestSession.session_date)} cần tạo lại báo cáo để /reports có dữ liệu chính thức.`,
       priority: "high",
       href: "/mcp/sessions",
       cta: "Kiểm tra"
     } : null,
     hasLatestReport && reportPlanned > 0 && visitRate(reportVisited, reportPlanned) < 50 ? {
       title: "Độ phủ phiên thấp",
-      description: `BC mới nhất chỉ ghé ${reportVisited}/${reportPlanned} khách. Cần kiểm tra lý do chưa ghé và lịch follow-up phiên sau.`,
+      description: `BC mới nhất chỉ ghé ${reportVisited}/${reportPlanned} khách. Cần kiểm tra lý do chưa ghé và lịch việc theo dõi phiên sau.`,
       priority: "high",
       href: "/reports",
       cta: "Xem BC"
     } : null,
     reportTests > 0 && reportFollowups === 0 ? {
-      title: "Có test nhưng chưa có follow-up",
-      description: "BC mới nhất có test sản phẩm nhưng chưa tạo việc theo dõi. Nên bổ sung follow-up để không mất tín hiệu mua hàng.",
+      title: "Có lượt thử sản phẩm nhưng chưa có việc theo dõi",
+      description: "BC mới nhất có lượt thử sản phẩm sản phẩm nhưng chưa tạo việc theo dõi. Nên bổ sung việc theo dõi để không mất tín hiệu mua hàng.",
       priority: "medium",
       href: "/reports",
       cta: "Xem test"
@@ -313,7 +313,7 @@ export async function DashboardPage() {
     } : null,
     highActions > 0 ? {
       title: "Có việc ưu tiên cao",
-      description: `${highActions} việc đang cần xử lý trước. Mở danh sách việc để tránh sót follow-up hoặc đơn chưa xác nhận.`,
+      description: `${highActions} việc đang cần xử lý trước. Mở danh sách việc để tránh sót việc theo dõi hoặc đơn chưa xác nhận.`,
       priority: "high",
       href: "/actions",
       cta: "Xem việc"
@@ -323,17 +323,17 @@ export async function DashboardPage() {
   return (
     <AppShell activeHref="/">
       <PageHeader
-        eyebrow="Dashboard"
+        eyebrow="Tổng quan"
         title="Điều hành hôm nay"
-        subtitle="Nhìn nhanh phiên MCP, BC mới nhất, việc cần xử lý và sức khỏe tuyến — không chỉ là menu điều hướng."
+        subtitle="Nhìn nhanh phiên MCP, BC mới nhất, việc cần xử lý và sức khỏe tuyến — tập trung vào tình hình kinh doanh và công việc cần xử lý."
       >
         <SourceBadge source={dashboardResult.source} />
       </PageHeader>
 
       <TodaySummaryCard
-        eyebrow={hasActiveSession ? "Đang có phiên cần tiếp tục" : hasLatestReport ? "BC phiên mới nhất" : "Tổng quan nhanh"}
+        eyebrow={hasActiveSession ? "Đang có phiên cần tiếp tục" : hasLatestReport ? "Báo cáo phiên mới nhất" : "Tổng quan nhanh"}
         value={hasActiveSession ? text(activeSession?.route_name) || "Phiên MCP" : hasLatestReport ? `${reportVisited}/${reportPlanned || "-"}` : primaryKpi?.value ?? "-"}
-        description={hasActiveSession ? `${dateText(activeSession?.session_date)} · ${sessionMetrics.visited}/${sessionMetrics.planned || "-"} khách đã ghé · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} test` : hasLatestReport ? `${latestReportTitle} · ${reportOrders} đơn · ${reportTests} test · ${reportObservations} quan sát` : primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
+        description={hasActiveSession ? `${dateText(activeSession?.session_date)} · ${sessionMetrics.visited}/${sessionMetrics.planned || "-"} khách đã ghé · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} test` : hasLatestReport ? `${latestReportTitle} · ${reportOrders} đơn · ${reportTests} lượt thử sản phẩm · ${reportObservations} quan sát` : primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
         pills={[
           { label: "phiên", value: hasActiveSession ? "mở" : homeFacts.sessions.length },
           { label: "BC", value: homeFacts.reports.length },
