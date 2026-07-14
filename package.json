@@ -10,6 +10,7 @@
     "audit:copy": "node scripts/audit-user-facing-copy.mjs",
     "audit:runtime-config": "node scripts/audit-runtime-hardcodes.mjs",
     "validate:runtime-config": "node scripts/validate-runtime-config.mjs",
+    "smoke:f0-2-boundary": "node scripts/smoke-f0-2-boundary.mjs",
     "test:foundation": "npm --prefix apps/backend test",
     "verify:copy": "npm run audit:copy && npm run typecheck",
     "verify:foundation": "npm run audit:runtime-config && npm run test:foundation && npm run typecheck"
