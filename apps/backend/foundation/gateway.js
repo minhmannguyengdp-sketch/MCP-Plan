@@ -6,6 +6,7 @@ import {
   forwardedContextHeaders,
   normalizeRequestId
 } from "./request-context.js";
+import { handleTransitionalApi } from "./transitional-api.js";
 
 const PUBLIC_HEALTH_PATHS = new Set(["/", "/health", "/api/health"]);
 const REQUEST_HEADER_BLOCKLIST = new Set([
@@ -43,6 +44,15 @@ function json(res, statusCode, payload, requestId, origin = null, extraHeaders =
   res.end(body);
 }
 
+function noContent(res, requestId, origin = null) {
+  res.writeHead(204, {
+    "Cache-Control": "no-store",
+    "X-Request-Id": requestId,
+    ...corsHeaders(origin)
+  });
+  res.end();
+}
+
 function errorPayload(error, requestId) {
   return {
     ok: false,
@@ -57,6 +67,7 @@ function healthPayload(config, requestId) {
     ok: true,
     service: config.service,
     installationConfigured: Boolean(config.installationId && config.nppCode),
+    providerConfigured: Boolean(config.supabaseUrl && config.supabaseServiceRoleKey),
     authBoundary: config.authMode,
     requestId,
     receivedAt: new Date().toISOString()
@@ -130,6 +141,7 @@ function proxyToLegacy(req, res, url, context, origin, config) {
 export function createFoundationGateway(config) {
   return http.createServer(async (req, res) => {
     const requestId = normalizeRequestId(req.headers["x-request-id"]);
+    req.headers["x-request-id"] = requestId;
     let origin = null;
 
     try {
@@ -137,7 +149,7 @@ export function createFoundationGateway(config) {
       const url = new URL(req.url || "/", `http://${req.headers.host || `${config.publicHost}:${config.publicPort}`}`);
 
       if (req.method === "OPTIONS") {
-        json(res, 204, {}, requestId, origin);
+        noContent(res, requestId, origin);
         return;
       }
 
@@ -149,6 +161,19 @@ export function createFoundationGateway(config) {
       authenticateProxy(req, config);
       const context = buildRequestContext(req, config);
       req.foundationContext = context;
+
+      const transitional = await handleTransitionalApi(req, url, context, config);
+      if (transitional) {
+        json(
+          res,
+          transitional.statusCode,
+          transitional.payload,
+          context.requestId,
+          origin
+        );
+        return;
+      }
+
       await proxyToLegacy(req, res, url, context, origin, config);
     } catch (error) {
       const statusCode = Number(error?.statusCode || 500);
