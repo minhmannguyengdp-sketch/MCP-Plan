@@ -1,151 +1,113 @@
-# NPP-09 — Plan Cài đặt, tenant và phân quyền
+# NPP-09 — Plan Cài đặt và phân quyền
 
 > Trạng thái: **FOUNDATION / PLANNED**  
 > Vai trò: nền bắt buộc trước các mutation quan trọng  
-> Phụ thuộc: identity provider/auth hiện có, cấu trúc NPP/chi nhánh, [`FOUNDATION_MULTI_TENANT_PORTABILITY.md`](./FOUNDATION_MULTI_TENANT_PORTABILITY.md)
+> Mô hình: **một NPP mỗi deployment; không shared tenant**  
+> Phụ thuộc: identity provider/auth hiện có, cấu trúc nhân viên/chi nhánh/kho và [`FOUNDATION_SINGLE_NPP_PORTABILITY.md`](./FOUNDATION_SINGLE_NPP_PORTABILITY.md)
 
 ## 1. Mục tiêu
 
-Quản lý tenant/NPP, cấu hình và quyền theo nguyên tắc deny-by-default, có scope và audit rõ ràng.
+Quản lý thông tin NPP, installation config, người dùng, nhân viên, vai trò, quyền, phạm vi và chính sách theo nguyên tắc deny-by-default.
 
 Phải trả lời được:
 
 ```text
 Người này đăng nhập bằng identity nào?
-Đang thao tác trong NPP/tenant nào?
-Membership nào cho phép truy cập?
+Có liên kết với nhân viên nào?
 Ai được làm gì?
-Trên chi nhánh/kho/khu vực/khách nào?
+Trên chi nhánh/kho/khu vực/tuyến/khách nào?
 Giới hạn giá trị bao nhiêu?
 Có cần phê duyệt không?
-Quyền/cấu hình có hiệu lực từ khi nào?
-NPP đang dùng shared hay dedicated installation nào?
-Ai đã thay đổi quyền, cấu hình hoặc installation mapping?
+Cấu hình/quyền có hiệu lực từ khi nào?
+Installation hiện trỏ tới backend/database/storage nào?
+Ai đã đổi quyền hoặc cấu hình?
 ```
 
-## 2. Tách identity, tenant, membership, employee và quyền
+Không có tenant selector, tenant membership hoặc quản trị nhiều NPP trong cùng runtime.
+
+## 2. Tách identity, employee, role, permission và installation
 
 ```text
-identity/user = người đăng nhập từ auth provider
-organization/tenant = một NPP độc lập về dữ liệu và cấu hình
-membership    = identity được phép truy cập tenant nào
-employee      = hồ sơ nhân sự thuộc tenant
+identity/user = tài khoản đăng nhập từ auth provider
+employee      = hồ sơ nhân sự nghiệp vụ của NPP
 role          = nhóm quyền thuận tiện
 permission    = hành động cụ thể
 scope         = phạm vi dữ liệu
 policy        = điều kiện/threshold/approval
-installation  = backend/database/storage đang phục vụ tenant
-entitlement   = module/tính năng tenant được sử dụng
+installation  = deployment hiện tại: frontend/backend/DB/storage/config
 ```
 
-Không hardcode kiểu `if role === admin` rải khắp UI/backend.
+Không hardcode `if role === admin` rải khắp UI/backend.
 
-Một identity có thể có membership ở một hoặc nhiều tenant. Mỗi request chỉ chạy trong một `TenantContext` rõ ràng.
+Một identity trong installation hiện tại chỉ truy cập dữ liệu của NPP hiện tại. Nếu cùng một người dùng làm việc cho NPP khác, đó là tài khoản/identity được bootstrap trong installation khác; không dùng tenant switch.
 
-## 3. TenantContext và tenant selection
+## 3. InstallationContext và request context
 
-Backend phải tạo context sau khi xác thực:
+Backend tạo context sau khi xác thực:
 
 ```text
-tenantId
+installationId
+distributorCode
 actorId
-membershipId
 employeeId nếu có
 branch/warehouse/territory scope
 roles/permissions/policies
-installationId
 requestId
 ```
 
 Quy tắc:
 
-1. Không tin `tenantId` trong body do frontend gửi.
-2. Header/subdomain/tenant selector chỉ chọn tenant; backend kiểm tra membership lại.
-3. Người không có membership không được biết tenant hoặc dữ liệu tenant có tồn tại hay không.
-4. Service role vẫn phải có actor business context và tenant scope.
-5. Background job có system actor, tenant và installation rõ ràng.
-6. Tenant switch phải tạo context mới; không tái sử dụng cache/query cũ sai scope.
-7. Impersonation/support access phải có lý do, thời hạn, quyền riêng và audit.
+1. `installationId` và `distributorCode` lấy từ server config.
+2. Không tin installation/NPP code do frontend gửi để thay đổi phạm vi dữ liệu.
+3. Actor phải đến từ auth/session hợp lệ.
+4. Service role vẫn phải có actor business context và permission.
+5. Background job có system actor và installation context rõ ràng.
+6. Support/break-glass access phải có lý do, thời hạn và audit.
+7. Cache/query sau đăng xuất hoặc đổi user không được tái sử dụng sai actor/scope.
 
-## 4. Tenant và installation model
+## 4. Data model tối thiểu
 
-Tối thiểu cần các miền dữ liệu:
+Tên bảng cuối cùng chỉ khóa sau audit, nhưng cần các miền:
 
 ```text
-organizations/tenants
-tenant_memberships
-installations
-tenant_installation_assignments
+installation_settings hoặc deployment metadata không chứa secret
+organization_profile / distributor_profile
 branches
 warehouses
 territories
 employees
+user_employee_links
 roles
 permissions
 role_permissions
-membership_role_assignments
+user_role_assignments hoặc employee_role_assignments
 scope_assignments
 policy_assignments
-entitlements/feature assignments
-tenant_settings
+approval_requests
+business_settings
+feature_settings
+audit_events
+number_sequences
 ```
 
-Tên bảng cụ thể chỉ khóa sau audit. Public API dùng DTO trung tính, không trả trực tiếp schema trên.
-
-Installation hỗ trợ:
+Không cần:
 
 ```text
-shared SaaS database/backend
-dedicated database nhưng shared code/backend
-dedicated backend + database + storage
+tenants/organizations dùng để chứa nhiều NPP
+tenant_memberships
+tenant_installation_assignments
+platform tenants registry
+cross-tenant impersonation
 ```
 
-Thay installation không làm đổi tenantId/domain identity. Mapping tenant -> installation là cấu hình platform được bảo vệ và audit.
+Thông tin secret/kết nối hạ tầng không lưu lộ trong business tables; quản lý qua environment/secret store của từng deployment.
 
-## 5. Tenant ownership và isolation
-
-Mặc định mọi bảng nghiệp vụ mới có `tenant_id NOT NULL`.
-
-Bắt buộc:
-
-- unique nghiệp vụ gồm tenant scope;
-- FK không nối chéo tenant;
-- cache/idempotency/queue/storage path chứa tenant scope;
-- audit/event/outbox chứa tenantId;
-- read và mutation đều filter tenant ở backend/repository;
-- RLS/DB policy là defense-in-depth;
-- system admin cross-tenant là surface riêng, không dùng endpoint tenant thường;
-- export một tenant không được chứa dữ liệu tenant khác.
-
-## 6. Permission model tối thiểu
-
-Permission code theo hành động:
-
-```text
-tenant.view/update/export/import
-membership.view/invite/update/revoke
-installation.view/assign/migrate
-entitlement.view/manage
-customer.view/create/update/status/merge
-product.view/create/update/status/price
-order.view/create/update_draft/confirm/amend/cancel
-fulfillment.allocate/pick/pack/ship/deliver
-inventory.view/adjust/stocktake/transfer
-receivable.view/post/collect/allocate/credit/refund/writeoff
-employee.view/manage/assign
-plan.view/create/assign/approve
-report.view/export/snapshot
-settings.view/manage
-permission.manage
-audit.view
-support.impersonate
-```
+## 5. Phạm vi dữ liệu trong một NPP
 
 Scope tối thiểu:
 
 ```text
-platform
-organization/distributor
+organization-wide của installation hiện tại
 branch
 warehouse
 territory
@@ -155,47 +117,116 @@ team/hierarchy
 self
 ```
 
-Platform permission và tenant permission phải tách. Tenant admin không được gán tenant sang installation khác hoặc xem tenant khác.
+Bắt buộc:
 
-## 7. Threshold và phê duyệt
+- Backend/repository enforce scope cho cả read và mutation.
+- UI chỉ hỗ trợ trải nghiệm, không phải security boundary.
+- RLS/DB policy là defense-in-depth.
+- System admin của installation không được bypass audit cho nghiệp vụ nhạy cảm.
+- Không có endpoint “xem mọi NPP” vì mỗi deployment chỉ có một NPP.
 
-Không phải quyền nào cũng chỉ có yes/no. Cần policy:
+## 6. Permission catalog tối thiểu
+
+```text
+profile.view/update
+branch.view/manage
+warehouse.view/manage
+user.view/create/update/disable
+employee.view/manage/assign
+role.view/create/update/delete
+permission.view/manage
+audit.view
+settings.view/manage
+customer.view/create/update/status/merge
+product.view/create/update/status/price
+order.view/create/update_draft/confirm/amend/cancel
+fulfillment.allocate/pick/pack/ship/deliver
+inventory.view/adjust/stocktake/transfer
+receivable.view/post/collect/allocate/credit/refund/writeoff
+plan.view/create/assign/approve
+report.view/export/snapshot
+backup.view/run/restore_request
+deployment.view_health
+support.break_glass
+```
+
+Permission code mô tả hành động, không mô tả tên màn hình hoặc tên bảng.
+
+## 7. Role mặc định dự kiến
+
+```text
+Owner/Admin NPP
+Quản lý điều hành
+Sales
+Giám sát bán hàng
+Kho
+Giao hàng
+Kế toán/Công nợ
+Nhân viên MCP thị trường
+Chỉ xem báo cáo
+```
+
+Role chỉ là tập permission. Backend luôn kiểm tra permission/scope/policy thực tế.
+
+Không cho xóa/khóa owner/admin cuối cùng của installation.
+
+## 8. Threshold và phê duyệt
+
+Policy cần hỗ trợ:
 
 ```text
 max_discount_percent
 max_order_amount
 credit_limit_override
 max_inventory_adjustment
-max_refund/writeoff
+max_refund
+max_writeoff
 approval_required_above
 export_sensitive_data
-membership_admin_limit
+restore_or_destructive_operation
 ```
 
-Khi vượt ngưỡng:
+Luồng:
 
 ```text
 request -> pending approval -> approved/rejected -> apply once
 ```
 
-Approval phải tham chiếu tenant, actor, payload/version cụ thể. Sửa payload sau duyệt thì approval cũ mất hiệu lực.
+Approval phải tham chiếu actor, entity, payload/version cụ thể. Payload thay đổi sau duyệt thì approval cũ mất hiệu lực.
 
-## 8. Cấu hình hệ thống và tenant
+## 9. Phân lớp cấu hình
 
-Phân lớp cấu hình:
+### 9.1 Deployment/environment config
 
 ```text
-platform default
-plan/edition entitlement
-tenant setting
-branch/warehouse setting
-user preference
+APP_ENV
+APP_NAME
+NPP_CODE
+INSTALLATION_ID
+APP_DOMAIN
+PUBLIC_API_BASE_URL
+DATABASE_URL hoặc SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY (backend only)
+STORAGE_CONFIG
+AUTH_CONFIG
+CORS_ALLOWED_ORIGINS
+LOG_LEVEL
 ```
 
-Nhóm cấu hình cần version/effective date:
+Quy tắc:
+
+- Secret không commit.
+- Frontend không có service-role key.
+- Thay backend/DB mới bằng config, không sửa business code.
+- Clone source phải có `.env.example` đầy đủ nhưng không chứa secret thật.
+- Không lưu URL/project ID/IP production rải trong source.
+
+### 9.2 Business settings trong DB
 
 ```text
 organization profile
+branding
 branch/warehouse
 number sequences
 timezone/currency
@@ -208,15 +239,12 @@ approval thresholds
 notification/reminder
 MCP templates ngoài frozen core boundary
 report/export settings
-feature entitlements
-installation/cutover settings
+feature settings
 ```
 
-Không dùng một bảng key-value không schema cho mọi logic quan trọng. Cấu hình ảnh hưởng nghiệp vụ phải validate, version và có effective date.
+Cấu hình ảnh hưởng nghiệp vụ phải validate, version và có effective date khi cần. Không dùng một bảng key-value tùy ý cho mọi business rule.
 
-Độ ưu tiên cấu hình phải được backend resolve nhất quán; frontend không tự merge policy.
-
-## 9. Number sequence
+## 10. Number sequence
 
 Mã chứng từ cần atomic sequence:
 
@@ -233,49 +261,49 @@ TRF
 
 Quy tắc:
 
-- unique theo tenant/branch/year nếu policy yêu cầu;
-- concurrent create không trùng trong cùng tenant;
-- hai tenant có thể dùng cùng số chứng từ mà không conflict;
+- unique trong database của NPP, có thể theo branch/year nếu policy yêu cầu;
+- concurrent create không trùng;
 - không tái sử dụng số đã hủy;
-- prefix/format thay đổi theo version/effective date;
-- không sinh số bằng `max + 1` không khóa;
-- khi migrate tenant phải giữ hoặc map số chứng từ có reconciliation.
+- prefix/format có version/effective date;
+- không sinh bằng `max + 1` không khóa;
+- clone installation mới có sequence/config riêng;
+- import dữ liệu phải giữ hoặc map số chứng từ có reconciliation.
 
-## 10. Backend enforcement
+## 11. Backend enforcement
 
-- Backend kiểm tra membership + tenant + permission + scope + policy trước mutation.
-- Query read cũng áp tenant/scope ở repository/server/DB phù hợp.
-- UI chỉ hỗ trợ trải nghiệm, không phải hàng rào bảo mật.
-- Service role không đồng nghĩa bỏ permission nghiệp vụ.
-- Background job/system actor có danh tính và permission riêng.
+- Backend kiểm tra actor + permission + scope + policy trước mutation.
+- Query read cũng áp scope tại repository/server/DB phù hợp.
 - Domain/application không phụ thuộc Supabase auth hoặc schema permission.
-- Auth provider được bọc qua adapter; identity ID provider không được dùng làm business employee ID.
-- Public error trả business code trung tính, không lộ RLS/provider error.
+- Auth provider được bọc qua adapter.
+- Identity provider ID không dùng thay business employee ID.
+- Public error trả business code trung tính.
+- Service role chỉ nằm ở infrastructure adapter.
+- Mutation quan trọng không cho browser/anon ghi trực tiếp bảng.
 
-## 11. Audit log
+## 12. Audit log
 
 Sự kiện tối thiểu:
 
 ```text
-login/security changes nếu nguồn auth hỗ trợ
-tenant create/status/change
-membership invite/accept/revoke
-role/permission/scope changes
-settings/entitlement changes
-installation assignment/cutover
+login/security change nếu auth provider hỗ trợ
+user create/update/disable
+employee-user link change
+role/permission/scope change
+settings/feature change
 approval request/decision
-sensitive export/import
+sensitive export
+backup/restore request
+deployment config version change không chứa secret
 order/inventory/receivable privileged action
-impersonation/support access
+break-glass/support access
 ```
 
 Audit lưu:
 
 ```text
-tenantId
-installationId khi phù hợp
-actor/membership
-platform actor nếu là cross-tenant action
+installationId
+distributorCode
+actorId/employeeId
 action
 entity type/id
 before/after hoặc diff
@@ -286,179 +314,178 @@ time/ip/user agent khi phù hợp
 
 Audit quan trọng không cho người dùng nghiệp vụ sửa/xóa.
 
-## 12. API contract dự kiến
-
-Tenant-facing:
+## 13. API contract dự kiến
 
 ```text
-GET  /api/current-tenant
-GET  /api/my-memberships
-POST /api/tenant-switch-context
-GET  /api/settings
+GET   /api/installation-context
+GET   /api/organization-profile
+PATCH /api/organization-profile
+GET   /api/settings
 PATCH /api/settings/:group
-GET  /api/roles
-POST /api/roles
+GET   /api/users
+POST  /api/users
+PATCH /api/users/:id
+GET   /api/employees
+GET   /api/roles
+POST  /api/roles
 PATCH /api/roles/:id
-GET  /api/permissions
-POST /api/membership-role-assignments
-POST /api/scope-assignments
-POST /api/approval-requests
-POST /api/approval-requests/:id/approve
-POST /api/approval-requests/:id/reject
-GET  /api/audit-logs
-POST /api/tenant-exports
-POST /api/tenant-imports/preflight
+GET   /api/permissions
+POST  /api/role-assignments
+POST  /api/scope-assignments
+POST  /api/approval-requests
+POST  /api/approval-requests/:id/approve
+POST  /api/approval-requests/:id/reject
+GET   /api/audit-logs
+GET   /api/system/health
 ```
 
-Platform-only:
+Endpoint deployment/backup nhạy cảm phải có surface riêng và permission mạnh; không trả secret hoặc connection string.
+
+Success/error DTO tuân theo foundation, không trả auth/provider/database payload nguyên bản.
+
+## 14. UI
 
 ```text
-GET  /api/platform/tenants
-POST /api/platform/tenants
-POST /api/platform/tenant-installation-assignments
-POST /api/platform/tenant-migrations/preflight
-POST /api/platform/tenant-migrations/cutover
-```
-
-Tên endpoint có thể đổi sau audit, nhưng phải tách rõ tenant surface và platform administration surface.
-
-Success/error DTO tuân theo foundation, không trả trực tiếp auth/provider/database payload.
-
-## 13. UI
-
-Tenant-facing:
-
-```text
-Chọn NPP đang làm việc nếu có nhiều membership
-Thông tin NPP/chi nhánh/kho
-Tài khoản và liên kết nhân viên
-Thành viên/membership
+Thông tin NPP và thương hiệu
+Chi nhánh/kho/khu vực
+Tài khoản
+Liên kết tài khoản - nhân viên
 Vai trò
 Ma trận quyền
 Phạm vi dữ liệu
 Hạn mức/phê duyệt
 Cấu hình chứng từ
 Cấu hình đơn/kho/công nợ
-Module/entitlement đang bật
+Module/tính năng
 Thông báo
 Audit log
-Export dữ liệu tenant theo quyền
+Tình trạng hệ thống không lộ secret
+Backup/export theo quyền
 ```
 
-Platform-only:
+Không có màn tenant switch hoặc danh sách NPP toàn platform.
+
+Màn quyền phải preview “người này thực tế làm được gì ở phạm vi nào”, không chỉ checkbox.
+
+## 15. Bootstrap NPP mới
+
+Khi clone source cho NPP mới:
 
 ```text
-Danh sách tenant
-Trạng thái thuê bao/entitlement
-Installation đang phục vụ tenant
-Shared/dedicated mode
-Migration/export/import/cutover status
-Support access được audit
+1. Tạo DB/backend/frontend/storage mới.
+2. Điền environment và secrets mới.
+3. Chạy migrations.
+4. Chạy bootstrap idempotent.
+5. Tạo organization profile.
+6. Tạo owner/admin đầu tiên.
+7. Tạo chi nhánh và kho mặc định.
+8. Tạo role mặc định.
+9. Cấu hình number sequence và chính sách nền.
+10. Chạy auth/permission/MCP smoke.
 ```
 
-Màn hình quyền phải có preview “người này thực tế được làm gì trên tenant và phạm vi nào”, không chỉ danh sách checkbox.
+Không tạo NPP mới bằng cách copy DB cũ rồi xóa dữ liệu thủ công.
 
-## 14. Bootstrap và chống tự khóa
+Bootstrap phải chống tự khóa:
 
-- Có quy trình tạo tenant và owner membership ban đầu có kiểm soát.
-- Không cho xóa/khóa owner/admin cuối cùng của tenant.
-- Không cho xóa platform admin cuối cùng.
-- Thay đổi quyền của chính mình có cảnh báo/approval nếu cần.
-- Có break-glass procedure được audit, không dùng tài khoản dùng chung lâu dài.
-- Migration permission phải giữ đường truy cập quản trị tối thiểu đã kiểm thử.
-- Tenant dedicated deployment vẫn phải bootstrap bằng cùng contract, không tạo logic riêng thủ công.
+- không cho disable admin cuối cùng;
+- có break-glass procedure được audit;
+- migration permission phải giữ đường quản trị tối thiểu đã test;
+- seed chạy lại không tạo duplicate role/config/admin.
 
-## 15. Export/import và chuyển installation
+## 16. Portability và đổi DB/backend
 
-Luồng tối thiểu:
+Yêu cầu:
 
 ```text
-preflight -> xác định cutover window -> export versioned
--> checksum/reconciliation -> import dry-run -> validate relationships
--> delta/final export nếu cần -> đổi installation mapping
--> smoke -> reconciliation -> close cutover
+source clone
++ environment mới
++ migrations
++ bootstrap
++ deploy backend
++ deploy frontend
++ smoke tests
 ```
+
+Không yêu cầu tenant export/import vì installation mới bắt đầu bằng DB riêng. Khi chuyển dữ liệu thật từ hệ thống cũ hoặc thay DB cho cùng NPP, dùng migration/import có manifest, checksum và reconciliation riêng.
 
 Phải kiểm tra:
 
-- row/file chỉ thuộc tenant cần chuyển;
-- ID/reference đầy đủ;
-- tổng đơn, tổng tiền, tồn kho, công nợ trước/sau;
-- audit cutover marker;
-- retry/resume an toàn;
+- schema/function/policy/grant đầy đủ trong repo;
+- không còn project ID/URL/secret cũ;
+- tổng đơn/tổng tiền/tồn kho/công nợ đúng sau import nếu có;
+- backend/frontend không phải sửa business logic;
 - rollback hoặc forward-fix rõ ràng.
 
-Không dùng full database dump làm contract duy nhất để bán/tách một NPP.
-
-## 16. Test matrix
+## 17. Test matrix
 
 ```text
 [ ] backend deny khi UI cố bypass
-[ ] identity có role đúng nhưng không có membership tenant bị chặn
-[ ] membership đúng tenant nhưng sai scope vẫn bị chặn
-[ ] Tenant A không đọc/mutate được ID Tenant B
-[ ] tenant selector/header giả bị chặn
-[ ] threshold vượt mức tạo approval đúng tenant
-[ ] payload đổi sau approval bị yêu cầu duyệt lại
-[ ] last tenant admin không bị xóa/khóa
-[ ] last platform admin không bị xóa/khóa
-[ ] sequence concurrent không trùng trong tenant
-[ ] cùng document number ở hai tenant không conflict
-[ ] settings version áp đúng effective date và đúng tenant
-[ ] cache/idempotency key không va chéo tenant
-[ ] export nhạy cảm có permission và audit
-[ ] export một tenant không chứa tenant khác
-[ ] service-role request thiếu actor/tenant context bị chặn
-[ ] privilege escalation qua tự sửa role/membership bị chặn
-[ ] tenant switch không tái sử dụng dữ liệu/cache tenant cũ
-[ ] installation cutover giữ canonical API contract
-[ ] dedicated deployment dùng cùng domain tests
+[ ] user đúng role nhưng sai scope bị chặn
+[ ] threshold vượt mức tạo approval
+[ ] payload đổi sau approval phải duyệt lại
+[ ] admin cuối cùng không bị disable/xóa
+[ ] sequence concurrent không trùng
+[ ] settings version áp đúng effective date
+[ ] service-role request thiếu actor context bị chặn ở mutation mới
+[ ] privilege escalation qua tự sửa role bị chặn
+[ ] audit ghi đúng actor/requestId
+[ ] DB trắng chạy migrations thành công
+[ ] bootstrap chạy lặp không duplicate
+[ ] backend mới chạy bằng environment mới
+[ ] frontend mới đổi API/config mà không sửa business code
+[ ] clone không còn tham chiếu installation gốc
+[ ] repository/canonical API tests pass
+[ ] full MCP smoke pass trên installation mới
 ```
 
-## 17. Checklist
+## 18. Checklist
 
 ```text
-[ ] S-01 Audit auth/user/role/RLS/backend hiện có
-[ ] S-02 Chốt tenant/organization/membership model
-[ ] S-03 Chốt installation và tenant assignment model
-[ ] S-04 Chốt TenantContext/middleware
-[ ] S-05 Lập permission catalog platform và tenant
-[ ] S-06 Chốt role mặc định
-[ ] S-07 Chốt scope/threshold/approval
-[ ] S-08 Chốt settings/entitlement schema/version
-[ ] S-09 Chốt audit contract
-[ ] S-10 Migration/bootstrap
+[x] S-01 Audit auth/user/RLS/backend liên quan order hiện có
+[ ] S-02 Chốt InstallationContext/actor/requestId
+[ ] S-03 Lập permission catalog
+[ ] S-04 Chốt role mặc định
+[ ] S-05 Chốt scope/threshold/approval
+[ ] S-06 Chốt settings schema/version
+[ ] S-07 Chốt audit contract
+[ ] S-08 Audit hardcoded config/secrets/URLs
+[ ] S-09 Đối chiếu DB production với migrations/functions/policies/grants
+[ ] S-10 Viết bootstrap/seed idempotent
 [ ] S-11 Backend authorization/policy service qua ports
-[ ] S-12 Tenant isolation test harness
-[ ] S-13 UI tenant switch/membership/role/scope/settings/audit
-[ ] S-14 Export/import/installation cutover contract
-[ ] S-15 Security/integration/repository contract tests
-[ ] S-16 Production smoke shared mode
-[ ] S-17 Production smoke dedicated mode
-[ ] S-18 Freeze foundation v1
+[ ] S-12 UI profile/user/role/scope/settings/audit
+[ ] S-13 Security/integration/repository contract tests
+[ ] S-14 Clean-DB migration rehearsal
+[ ] S-15 Clone/deploy installation thứ hai
+[ ] S-16 Backup/restore/forward-fix smoke
+[ ] S-17 Freeze foundation v1
 ```
 
-## 18. Quyết định đã khóa
+## 19. Quyết định đã khóa
 
 ```text
-[D-01] Data model phải hỗ trợ một identity có nhiều tenant membership.
-[D-02] Mỗi request chỉ có một active TenantContext.
-[D-03] tenantId từ client chỉ là selector, không phải bằng chứng authorization.
-[D-04] Shared DB/backend là mode triển khai, không phải ràng buộc domain.
-[D-05] Tenant có thể chuyển sang installation khác mà giữ API/domain contract.
-[D-06] Platform admin và tenant admin là hai security surface khác nhau.
-[D-07] MCP legacy dùng fixedTenantContext cho đến khi có migration/version rõ ràng.
+[D-01] Một deployment chỉ phục vụ một NPP.
+[D-02] Không dùng tenant selector/membership/shared DB trong phase hiện tại.
+[D-03] Request dùng InstallationContext + actor + permission/scope.
+[D-04] Mỗi NPP mới được bootstrap trong backend/DB riêng.
+[D-05] Thay DB/backend bằng config + migrations + adapters, không sửa domain/UI contract.
+[D-06] Owner/admin NPP là security surface cao nhất trong installation hiện tại.
+[D-07] Secret hạ tầng không nằm trong business DB hoặc frontend.
+[D-08] Không bắt buộc tenant_id trên mọi bảng.
+[D-09] Shared multi-tenant chỉ là phase tương lai nếu có yêu cầu kinh doanh thật.
 ```
 
-## 19. Open questions còn phải audit
+## 20. Open questions còn phải audit
 
 ```text
 [ ] Cấu trúc chi nhánh/kho/khu vực hiện tại ra sao?
-[ ] Một employee có thể thuộc nhiều tenant hay chỉ identity có nhiều membership?
-[ ] Có cấp quản lý duyệt nhiều tầng không?
-[ ] Có cần MFA/SSO ngay phase đầu không?
-[ ] Mỗi NPP có domain/subdomain riêng hay dùng tenant selector?
-[ ] Tiêu chí nào quyết định shared, isolated DB hoặc dedicated deployment?
-[ ] Cutover có cần zero-downtime hay chấp nhận maintenance window?
-[ ] Dữ liệu/file MCP legacy hiện tại map vào tenant đầu tiên thế nào?
+[ ] Auth hiện tại map user sang employee thế nào?
+[ ] Có cấp duyệt nhiều tầng không?
+[ ] Có cần MFA/SSO phase đầu không?
+[ ] Bộ biến môi trường hiện tại có hardcode hoặc thiếu gì?
+[ ] Migration repo có tái tạo đủ schema/function/policy/grant production không?
+[ ] Bootstrap NPP mới cần dữ liệu mặc định nào?
+[ ] Cần công cụ import dữ liệu khách/SP/tồn đầu kỳ theo định dạng nào?
+[ ] VPS mới sẽ dùng cùng script deploy hay installer khác?
+[ ] Backup/restore RPO/RTO mong muốn là bao nhiêu?
 ```
