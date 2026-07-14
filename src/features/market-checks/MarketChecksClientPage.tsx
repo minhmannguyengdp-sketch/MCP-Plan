@@ -8,6 +8,7 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
+import { userFacingError } from "@/lib/ui/user-facing-error";
 import type { MarketCheckItem, MarketCheckSessionGroup, MarketCheckStatus } from "./market-checks.types";
 import styles from "./MarketChecksClientPage.module.css";
 
@@ -41,10 +42,10 @@ function buildKpis(groups: MarketCheckSessionGroup[]) {
   const opportunities = rows.filter((check) => check.status === "opportunity").length;
   const risks = rows.filter((check) => check.status === "risk").length;
   return [
-    { label: "Phiên có test", value: groups.length, hint: "Gom theo sessionId" },
-    { label: "Dòng test", value: rows.length, hint: "Trong các phiên MCP" },
+    { label: "Phiên có thử sản phẩm", value: groups.length, hint: "Theo từng phiên đi tuyến" },
+    { label: "Kết quả thử", value: rows.length, hint: "Trong các phiên đi tuyến" },
     { label: "Đã nhập", value: done, hint: "Có kết quả" },
-    { label: "Cơ hội / Rủi ro", value: `${opportunities}/${risks}`, hint: "Từ kết quả test" }
+    { label: "Cơ hội / Rủi ro", value: `${opportunities}/${risks}`, hint: "Từ kết quả thử sản phẩm" }
   ];
 }
 
@@ -59,11 +60,11 @@ function TestSessionCard({ group, onOpen }: { group: MarketCheckSessionGroup; on
     <OperationalListCard
       leading={<span>{group.resultCount}</span>}
       eyebrow={`${group.sessionDate || "-"} · ${group.routeName}`}
-      title="Nhánh test trong phiên MCP"
-      description={`${group.customerCount} khách có test · ${group.resultCount} kết quả · ${sessionStatusLabel(group.status)}`}
+      title="Kết quả thử sản phẩm"
+      description={`${group.customerCount} điểm bán có thử · ${group.resultCount} kết quả · ${sessionStatusLabel(group.status)}`}
       badge={<strong className={styles.status}>{group.riskCount > 0 ? `${group.riskCount} rủi ro` : `${group.opportunityCount} cơ hội`}</strong>}
-      meta={[`routeId: ${group.routeId || "-"}`, `sessionId: ${group.sessionId}`, `${group.visitedCustomers}/${group.plannedCustomers} khách đã ghé`]}
-      actions={[{ label: "Xem nhánh", tone: "primary", onClick: () => onOpen(group) }]}
+      meta={[`Tuyến: ${group.routeName}`, sessionStatusLabel(group.status), `${group.visitedCustomers}/${group.plannedCustomers} điểm bán đã ghé`]}
+      actions={[{ label: "Xem kết quả", tone: "primary", onClick: () => onOpen(group) }]}
     />
   );
 }
@@ -77,7 +78,7 @@ function InlineTestRow({ check, onSelect }: { check: MarketCheckItem; onSelect: 
         <span>{check.note}</span>
       </div>
       <strong className={getStatusClass(check.status)}>{getStatusLabel(check.status)}</strong>
-      <button className="button primary" type="button" onClick={() => onSelect(check)}>Nhập</button>
+      <button className="button primary" type="button" onClick={() => onSelect(check)}>Cập nhật</button>
     </article>
   );
 }
@@ -137,7 +138,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
         body: JSON.stringify(payload)
       });
       const json = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(json.error || `save_failed_${response.status}`);
+      if (!response.ok) throw new Error(json.error || `request_failed_${response.status}`);
       const saved = json.data || {};
       onSaved({
         ...check,
@@ -150,7 +151,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "save_failed");
+      setError(userFacingError(err, "Không lưu được kết quả. Vui lòng thử lại."));
     } finally {
       setSaving(false);
     }
@@ -160,7 +161,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
     <BottomSheet
       open={Boolean(check)}
       onClose={onClose}
-      title={check ? check.productName : "Chi tiết test"}
+      title={check ? check.productName : "Chi tiết kết quả thử"}
       description={check ? `${check.accountName} · ${check.routeName} · ${check.sessionDate || check.date}` : undefined}
       footer={
         <div className="sheet-action-grid">
@@ -171,14 +172,14 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
     >
       {check ? (
         <form className="field-sheet-content" id="field-check-save-form" onSubmit={submit}>
-          <div className="field-focus-card"><span>Khách trong phiên</span><strong>{check.accountName}</strong><small>{check.sessionCustomerId || "Dữ liệu từ phiên MCP"}</small></div>
+          <div className="field-focus-card"><span>Điểm bán trong phiên</span><strong>{check.accountName}</strong><small>{check.routeName} · {check.sessionDate || check.date}</small></div>
           <div className="grid">
             <label className="metric-row"><span>Sản phẩm</span><input value={productName} onChange={(event) => setProductName(event.target.value)} required /></label>
             <label className="metric-row"><span>Kết quả</span><select value={status} onChange={(event) => setStatus(event.target.value as MarketCheckStatus)}><option value="normal">Bình thường</option><option value="opportunity">Cơ hội</option><option value="risk">Rủi ro</option></select></label>
-            <div className="metric-row"><span>Session</span><strong>{check.sessionId || "-"}</strong></div>
+            <div className="metric-row"><span>Phiên đi tuyến</span><strong>{check.routeName}</strong></div>
             <div className="metric-row"><span>Ngày</span><strong>{check.sessionDate || check.date || "-"}</strong></div>
           </div>
-          <label className="sheet-note-card"><h3>Ghi chú kết quả</h3><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Nhập nhận xét, tồn kho, phản hồi khách, việc cần xử lý..." /></label>
+          <label className="sheet-note-card"><h3>Ghi chú kết quả</h3><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Nhập nhận xét, tồn kho, phản hồi điểm bán và việc cần xử lý..." /></label>
           {error ? <p className={styles.errorText}>{error}</p> : null}
         </form>
       ) : null}
@@ -191,14 +192,14 @@ function SessionBranchSheet({ group, onClose, onSelect }: { group: MarketCheckSe
     <BottomSheet
       open={Boolean(group)}
       onClose={onClose}
-      title={group ? `Nhánh test · ${group.routeName}` : "Nhánh test"}
-      description={group ? `${group.sessionDate} · sessionId: ${group.sessionId}` : undefined}
-      footer={<div className="sheet-action-grid"><Link className="button primary" href={group ? `/visits?routeId=${encodeURIComponent(group.routeId)}&date=${encodeURIComponent(group.sessionDate)}` : "/visits"}>Mở checklist phiên</Link><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
+      title={group ? `Kết quả thử sản phẩm · ${group.routeName}` : "Kết quả thử sản phẩm"}
+      description={group ? `${group.sessionDate} · ${sessionStatusLabel(group.status)}` : undefined}
+      footer={<div className="sheet-action-grid"><Link className="button primary" href={group ? `/visits?routeId=${encodeURIComponent(group.routeId)}&date=${encodeURIComponent(group.sessionDate)}` : "/visits"}>Mở phiên đi tuyến</Link><button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {group ? (
         <div className={styles.branchSheet}>
           <div className={styles.branchMetrics}>
-            <strong><b>{group.customerCount}</b><small>Khách có test</small></strong>
+            <strong><b>{group.customerCount}</b><small>Điểm bán có thử</small></strong>
             <strong><b>{group.resultCount}</b><small>Kết quả</small></strong>
             <strong><b>{group.pendingCount}</b><small>Chờ nhập</small></strong>
             <strong><b>{group.riskCount}</b><small>Rủi ro</small></strong>
@@ -235,25 +236,25 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
 
   return (
     <AppShell activeHref="/mcp">
-      <PageHeader eyebrow="MCP / Admin phụ" title="Tổng hợp test theo phiên" subtitle="Màn phụ để rà soát test. Test vẫn được ghi từ /visits → khách → Ghi test, gom theo routeId + sessionDate + sessionId."><span className="badge">{needAction} cần xử lý</span></PageHeader>
-      <FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Nhóm", value: "routeId + ngày + sessionId" }, { label: "Màn", value: "Admin phụ" }]} />
+      <PageHeader eyebrow="MCP" title="Kết quả thử sản phẩm" subtitle="Tổng hợp kết quả thử sản phẩm theo từng phiên đi tuyến và điểm bán."><span className="badge">{needAction} cần xử lý</span></PageHeader>
+      <FilterBar filters={[{ label: "Phạm vi", value: "Theo phiên đi tuyến" }, { label: "Trạng thái", value: needAction ? `${needAction} cần xử lý` : "Đã cập nhật" }, { label: "Sắp xếp", value: "Mới nhất trước" }]} />
 
       <section className={styles.setupGrid}>
         <div className={styles.setupCard}>
-          <span>Session setup</span>
-          <h2>Test nằm trong phiên MCP</h2>
-          <p>Không còn dàn flat từng dòng như module riêng. Danh sách dưới đây là từng phiên có nhánh test.</p>
+          <span>Theo phiên đi tuyến</span>
+          <h2>Kết quả thử sản phẩm theo phiên</h2>
+          <p>Mỗi phiên hiển thị các điểm bán, sản phẩm đã thử và kết quả cần cập nhật.</p>
           <div className={styles.setupMetrics}>
             <strong><b>{setup.sessions}</b><small>Phiên</small></strong>
             <strong><b>{setup.routes}</b><small>Tuyến</small></strong>
-            <strong><b>{setup.customers}</b><small>Khách</small></strong>
+            <strong><b>{setup.customers}</b><small>Điểm bán</small></strong>
           </div>
         </div>
 
         <div className={styles.setupCard}>
-          <span>Nhập kết quả</span>
+          <span>Cập nhật kết quả</span>
           <h2>{needAction} cần xử lý</h2>
-          <p>Vào từng phiên để xem các khách/sản phẩm test và nhập kết quả khi cần.</p>
+          <p>Mở từng phiên để xem điểm bán, sản phẩm đã thử và cập nhật kết quả.</p>
         </div>
       </section>
 
@@ -261,10 +262,10 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
 
       <section className={styles.section}>
         <div className="dashboard-section-head"><h2>Phiên có nhánh test</h2><span>{sessionGroups.length} phiên</span></div>
-        <div className={styles.list}>{sessionGroups.length ? sessionGroups.map((group) => <TestSessionCard key={group.sessionId} group={group} onOpen={setSelectedGroup} />) : <div className="empty-inline">Chưa có test nào được gắn với phiên MCP.</div>}</div>
+        <div className={styles.list}>{sessionGroups.length ? sessionGroups.map((group) => <TestSessionCard key={group.sessionId} group={group} onOpen={setSelectedGroup} />) : <div className="empty-inline">Chưa có kết quả thử sản phẩm trong các phiên đi tuyến.</div>}</div>
       </section>
 
-      <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Vai trò màn này</h2><div className="grid"><div className="metric-row"><span>Thao tác chính</span><strong>/visits</strong></div><div className="metric-row"><span>Màn này</span><strong>Tổng hợp phụ</strong></div><div className="metric-row"><span>Logic nhóm</span><strong>routeId + ngày + sessionId</strong></div></div></section>
+      <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Thông tin tổng hợp</h2><div className="grid"><div className="metric-row"><span>Nguồn dữ liệu</span><strong>Phiên đi tuyến</strong></div><div className="metric-row"><span>Phạm vi</span><strong>Theo từng phiên</strong></div><div className="metric-row"><span>Sắp xếp</span><strong>Mới nhất trước</strong></div></div></section>
 
       <SessionBranchSheet group={selectedGroup} onClose={() => setSelectedGroup(null)} onSelect={setSelectedCheck} />
       <FieldCheckSheet check={selectedCheck} onClose={() => setSelectedCheck(null)} onSaved={handleSaved} />

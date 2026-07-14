@@ -7,6 +7,7 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
+import { businessOwner, businessText, isTechnicalSourceText } from "@/lib/ui/business-text";
 
 type Row = Record<string, unknown>;
 type RestOptions = { select?: string; order?: string; limit?: number; filters?: Record<string, string | number | boolean | null | undefined> };
@@ -168,10 +169,10 @@ function renderAction(action: DashboardActionDto) {
     <article className="action-card dashboard-action-card" key={action.title}>
       <div>
         <span className={`dashboard-priority priority-${action.priority}`}>Ưu tiên {getPriorityLabel(action.priority)}</span>
-        <h3>{action.title}</h3>
-        <p>{action.description}</p>
+        <h3>{businessText(action.title)}</h3>
+        <p>{businessText(action.description)}</p>
       </div>
-      <strong>{action.owner}</strong>
+      <strong>{businessOwner(action.owner)}</strong>
     </article>
   );
 }
@@ -237,7 +238,7 @@ export async function DashboardPage() {
   const hasLatestReport = Boolean(latestReport?.id);
   const latestSessionStatus = text(latestSession?.status) || "active";
   const latestSessionTitle = latestSession?.id ? `${text(latestSession.route_name) || "Phiên MCP"} · ${dateText(latestSession.session_date)}` : "Chưa thấy phiên MCP gần đây";
-  const latestReportTitle = latestReport?.id ? `${text(latestReport.route_name) || "MCP"} · ${dateText(latestReport.session_date || latestReport.snapshot_at)}` : "Chưa có BC phiên đã chốt";
+  const latestReportTitle = latestReport?.id ? `${text(latestReport.route_name) || "MCP"} · ${dateText(latestReport.session_date || latestReport.snapshot_at)}` : "Chưa có báo cáo phiên đã chốt";
 
   const homeCards: HomeCard[] = [
     {
@@ -245,28 +246,28 @@ export async function DashboardPage() {
       eyebrow: hasActiveSession ? "Phiên đang mở" : "Phiên gần nhất",
       title: latestSessionTitle,
       value: latestSession?.id ? `${sessionMetrics.visited}/${sessionMetrics.planned || "-"}` : `${totalVisited}/${totalPlanned || "-"}`,
-      description: latestSession?.id ? `${sessionStatusText(latestSessionStatus)} · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} test · ${sessionMetrics.observations} quan sát` : "Mở phiên từ tuyến gốc để bắt đầu ghi đơn, test và quan sát.",
-      meta: latestSession?.id ? [`${sessionMetrics.pending} chờ`, `${sessionMetrics.followups} follow-up`, text(latestSession.sales) || "Sale"] : [`${totalRoutes} tuyến`, `${totalVisitRate}% ghé`, "Chưa có phiên"],
+      description: latestSession?.id ? `${sessionStatusText(latestSessionStatus)} · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} lượt thử sản phẩm · ${sessionMetrics.observations} ghi nhận thị trường` : "Mở phiên từ tuyến bán hàng để bắt đầu ghi đơn, thử sản phẩm và ghi nhận thị trường.",
+      meta: latestSession?.id ? [`${sessionMetrics.pending} chờ`, `${sessionMetrics.followups} việc theo dõi`, businessOwner(latestSession.sales)] : [`${totalRoutes} tuyến`, `${totalVisitRate}% ghé`, "Chưa có phiên"],
       cta: hasActiveSession ? "Tiếp tục phiên" : "Xem phiên",
       tone: hasActiveSession ? "watch" : latestSession?.id ? "good" : "risk"
     },
     {
       href: "/reports",
-      eyebrow: "BC phiên mới nhất",
+      eyebrow: "Báo cáo phiên mới nhất",
       title: latestReportTitle,
       value: hasLatestReport ? `${reportOrders}/${reportTests}` : "-",
-      description: hasLatestReport ? `${reportVisited}/${reportPlanned || "-"} khách đã ghé · ${reportObservations} quan sát · ${reportFollowups} follow-up` : "Chưa có snapshot BC phiên để quản lý đọc nhanh hoặc đưa vào AI phân tích.",
-      meta: hasLatestReport ? ["đơn/test", `${reportPlanned ? visitRate(reportVisited, reportPlanned) : 0}% độ phủ`, text(latestReport.snapshot_source) || "snapshot"] : ["cần chốt phiên", "cần snapshot", "AI chưa có dữ liệu"],
-      cta: hasLatestReport ? "Xem BC" : "Mở BC",
+      description: hasLatestReport ? `${reportVisited}/${reportPlanned || "-"} khách đã ghé · ${reportObservations} ghi nhận thị trường · ${reportFollowups} việc theo dõi` : "Chưa có báo cáo phiên để quản lý đọc nhanh hoặc đưa vào AI phân tích.",
+      meta: hasLatestReport ? ["đơn / thử sản phẩm", `${reportPlanned ? visitRate(reportVisited, reportPlanned) : 0}% độ phủ`, "Báo cáo đã chốt"] : ["cần chốt phiên", "chưa có báo cáo", "chưa có phân tích"],
+      cta: hasLatestReport ? "Xem báo cáo" : "Mở báo cáo",
       tone: hasLatestReport ? (reportPlanned > 0 && visitRate(reportVisited, reportPlanned) < 50 ? "watch" : "good") : "risk"
     },
     {
       href: "/actions",
       eyebrow: "Việc cần xử lý",
-      title: dashboard.actions[0]?.title || "Không có việc khẩn cấp",
+      title: businessText(dashboard.actions[0]?.title, "Không có việc khẩn cấp"),
       value: dashboard.actions.length,
-      description: dashboard.actions[0]?.description || "Chưa có cảnh báo vận hành nổi bật từ dữ liệu hiện tại.",
-      meta: [`${highActions} ưu tiên cao`, `${dashboard.actions.length - highActions} còn lại`, "theo dashboard"],
+      description: businessText(dashboard.actions[0]?.description, "Chưa có cảnh báo vận hành nổi bật từ dữ liệu hiện tại."),
+      meta: [`${highActions} ưu tiên cao`, `${dashboard.actions.length - highActions} còn lại`, "theo dữ liệu hiện tại"],
       cta: dashboard.actions.length ? "Xem việc" : "Mở danh sách",
       tone: highActions ? "risk" : dashboard.actions.length ? "watch" : "good"
     },
@@ -284,25 +285,25 @@ export async function DashboardPage() {
 
   const alerts: HomeAlert[] = [
     !hasLatestReport && latestSession?.id && ["done", "completed"].includes(latestSessionStatus) ? {
-      title: "Phiên đã chốt nhưng chưa có BC",
-      description: `${text(latestSession.route_name) || "Phiên MCP"} ngày ${dateText(latestSession.session_date)} cần rebuild snapshot để /reports có dữ liệu chính thức.`,
+      title: "Phiên đã chốt nhưng chưa có báo cáo",
+      description: `${text(latestSession.route_name) || "Phiên MCP"} ngày ${dateText(latestSession.session_date)} cần tạo lại báo cáo để quản lý có dữ liệu đầy đủ.`,
       priority: "high",
       href: "/mcp/sessions",
       cta: "Kiểm tra"
     } : null,
     hasLatestReport && reportPlanned > 0 && visitRate(reportVisited, reportPlanned) < 50 ? {
       title: "Độ phủ phiên thấp",
-      description: `BC mới nhất chỉ ghé ${reportVisited}/${reportPlanned} khách. Cần kiểm tra lý do chưa ghé và lịch follow-up phiên sau.`,
+      description: `Báo cáo mới nhất chỉ ghé ${reportVisited}/${reportPlanned} khách. Cần kiểm tra lý do chưa ghé và lịch theo dõi cho phiên sau.`,
       priority: "high",
       href: "/reports",
-      cta: "Xem BC"
+      cta: "Xem báo cáo"
     } : null,
     reportTests > 0 && reportFollowups === 0 ? {
-      title: "Có test nhưng chưa có follow-up",
-      description: "BC mới nhất có test sản phẩm nhưng chưa tạo việc theo dõi. Nên bổ sung follow-up để không mất tín hiệu mua hàng.",
+      title: "Có lượt thử sản phẩm nhưng chưa có việc theo dõi",
+      description: "Báo cáo mới nhất có thử sản phẩm nhưng chưa tạo việc theo dõi. Nên bổ sung việc theo dõi để không mất tín hiệu mua hàng.",
       priority: "medium",
       href: "/reports",
-      cta: "Xem test"
+      cta: "Xem kết quả thử"
     } : null,
     riskRoutes > 0 ? {
       title: "Có tuyến rủi ro",
@@ -313,7 +314,7 @@ export async function DashboardPage() {
     } : null,
     highActions > 0 ? {
       title: "Có việc ưu tiên cao",
-      description: `${highActions} việc đang cần xử lý trước. Mở danh sách việc để tránh sót follow-up hoặc đơn chưa xác nhận.`,
+      description: `${highActions} việc đang cần xử lý trước. Mở danh sách việc để tránh sót việc theo dõi hoặc đơn chưa xác nhận.`,
       priority: "high",
       href: "/actions",
       cta: "Xem việc"
@@ -323,20 +324,20 @@ export async function DashboardPage() {
   return (
     <AppShell activeHref="/">
       <PageHeader
-        eyebrow="Dashboard"
+        eyebrow="Tổng quan"
         title="Điều hành hôm nay"
-        subtitle="Nhìn nhanh phiên MCP, BC mới nhất, việc cần xử lý và sức khỏe tuyến — không chỉ là menu điều hướng."
+        subtitle="Nhìn nhanh phiên MCP, báo cáo mới nhất, việc cần xử lý và tình hình tuyến bán hàng."
       >
         <SourceBadge source={dashboardResult.source} />
       </PageHeader>
 
       <TodaySummaryCard
-        eyebrow={hasActiveSession ? "Đang có phiên cần tiếp tục" : hasLatestReport ? "BC phiên mới nhất" : "Tổng quan nhanh"}
+        eyebrow={hasActiveSession ? "Đang có phiên cần tiếp tục" : hasLatestReport ? "Báo cáo phiên mới nhất" : "Tổng quan nhanh"}
         value={hasActiveSession ? text(activeSession?.route_name) || "Phiên MCP" : hasLatestReport ? `${reportVisited}/${reportPlanned || "-"}` : primaryKpi?.value ?? "-"}
-        description={hasActiveSession ? `${dateText(activeSession?.session_date)} · ${sessionMetrics.visited}/${sessionMetrics.planned || "-"} khách đã ghé · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} test` : hasLatestReport ? `${latestReportTitle} · ${reportOrders} đơn · ${reportTests} test · ${reportObservations} quan sát` : primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
+        description={hasActiveSession ? `${dateText(activeSession?.session_date)} · ${sessionMetrics.visited}/${sessionMetrics.planned || "-"} khách đã ghé · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} lượt thử sản phẩm` : hasLatestReport ? `${latestReportTitle} · ${reportOrders} đơn · ${reportTests} lượt thử sản phẩm · ${reportObservations} ghi nhận thị trường` : primaryKpi ? `${primaryKpi.label} · ${primaryKpi.hint}` : "Đang chờ dữ liệu"}
         pills={[
           { label: "phiên", value: hasActiveSession ? "mở" : homeFacts.sessions.length },
-          { label: "BC", value: homeFacts.reports.length },
+          { label: "báo cáo", value: homeFacts.reports.length },
           { label: "cần xem", value: alerts.length }
         ]}
       />
@@ -349,20 +350,20 @@ export async function DashboardPage() {
         title="Trạng thái vận hành"
         filters={[
           { label: "Phiên", value: hasActiveSession ? "Đang mở" : latestSession?.id ? sessionStatusText(latestSessionStatus) : "Chưa có" },
-          { label: "BC mới nhất", value: hasLatestReport ? dateText(latestReport?.session_date || latestReport?.snapshot_at) : "Chưa có" },
+          { label: "Báo cáo mới nhất", value: hasLatestReport ? dateText(latestReport?.session_date || latestReport?.snapshot_at) : "Chưa có" },
           { label: "Độ phủ", value: hasLatestReport && reportPlanned ? `${visitRate(reportVisited, reportPlanned)}%` : `${totalVisitRate}%` },
           { label: "Cảnh báo", value: String(alerts.length) }
         ]}
       />
 
-      <CompactKpiStrip items={dashboard.kpis.map((item) => ({ label: item.label, value: item.value, hint: item.trend }))} />
+      <CompactKpiStrip items={dashboard.kpis.map((item) => ({ label: businessText(item.label), value: item.value, hint: businessText(item.trend) }))} />
 
       <section className="dashboard-section dashboard-alerts-section">
         <div className="dashboard-section-head">
           <h2>Cảnh báo cần xử lý</h2>
           <span>{alerts.length ? `${alerts.length} cảnh báo` : "đang ổn"}</span>
         </div>
-        {alerts.length ? <div className="dashboard-alert-list">{alerts.map(renderAlert)}</div> : <div className="empty-inline">Chưa có cảnh báo nổi bật từ phiên, BC và tuyến hiện tại.</div>}
+        {alerts.length ? <div className="dashboard-alert-list">{alerts.map(renderAlert)}</div> : <div className="empty-inline">Chưa có cảnh báo nổi bật từ phiên, báo cáo và tuyến hiện tại.</div>}
       </section>
 
       <section className="dashboard-section dashboard-actions-section">
@@ -382,10 +383,10 @@ export async function DashboardPage() {
       </section>
 
       <section className="dashboard-insight-strip" aria-label="Chỉ số phụ">
-        {dashboard.insights.map((item) => (
+        {dashboard.insights.filter((item) => !isTechnicalSourceText(`${item.label} ${item.value}`)).map((item) => (
           <div className="metric-row" key={item.label}>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
+            <span>{businessText(item.label)}</span>
+            <strong>{businessText(item.value)}</strong>
           </div>
         ))}
       </section>

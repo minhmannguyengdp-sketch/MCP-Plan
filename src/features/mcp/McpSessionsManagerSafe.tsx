@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { userFacingError } from "@/lib/ui/user-facing-error";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { ExportMenu, buildExportLink } from "@/features/exports/ExportLinks";
 
@@ -60,7 +61,7 @@ function toDraft(session: SessionRow): EditDraft {
 }
 
 function branchSummary(session: SessionRow) {
-  return `${session.orderCount || 0} đơn · ${session.testCount || 0} test · ${session.reportCount || 0} BC · ${session.followupCount || 0} follow-up`;
+  return `${session.orderCount || 0} đơn · ${session.testCount || 0} lượt thử · ${session.reportCount || 0} báo cáo · ${session.followupCount || 0} việc theo dõi`;
 }
 
 function isClosedSession(session: SessionRow) {
@@ -75,7 +76,7 @@ function friendlyError(error: unknown, fallback: string) {
   const raw = error instanceof Error ? error.message : fallback;
 
   if (raw.includes("session_has_activity")) {
-    return "Phiên đã có lượt ghé, đơn, test, báo cáo hoặc follow-up nên không thể xóa. Hãy hủy phiên thay vì xóa.";
+    return "Phiên đã có lượt ghé, đơn, lượt thử, báo cáo hoặc việc theo dõi nên không thể xóa. Hãy hủy phiên thay vì xóa.";
   }
   if (raw.includes("session_closed")) {
     return "Phiên đã chốt nên không thể xóa.";
@@ -84,13 +85,13 @@ function friendlyError(error: unknown, fallback: string) {
     return "Phiên không còn tồn tại. Danh sách sẽ được tải lại.";
   }
   if (raw.includes("missing_supabase_service_role_key")) {
-    return "Backend chưa được cấu hình SUPABASE_SERVICE_ROLE_KEY.";
+    return "Hệ thống tạm thời chưa sẵn sàng. Vui lòng liên hệ quản trị.";
   }
   if (raw.includes("session_delete_not_applied")) {
-    return "Database không áp dụng thao tác xóa. Phiên vẫn được giữ nguyên.";
+    return "Không thể xóa phiên. Dữ liệu vẫn được giữ nguyên.";
   }
 
-  return raw;
+  return userFacingError(error, fallback);
 }
 
 async function callApi(path: string, init: RequestInit) {
@@ -146,7 +147,7 @@ function SessionExportMenu({ session }: { session: SessionRow }) {
           title: "Dữ liệu AI",
           links: [
             buildExportLink(
-              closed ? "JSON cho Gemini/ADK" : "JSON BC tạm tính",
+              closed ? "Dữ liệu JSON" : "Dữ liệu JSON tạm tính",
               reportExportUrl(session.id, "json"),
               undefined,
               "Dữ liệu máy đọc có cấu trúc"
@@ -258,10 +259,10 @@ export function McpSessionsManagerSafe({
             source: "manual_rebuild_from_sessions_page"
           })
         });
-        setMessage(`Đã rebuild BC phiên ${session.routeName} · ${session.sessionDate}`);
+        setMessage(`Đã tạo lại báo cáo phiên ${session.routeName} · ${session.sessionDate}`);
         router.refresh();
       } catch (error) {
-        setMessage(friendlyError(error, "Không rebuild được BC phiên"));
+        setMessage(friendlyError(error, "Không tạo lại được báo cáo phiên"));
       } finally {
         setRebuildingId(null);
       }
@@ -291,7 +292,7 @@ export function McpSessionsManagerSafe({
           </select>
         </label>
         <label className="form-field">
-          <small>TT</small>
+          <small>Trạng thái</small>
           <select name="status" defaultValue={filters.status}>
             <option value="">Tất cả</option>
             <option value="active">Đang chạy</option>
@@ -339,7 +340,7 @@ export function McpSessionsManagerSafe({
                     {session.plannedCustomers} khách đã ghé
                   </p>
                   <p className="page-subtitle" style={{ marginTop: 4, fontSize: 12 }}>
-                    Nhánh trong phiên: {branchSummary(session)}
+                    Kết quả phiên: {branchSummary(session)}
                   </p>
                 </div>
 
@@ -376,10 +377,10 @@ export function McpSessionsManagerSafe({
                         onClick={() => rebuildReport(session)}
                         disabled={pending || rebuildingId === session.id}
                       >
-                        {rebuildingId === session.id ? "Đang rebuild..." : "Rebuild BC"}
+                        {rebuildingId === session.id ? "Đang tạo lại..." : "Tạo lại báo cáo"}
                       </button>
                       <small className="page-subtitle">
-                        Đã khóa checklist và xóa phiên
+                        Phiên đã chốt, chỉ có thể xem và xuất báo cáo
                       </small>
                     </>
                   ) : (
@@ -392,7 +393,7 @@ export function McpSessionsManagerSafe({
                         }}
                       >
                         <Link className="button primary" href={checklistHref} prefetch>
-                          Mở checklist
+                          Mở phiên
                         </Link>
                         <SessionExportMenu session={session} />
                       </div>
@@ -538,8 +539,8 @@ export function McpSessionsManagerSafe({
               <span>Cảnh báo</span>
               <strong>Chỉ phiên chưa phát sinh hoạt động mới được xóa</strong>
               <small>
-                Khách snapshot chưa ghé chỉ là kế hoạch và sẽ được xóa cùng phiên.
-                Database sẽ chặn nếu đã có lượt ghé, đơn, test, báo cáo hoặc follow-up.
+                Danh sách điểm bán chưa phát sinh hoạt động sẽ được xóa cùng phiên.
+                Phiên đã có lượt ghé, đơn hàng, thử sản phẩm, báo cáo hoặc việc theo dõi sẽ được giữ lại.
               </small>
             </div>
             <div className="metric-row">

@@ -17,95 +17,58 @@ export function InstallAppCard() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [message, setMessage] = useState("San sang cai MCP-Plan nhu mot ung dung rieng tren dien thoai.");
+  const [message, setMessage] = useState("Có thể cài MCP-Plan như một ứng dụng riêng trên điện thoại.");
 
   const platformHint = useMemo(() => {
     if (typeof navigator === "undefined") return "";
     const userAgent = navigator.userAgent.toLowerCase();
-    if (userAgent.includes("iphone") || userAgent.includes("ipad")) {
-      return "iPhone/iPad: bam Chia se, chon Them vao man hinh chinh.";
-    }
-    return "Android/Chrome: bam Tai app, hoac mo menu trinh duyet va chon Them vao man hinh chinh.";
+    if (userAgent.includes("iphone") || userAgent.includes("ipad")) return "iPhone/iPad: bấm Chia sẻ, sau đó chọn Thêm vào màn hình chính.";
+    return "Android/Chrome: bấm Cài ứng dụng hoặc mở menu trình duyệt và chọn Thêm vào màn hình chính.";
   }, []);
 
   useEffect(() => {
     setIsStandalone(isStandaloneMode());
-
     function handleBeforeInstallPrompt(event: Event) {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
-      setMessage("Thiet bi nay co the cai MCP-Plan nhu app rieng.");
+      setMessage("Thiết bị này có thể cài MCP-Plan như một ứng dụng riêng.");
     }
-
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   }, []);
 
   async function handleInstall() {
     if (isInstalling) return;
-
-    if (isStandalone) {
-      setMessage("MCP-Plan da dang chay nhu app rieng tren thiet bi nay.");
-      return;
-    }
-
-    if (!installPrompt) {
-      setMessage(platformHint || "Trinh duyet hien chua hien nut cai dat tu dong.");
-      return;
-    }
-
+    if (isStandalone) { setMessage("MCP-Plan đã được cài trên thiết bị này."); return; }
+    if (!installPrompt) { setMessage(platformHint || "Trình duyệt hiện chưa hỗ trợ nút cài đặt tự động."); return; }
     setIsInstalling(true);
     try {
       await installPrompt.prompt();
       const choice = await installPrompt.userChoice;
       setInstallPrompt(null);
-      setMessage(choice.outcome === "accepted" ? "Da gui yeu cau cai app." : "Da huy cai app.");
-    } finally {
-      setIsInstalling(false);
-    }
+      setMessage(choice.outcome === "accepted" ? "Đã gửi yêu cầu cài ứng dụng." : "Đã hủy cài ứng dụng.");
+    } finally { setIsInstalling(false); }
   }
 
   async function handleRefreshApp() {
     if (isUpdating) return;
-
     setIsUpdating(true);
-    setMessage("Dang kiem tra va lam moi phien ban app...");
-
+    setMessage("Đang kiểm tra và làm mới ứng dụng...");
     try {
-      if ("caches" in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
-      }
-
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.update()));
-      }
-
+      if ("caches" in window) { const names = await caches.keys(); await Promise.all(names.map((name) => caches.delete(name))); }
+      if ("serviceWorker" in navigator) { const registrations = await navigator.serviceWorker.getRegistrations(); await Promise.all(registrations.map((registration) => registration.update())); }
       window.setTimeout(() => window.location.reload(), 300);
     } catch {
-      setMessage("Chua the lam moi tu dong. Hay tai lai trang mot lan nua.");
+      setMessage("Chưa thể làm mới tự động. Vui lòng tải lại trang một lần nữa.");
       setIsUpdating(false);
     }
   }
 
-  return (
-    <div className="card settings-card">
-      <div>
-        <span className="badge">Ung dung</span>
-        <h2 className="panel-title">Tai app va lam moi phien ban</h2>
-        <p className="page-subtitle">{message}</p>
-        <p className="settings-hint">{platformHint}</p>
-      </div>
-
-      <div className="settings-actions">
-        <button className="button primary" disabled={isInstalling || isUpdating} onClick={handleInstall} type="button">
-          {isInstalling ? "Dang mo..." : "Tai app"}
-        </button>
-        <button className="button" disabled={isUpdating} onClick={handleRefreshApp} type="button">
-          {isUpdating ? "Dang lam moi..." : "Cap nhat ban moi"}
-        </button>
-      </div>
+  return <div className="card settings-card">
+    <div><span className="badge">Cài trên thiết bị</span><h2 className="panel-title">Cài ứng dụng và cập nhật phiên bản</h2><p className="page-subtitle">{message}</p><p className="settings-hint">{platformHint}</p></div>
+    <div className="settings-actions">
+      <button className="button primary" disabled={isInstalling || isUpdating} onClick={handleInstall} type="button">{isInstalling ? "Đang mở..." : "Cài ứng dụng"}</button>
+      <button className="button" disabled={isUpdating} onClick={handleRefreshApp} type="button">{isUpdating ? "Đang làm mới..." : "Cập nhật bản mới"}</button>
     </div>
-  );
+  </div>;
 }

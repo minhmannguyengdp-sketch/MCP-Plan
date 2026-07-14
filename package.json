@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "audit:copy": "node scripts/audit-user-facing-copy.mjs",
+    "verify:copy": "npm run audit:copy && npm run typecheck"
   },
   "dependencies": {
     "next": "^14.2.35",

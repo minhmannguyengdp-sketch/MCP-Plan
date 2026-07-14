@@ -13,9 +13,9 @@ import { DataTable, type DataTableColumn } from "@/ui/table/DataTable";
 import type { DayLineSource, DayLineStatus, McpDayData, McpDayLine, McpDayResult } from "./mcp-day.types";
 
 function getSourceLabel(source: DayLineSource) {
-  if (source === "planned") return "Tuyến gốc";
+  if (source === "planned") return "Có sẵn trong tuyến";
   if (source === "added") return "Phát sinh";
-  return "Đồng bộ";
+  return "Có sẵn trong tuyến";
 }
 
 function getStatusLabel(status: DayLineStatus) {
@@ -53,7 +53,7 @@ function McpCustomerCard({ line, onSelect }: { line: McpDayLine; onSelect: (line
       actions={[
         { label: "Xử lý", tone: "primary", onClick: () => onSelect(line) },
         { label: "Đơn" },
-        { label: "Test" },
+        { label: "Thử sản phẩm" },
         { label: "Việc" }
       ]}
     />
@@ -92,8 +92,8 @@ function VisitSheet({ line, onClose }: { line: McpDayLine | null; onClose: () =>
           </div>
 
           <div className="sheet-note-card">
-            <h3>Logic MCP</h3>
-            <p>Popup này xử lý snapshot khách trong phiên ngày. Thay đổi ở đây không tự động sửa tuyến gốc nếu chưa có bước đồng bộ riêng.</p>
+            <h3>Nguyên tắc ghi nhận</h3>
+            <p>Thông tin được lưu trong phiên hiện tại và không làm thay đổi danh sách điểm bán của tuyến.</p>
           </div>
         </div>
       ) : null}
@@ -126,9 +126,9 @@ export function McpDayClientPage({ data }: { data: McpDayData }) {
   return (
     <AppShell activeHref="/visits">
       <PageHeader
-        eyebrow="MCP Daily Session"
-        title="Phiên MCP ngày"
-        subtitle="Xử lý nhanh khách trong phiên: ghé, đơn, test, báo cáo và việc tiếp theo."
+        eyebrow="MCP"
+        title="Phiên đi tuyến hôm nay"
+        subtitle="Ghi nhận kết quả tại từng điểm bán: lượt ghé, đơn hàng, thử sản phẩm, báo cáo và việc cần theo dõi."
       >
         <span className="badge">{run.status}</span>
       </PageHeader>
@@ -137,7 +137,7 @@ export function McpDayClientPage({ data }: { data: McpDayData }) {
         eyebrow="Phiên đang mở"
         value={run.routeName}
         description={`${run.date} · ${run.owner} · Mở lúc ${run.openedAt}`}
-        pills={[{ label: "khách", value: data.lines.length }]}
+        pills={[{ label: "điểm bán", value: data.lines.length }]}
         tone="teal"
       />
 
@@ -145,7 +145,7 @@ export function McpDayClientPage({ data }: { data: McpDayData }) {
         filters={[
           { label: "Ngày", value: run.date },
           { label: "Tuyến", value: run.routeName },
-          { label: "Sale", value: run.owner }
+          { label: "Nhân viên phụ trách", value: run.owner }
         ]}
       />
 
@@ -153,11 +153,11 @@ export function McpDayClientPage({ data }: { data: McpDayData }) {
 
       <section className="mcp-lines-section">
         <div className="dashboard-section-head">
-          <h2>Khách trong tuyến</h2>
+          <h2>Điểm bán trong phiên</h2>
           <span>{data.lines.length} điểm bán</span>
         </div>
 
-        <StatusChipBar ariaLabel="Lọc trạng thái khách" chips={statusFilters} />
+        <StatusChipBar ariaLabel="Lọc trạng thái điểm bán" chips={statusFilters} />
 
         <div className="mcp-line-list">
           {data.lines.map((line) => (

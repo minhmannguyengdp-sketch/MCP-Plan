@@ -24,7 +24,7 @@ import "./export-menu-fix.css";
 
 export const metadata: Metadata = {
   title: "MCP-Plan",
-  description: "Quan ly NPP, tuyen ban hang, don hang va ke hoach hanh dong.",
+  description: "Quản lý nhà phân phối, tuyến bán hàng, điểm bán, đơn hàng và công việc.",
   applicationName: "MCP-Plan",
   icons: {
     icon: "/pwa-icon.svg",

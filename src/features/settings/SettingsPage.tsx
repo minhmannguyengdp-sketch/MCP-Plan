@@ -3,33 +3,11 @@ import { AppShell } from "@/ui/shell/AppShell";
 import { InstallAppCard } from "./InstallAppCard";
 
 export function SettingsPage() {
-  return (
-    <AppShell activeHref="/settings">
-      <PageHeader
-        eyebrow="Settings"
-        title="Cai dat app"
-        subtitle="Quan ly cai dat ung dung, cai app len thiet bi va lam moi phien ban khi can."
-      >
-        <span className="badge">PWA</span>
-      </PageHeader>
-
-      <section className="settings-grid">
-        <InstallAppCard />
-
-        <div className="card settings-card">
-          <div>
-            <span className="badge">He thong</span>
-            <h2 className="panel-title">Thong tin phien ban</h2>
-            <p className="page-subtitle">MCP-Plan dang san sang cho quy trinh tuyen ban hang, cham soc diem ban va theo doi cong viec hang ngay.</p>
-          </div>
-
-          <div className="grid">
-            <div className="metric-row"><span>Che do</span><strong>San sang su dung</strong></div>
-            <div className="metric-row"><span>Mobile</span><strong>Ho tro PWA</strong></div>
-            <div className="metric-row"><span>Cap nhat</span><strong>Lam moi nhanh</strong></div>
-          </div>
-        </div>
-      </section>
-    </AppShell>
-  );
+  return <AppShell activeHref="/settings">
+    <PageHeader eyebrow="Cài đặt" title="Cài đặt ứng dụng" subtitle="Cài MCP-Plan trên thiết bị và làm mới ứng dụng khi có phiên bản mới."><span className="badge">Ứng dụng web</span></PageHeader>
+    <section className="settings-grid">
+      <InstallAppCard />
+      <div className="card settings-card"><div><span className="badge">Thông tin ứng dụng</span><h2 className="panel-title">Trạng thái sử dụng</h2><p className="page-subtitle">MCP-Plan sẵn sàng hỗ trợ quản lý tuyến bán hàng, chăm sóc điểm bán và theo dõi công việc hằng ngày.</p></div><div className="grid"><div className="metric-row"><span>Trạng thái</span><strong>Sẵn sàng sử dụng</strong></div><div className="metric-row"><span>Thiết bị</span><strong>Điện thoại và máy tính bảng</strong></div><div className="metric-row"><span>Cập nhật</span><strong>Làm mới nhanh</strong></div></div></div>
+    </section>
+  </AppShell>;
 }

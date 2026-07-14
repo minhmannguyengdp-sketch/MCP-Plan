@@ -12,6 +12,7 @@ import type {
   SessionReportSections
 } from "./market-reports.types";
 import { MarketReportsClientPage } from "./MarketReportsClientPage";
+import { businessOwner, businessText } from "@/lib/ui/business-text";
 
 type ReportRow = Record<string, unknown>;
 type RawSections = Partial<SessionReportSections> & Record<string, unknown>;
@@ -41,14 +42,14 @@ function object(value: unknown): Record<string, unknown> {
 }
 
 function stringList(value: unknown): string[] {
-  return Array.isArray(value) ? value.map(text).filter(Boolean) : [];
+  return Array.isArray(value) ? value.map((item) => businessText(item)).filter(Boolean) : [];
 }
 
 function countList(value: unknown): CountItem[] {
   return Array.isArray(value)
     ? value.map((item) => {
         const row = object(item);
-        return { label: text(row.label), count: num(row.count) };
+        return { label: businessText(row.label), count: num(row.count) };
       }).filter((item) => item.label)
     : [];
 }
@@ -100,7 +101,7 @@ function insights(row: ReportRow): SessionReportInsights {
   const data = object(row.insights);
   const quality = object(data.dataQuality);
   return {
-    summary: text(data.summary),
+    summary: businessText(data.summary),
     reasons: stringList(data.reasons),
     opportunities: stringList(data.opportunities),
     risks: stringList(data.risks),
@@ -130,7 +131,12 @@ function firstLabel(items?: CountItem[]) {
 }
 
 function recommendedActions(row: ReportRow): SessionReportRecommendedAction[] {
-  return detailList<SessionReportRecommendedAction>(row.recommended_actions);
+  return detailList<SessionReportRecommendedAction>(row.recommended_actions).map((item) => ({
+    ...item,
+    customerName: businessText(item.customerName),
+    action: businessText(item.action),
+    reason: businessText(item.reason)
+  }));
 }
 
 function toItem(row: ReportRow): MarketReportItem {
@@ -145,13 +151,13 @@ function toItem(row: ReportRow): MarketReportItem {
     routeId: text(row.route_id),
     date: text(row.session_date || row.snapshot_at).slice(0, 10),
     routeName: text(row.route_name) || "-",
-    sales: text(row.sales),
-    accountName: `Phiên ${text(row.session_id).slice(0, 8)}`,
+    sales: businessOwner(row.sales),
+    accountName: businessOwner(row.sales),
     reportType: "competitor",
-    subject: `BC phiên · ${text(row.route_name) || "MCP"}`,
+    subject: `Báo cáo phiên · ${text(row.route_name) || "MCP"}`,
     competitorName: firstLabel(data.competitors),
-    note: storedInsights.summary || text(row.summary_text) || "Snapshot chưa có nhận định.",
-    nextAction: text(firstAction?.action) || "Theo dõi phiên sau",
+    note: storedInsights.summary || businessText(row.summary_text) || "Báo cáo chưa có nhận định.",
+    nextAction: businessText(firstAction?.action, "Theo dõi phiên sau"),
     status: statusFromHealth(storedHealth),
     snapshotSource: text(row.snapshot_source),
     snapshotAt: text(row.snapshot_at),
@@ -175,10 +181,10 @@ function kpis(reports: MarketReportItem[]): MarketReportKpi[] {
   const routeCount = new Set(reports.map((item) => item.routeName).filter(Boolean)).size;
   const complete = reports.filter((item) => item.insights.dataQuality?.completeCustomerCoverage).length;
   return [
-    { label: "BC phiên", value: reports.length, hint: "Theo snapshot đã chốt" },
-    { label: "Tốt / Rủi ro", value: `${good}/${risks}`, hint: "Đọc từ health đã lưu" },
-    { label: "Đủ khách", value: `${complete}/${reports.length}`, hint: "customer_details hoàn chỉnh" },
-    { label: "Tuyến", value: routeCount, hint: "Có BC phiên" }
+    { label: "Báo cáo phiên", value: reports.length, hint: "Các phiên đã chốt" },
+    { label: "Tốt / Cần xử lý", value: `${good}/${risks}`, hint: "Theo mức đánh giá đã lưu" },
+    { label: "Đủ điểm bán", value: `${complete}/${reports.length}`, hint: "Có đầy đủ chi tiết điểm bán" },
+    { label: "Tuyến", value: routeCount, hint: "Có báo cáo phiên" }
   ];
 }
 

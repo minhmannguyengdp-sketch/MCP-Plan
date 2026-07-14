@@ -24,7 +24,7 @@ function statusLabel(status: ActionStatus) {
 
 function sourceLabel(source: ActionSource) {
   if (source === "session") return "Phiên MCP";
-  if (source === "field_check") return "Quan sát / test";
+  if (source === "field_check") return "Ghi nhận / thử sản phẩm";
   if (source === "order") return "Đơn hàng";
   return "Thủ công";
 }
@@ -96,14 +96,14 @@ export function ActionsClientPage({ kpis, items }: { kpis: ActionKpi[]; items: A
         title="Kế hoạch hành động"
         subtitle="Theo dõi việc cần làm theo người phụ trách, ưu tiên, hạn xử lý và nguồn phát sinh."
       >
-        <span className="badge">Đang mở</span>
+        <span className="badge">Cần xử lý</span>
       </PageHeader>
 
       <FilterBar
         filters={[
           { label: "Nguồn", value: "Tất cả" },
           { label: "Ưu tiên", value: "Tất cả" },
-          { label: "Trạng thái", value: "Đang mở" }
+          { label: "Trạng thái", value: "Cần xử lý" }
         ]}
       />
 
@@ -120,11 +120,11 @@ export function ActionsClientPage({ kpis, items }: { kpis: ActionKpi[]; items: A
         </div>
 
         <div className="card">
-          <h2 className="panel-title">Nguồn phát sinh</h2>
+          <h2 className="panel-title">Phân loại công việc</h2>
           <div className="grid">
             <div className="metric-row"><span>Phiên MCP</span><strong>{sourceStats.session}</strong></div>
             <div className="metric-row"><span>Đơn hàng</span><strong>{sourceStats.order}</strong></div>
-            <div className="metric-row"><span>Quan sát / test</span><strong>{sourceStats.fieldCheck}</strong></div>
+            <div className="metric-row"><span>Ghi nhận / thử sản phẩm</span><strong>{sourceStats.fieldCheck}</strong></div>
             <div className="metric-row"><span>Thủ công</span><strong>{sourceStats.manual}</strong></div>
           </div>
         </div>

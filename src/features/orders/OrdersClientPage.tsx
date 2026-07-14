@@ -64,7 +64,7 @@ function OrderCard({ order, onSelect }: { order: OrderDto; onSelect: (order: Ord
       meta={[`${order.routeName} · ${order.owner}`, `${order.quantity} sản phẩm`]}
       actions={[
         { label: "Xem", tone: "primary", onClick: () => onSelect(order) },
-        { label: "Xuất file", href: orderExportHref(order) }
+        { label: "Xuất đơn hàng", href: orderExportHref(order) }
       ]}
     />
   );
@@ -77,14 +77,14 @@ function OrderDetailSheet({ order, onClose }: { order: OrderDto | null; onClose:
       onClose={onClose}
       title={order ? order.code : "Chi tiết đơn"}
       description={order ? `${order.accountName} · ${order.routeName}` : undefined}
-      footer={<div className="sheet-action-grid">{order ? <a className="button primary" href={orderExportHref(order)}>Xuất file</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}
+      footer={<div className="sheet-action-grid">{order ? <a className="button primary" href={orderExportHref(order)}>Xuất đơn hàng</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}
     >
       {order ? (
         <div className="order-sheet-content">
           <div className="order-total-card"><span>Giá trị đơn</span><strong>{money.format(order.totalAmount)}</strong><small>{getStatusLabel(order.status)} · {order.source}</small></div>
           <div className="grid">
             <div className="metric-row"><span>Ngày</span><strong>{order.date}</strong></div>
-            <div className="metric-row"><span>Sale</span><strong>{order.owner}</strong></div>
+            <div className="metric-row"><span>Nhân viên phụ trách</span><strong>{order.owner}</strong></div>
             <div className="metric-row"><span>SKU</span><strong>{order.skuCount}</strong></div>
             <div className="metric-row"><span>Số lượng</span><strong>{order.quantity}</strong></div>
           </div>

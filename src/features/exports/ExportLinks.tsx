@@ -11,12 +11,12 @@ type ExportGroup = {
 };
 
 export const MCP_EXCEL_LINKS: ExportLink[] = [
-  { label: "Khách/tuyến + GPS", href: "/api/backend/exports/route-customers.csv", tone: "primary", hint: "Danh sách khách tuyến, tọa độ, Google Maps" },
-  { label: "Phiên/checklist", href: "/api/backend/exports/mcp-sessions.csv", hint: "Snapshot khách trong phiên, trạng thái ghé" },
-  { label: "Đơn hàng + item", href: "/api/backend/exports/orders.csv", hint: "Header đơn và dòng sản phẩm" },
-  { label: "BC thị trường", href: "/api/backend/exports/market-reports.csv", hint: "Đối thủ, brand đang dùng, nhu cầu" },
-  { label: "Follow-up", href: "/api/backend/exports/followups.csv", hint: "Việc cần làm, ngày hẹn, owner" },
-  { label: "Test", href: "/api/backend/exports/tests.csv", hint: "Hồ sơ test và kết quả theo khách" }
+  { label: "Điểm bán và vị trí", href: "/api/backend/exports/route-customers.csv", tone: "primary", hint: "Danh sách điểm bán, vị trí và liên kết bản đồ" },
+  { label: "Phiên đi tuyến", href: "/api/backend/exports/mcp-sessions.csv", hint: "Danh sách điểm bán và trạng thái ghé trong phiên" },
+  { label: "Đơn hàng và sản phẩm", href: "/api/backend/exports/orders.csv", hint: "Thông tin đơn hàng và chi tiết sản phẩm" },
+  { label: "Báo cáo thị trường", href: "/api/backend/exports/market-reports.csv", hint: "Đối thủ, thương hiệu đang dùng và nhu cầu" },
+  { label: "Việc cần theo dõi", href: "/api/backend/exports/followups.csv", hint: "Việc cần làm, ngày hẹn, người phụ trách" },
+  { label: "Kết quả thử sản phẩm", href: "/api/backend/exports/tests.csv", hint: "Sản phẩm đã thử và kết quả theo điểm bán" }
 ];
 
 export const MCP_PDF_LINKS: ExportLink[] = [];

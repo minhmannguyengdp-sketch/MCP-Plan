@@ -5,19 +5,18 @@ import { TodaySummaryCard } from "@/ui/cards/TodaySummaryCard";
 import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
-import { SourceBadge } from "@/ui/status/SourceBadge";
 import { ExportMenu } from "@/features/exports/ExportLinks";
 import styles from "./McpHome.module.css";
 
 const MCP_MODULES = [
-  { href: "/routes", tone: "routes", icon: "◎", title: "Tuyến gốc", description: "Quản lý tuyến gốc: khách tuyến, GPS và dữ liệu nền trước khi mở phiên MCP.", cta: "Xem tuyến gốc" },
-  { href: "/routes", tone: "session", icon: "◇", title: "Phiên MCP hôm nay", description: "Mở hoặc tiếp tục phiên từ tuyến gốc; đơn, test, báo cáo và follow-up đều nằm trong phiên.", cta: "Mở phiên" },
-  { href: "/mcp/sessions", tone: "session", icon: "▤", title: "Phiên", description: "Xem lịch sử chạy tuyến theo ngày; test là nhánh con của từng phiên, không phải module rời.", cta: "Xem lịch sử" },
-  { href: "/mcp-setting", tone: "settings", icon: "⚙", title: "MCP Setting", description: "Quản lý mẫu báo cáo global dùng chung, không gắn theo tuyến hay phiên cố định.", cta: "Cài đặt mẫu" }
+  { href: "/routes", tone: "routes", icon: "◎", title: "Tuyến bán hàng", description: "Quản lý tuyến, điểm bán và vị trí trước khi bắt đầu đi thị trường.", cta: "Xem tuyến" },
+  { href: "/routes", tone: "session", icon: "◇", title: "Đi tuyến hôm nay", description: "Mở hoặc tiếp tục phiên để ghi đơn hàng, thử sản phẩm, báo cáo và việc cần theo dõi.", cta: "Mở phiên" },
+  { href: "/mcp/sessions", tone: "session", icon: "▤", title: "Lịch sử phiên", description: "Tra cứu kết quả đi tuyến theo ngày, tuyến và trạng thái.", cta: "Xem lịch sử" },
+  { href: "/mcp-setting", tone: "settings", icon: "⚙", title: "Cài đặt MCP", description: "Quản lý các lựa chọn nhanh dùng khi ghi nhận tình hình thị trường.", cta: "Mở cài đặt" }
 ] as const;
 
 function renderModuleCard(item: (typeof MCP_MODULES)[number]) {
-  return <Link className={`${styles.card} ${styles[item.tone]}`} href={item.href} key={`${item.href}-${item.title}`} prefetch><span className={styles.icon} aria-hidden="true">{item.icon}</span><span className={styles.content}><strong>{item.title}</strong><small>{item.description}</small></span><span className={styles.cta}>{item.cta}</span></Link>;
+  return <Link className={[styles.card, styles[item.tone]].join(" ")} href={item.href} key={item.href + "-" + item.title} prefetch><span className={styles.icon} aria-hidden="true">{item.icon}</span><span className={styles.content}><strong>{item.title}</strong><small>{item.description}</small></span><span className={styles.cta}>{item.cta}</span></Link>;
 }
 
 export default async function McpPage() {
@@ -28,13 +27,11 @@ export default async function McpPage() {
   const pausedRoutes = routes.filter((route) => route.status === "paused").length;
   const plannedCustomers = routes.reduce((sum, route) => sum + Number(route.plannedCustomers || 0), 0);
   const visitedCustomers = routes.reduce((sum, route) => sum + Number(route.visitedCustomers || 0), 0);
-
   return <AppShell activeHref="/mcp">
-    <PageHeader eyebrow="MCP" title="MCP" subtitle="Tuyến gốc là dữ liệu nền; Phiên MCP hôm nay là phiên làm việc theo routeId + ngày. Test nằm trong phiên, không tách thành menu chính."><div className="sheet-action-grid"><SourceBadge source={routesResult.source} /><ExportMenu label="Xuất" primary /></div></PageHeader>
-    <TodaySummaryCard eyebrow="Quy trình MCP" value="Chọn tuyến gốc trước" description={`${activeRoutes} tuyến gốc có thể đi · ${plannedCustomers} khách trong tuyến gốc · test ghi từ khách trong phiên`} pills={[{ label: "tuyến gốc", value: routes.length }, { label: "có thể đi", value: activeRoutes }, { label: "đã ghé", value: visitedCustomers }]} />
-    <section className={styles.grid} aria-label="MCP nhanh">{MCP_MODULES.map(renderModuleCard)}</section>
-    <FilterBar title="Tóm tắt vận hành" filters={[{ label: "Tuyến gốc", value: String(routes.length) }, { label: "Có thể đi", value: String(activeRoutes) }, { label: "Tạm dừng", value: String(pausedRoutes) }, { label: "Khách tuyến", value: String(plannedCustomers) }]} />
-    <CompactKpiStrip items={[{ label: "Tuyến gốc", value: routes.length, hint: "Tuyến nền đang quản lý" }, { label: "Có thể đi", value: activeRoutes, hint: "Đang chạy hoặc theo dõi" }, { label: "Khách tuyến", value: plannedCustomers, hint: "Tổng khách trong tuyến gốc" }, { label: "Đã ghé", value: visitedCustomers, hint: "Theo dữ liệu route hiện có" }]} />
-    <section className="dashboard-section dashboard-actions-section"><div className="dashboard-section-head"><h2>Việc nên làm</h2><span>3 bước</span></div><div className="dashboard-action-list"><article className="action-card dashboard-action-card"><div><span className="dashboard-priority priority-high">Bước 1</span><h3>Chọn tuyến gốc</h3><p>Xem khách tuyến và GPS trước khi mở phiên MCP hôm nay.</p></div><Link href="/routes" prefetch>Vào tuyến gốc</Link></article><article className="action-card dashboard-action-card"><div><span className="dashboard-priority priority-medium">Bước 2</span><h3>Mở phiên MCP hôm nay</h3><p>Mở phiên từ tuyến gốc đã chọn; trong checklist mới ghi đơn, test, báo cáo và follow-up.</p></div><Link href="/routes" prefetch>Mở từ tuyến gốc</Link></article><article className="action-card dashboard-action-card"><div><span className="dashboard-priority priority-low">Bước 3</span><h3>Xem lại phiên</h3><p>Mở lịch sử phiên để xem hôm qua, tuần trước hoặc tháng trước, gồm nhánh test trong từng phiên.</p></div><Link href="/mcp/sessions" prefetch>Vào Phiên</Link></article></div></section>
+    <PageHeader eyebrow="MCP" title="Quản lý đi thị trường" subtitle="Chuẩn bị tuyến, thực hiện phiên đi thị trường và theo dõi kết quả tại từng điểm bán."><ExportMenu label="Xuất dữ liệu" primary /></PageHeader>
+    <TodaySummaryCard eyebrow="Sẵn sàng đi tuyến" value={activeRoutes + " tuyến có thể đi"} description={plannedCustomers + " điểm bán trong tuyến · " + visitedCustomers + " lượt đã ghé theo dữ liệu hiện có"} pills={[{ label: "tuyến", value: routes.length }, { label: "đang hoạt động", value: activeRoutes }, { label: "tạm dừng", value: pausedRoutes }]} />
+    <section className={styles.grid} aria-label="Chức năng MCP">{MCP_MODULES.map(renderModuleCard)}</section>
+    <FilterBar title="Tình hình tuyến" filters={[{ label: "Tổng tuyến", value: String(routes.length) }, { label: "Có thể đi", value: String(activeRoutes) }, { label: "Tạm dừng", value: String(pausedRoutes) }, { label: "Điểm bán", value: String(plannedCustomers) }]} />
+    <CompactKpiStrip items={[{ label: "Tuyến", value: routes.length, hint: "Đang quản lý" }, { label: "Có thể đi", value: activeRoutes, hint: "Đang hoạt động hoặc cần theo dõi" }, { label: "Điểm bán", value: plannedCustomers, hint: "Tổng điểm bán trong tuyến" }, { label: "Đã ghé", value: visitedCustomers, hint: "Theo dữ liệu hiện có" }]} />
   </AppShell>;
 }
