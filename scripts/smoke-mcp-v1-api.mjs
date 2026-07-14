@@ -160,7 +160,7 @@ async function fullSessionSmoke() {
         {
           productName: "API Smoke Product",
           sku: "SMOKE-001",
-          unit: "gói",
+          unit: "gÃ³i",
           quantity: 2,
           unitPrice: 15000,
           discount: 0
@@ -180,7 +180,7 @@ async function fullSessionSmoke() {
         {
           productName: "API Smoke Product",
           status: "ok",
-          note: "Đạt"
+          note: "Äáº¡t"
         }
       ]
     })
@@ -194,9 +194,9 @@ async function fullSessionSmoke() {
       reportType: "market_report",
       content: "API smoke market report",
       fields: {
-        priceSummary: "Giá ổn",
-        demandSummary: "Có nhu cầu",
-        nextAction: "Theo dõi đơn"
+        priceSummary: "GiÃ¡ á»•n",
+        demandSummary: "CÃ³ nhu cáº§u",
+        nextAction: "Theo dÃµi Ä‘Æ¡n"
       },
       selected: {
         competitors: [],
@@ -221,7 +221,7 @@ async function fullSessionSmoke() {
       priority: "high",
       owner: "API Smoke",
       followupType: "order",
-      note: "Gọi lại chốt đơn"
+      note: "Gá»i láº¡i chá»‘t Ä‘Æ¡n"
     })
   });
   assert(Object.keys(followup).length > 0, "full_followup_not_created");
@@ -328,7 +328,11 @@ try {
 
   const healthResult = await call("/api/health");
   assert(healthResult.response.ok, `health_http_${healthResult.response.status}`);
-  assert(object(healthResult.payload.data).ok === true, "health_not_ok");
+  const healthData = object(healthResult.payload.data);
+  assert(healthData.service === "mcp-plan-backend", "health_service_invalid");
+  assert(healthData.installationConfigured === true, "health_installation_not_configured");
+  assert(healthData.providerConfigured === true, "health_provider_not_configured");
+  assert(healthData.authBoundary === "proxy-service", "health_auth_boundary_invalid");
 
   const fullSession = await fullSessionSmoke();
   const frozenEmptySnapshot = await frozenEmptySnapshotSmoke();
