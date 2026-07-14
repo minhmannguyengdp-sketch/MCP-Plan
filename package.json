@@ -8,12 +8,16 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "audit:copy": "node scripts/audit-user-facing-copy.mjs",
-    "verify:copy": "npm run audit:copy && npm run typecheck"
+    "audit:runtime-config": "node scripts/audit-runtime-hardcodes.mjs",
+    "validate:runtime-config": "node scripts/validate-runtime-config.mjs",
+    "test:foundation": "npm --prefix apps/backend test",
+    "verify:copy": "npm run audit:copy && npm run typecheck",
+    "verify:foundation": "npm run audit:runtime-config && npm run test:foundation && npm run typecheck"
   },
   "dependencies": {
     "next": "^14.2.35",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.16.10",
