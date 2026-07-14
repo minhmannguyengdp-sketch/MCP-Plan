@@ -1,36 +1,57 @@
-/** @type {import('next').NextConfig} */
-const localBackendRoutes = [
-  "exports",
-  "mcp-report-settings",
-  "mcp-session-actions",
-  "mcp-day/open-session",
-  "mcp-day/session-customer/order",
-  "mcp-day/session-customer/test",
-  "mcp-day/session-customer/report",
-  "mcp-day/session-customer/followup",
-  "mcp-day/session-customer/status"
-];
+function requiredBuildEnv(name) {
+  const value = String(process.env[name] || "").trim();
+  if (!value) throw new Error(`missing_${name.toLowerCase()}`);
+  return value;
+}
 
-const backendRoutePattern = localBackendRoutes
-  .map((route) => route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-  .join("|");
+function validateBuildConfig() {
+  const shouldValidate =
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL === "1" ||
+    process.env.CI === "true" ||
+    process.env.STRICT_RUNTIME_CONFIG === "1";
 
-const nextConfig = {
-  reactStrictMode: true,
-  async rewrites() {
-    const backendBaseUrl = process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!shouldValidate) return;
 
-    if (!backendBaseUrl) {
-      return [];
-    }
-
-    return [
-      {
-        source: `/api/backend/:path((?!${backendRoutePattern}).*)`,
-        destination: `${backendBaseUrl.replace(/\/+$/, "")}/api/:path*`
-      }
-    ];
+  const backendUrl = requiredBuildEnv("BACKEND_API_BASE_URL");
+  let parsed;
+  try {
+    parsed = new URL(backendUrl);
+  } catch {
+    throw new Error("invalid_backend_api_base_url");
   }
+  if (!/^https?:$/.test(parsed.protocol)) {
+    throw new Error("invalid_backend_api_base_url");
+  }
+
+  const token = requiredBuildEnv("BACKEND_API_TOKEN");
+  if (token.length < 32 || /replace|change[-_ ]?me|example|dev[-_ ]?only/i.test(token)) {
+    throw new Error("invalid_backend_api_token");
+  }
+
+  requiredBuildEnv("MCP_LEGACY_ACTOR_ID");
+  requiredBuildEnv("SUPABASE_URL");
+  requiredBuildEnv("SUPABASE_ANON_KEY");
+
+  const agentUrl = String(process.env.MCP_REPORT_AGENT_URL || "").trim();
+  if (agentUrl) {
+    let parsedAgent;
+    try {
+      parsedAgent = new URL(agentUrl);
+    } catch {
+      throw new Error("invalid_mcp_report_agent_url");
+    }
+    if (parsedAgent.protocol !== "https:") {
+      throw new Error("mcp_report_agent_https_required");
+    }
+  }
+}
+
+validateBuildConfig();
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true
 };
 
 export default nextConfig;
