@@ -56,8 +56,7 @@ function healthPayload(config, requestId) {
   return {
     ok: true,
     service: config.service,
-    installationId: config.installationId,
-    nppCode: config.nppCode,
+    installationConfigured: Boolean(config.installationId && config.nppCode),
     authBoundary: config.authMode,
     requestId,
     receivedAt: new Date().toISOString()
