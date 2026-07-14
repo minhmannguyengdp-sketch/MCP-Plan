@@ -1,0 +1,53 @@
+name: Foundation F0.2
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - f0-2-installation-context-config
+
+permissions:
+  contents: read
+
+jobs:
+  verify-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit runtime hardcodes
+        run: npm run audit:runtime-config
+
+      - name: Upload hardcode audit diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-hardcode-findings
+          path: runtime-hardcode-findings.txt
+          if-no-files-found: error
+
+      - name: Verify backend foundation
+        run: npm --prefix apps/backend run verify
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build frontend with validated runtime config
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3001
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: service:ci:mcp-v1
+          SUPABASE_URL: https://project.example.com
+          SUPABASE_ANON_KEY: ci-publishable-key
+        run: npm run build

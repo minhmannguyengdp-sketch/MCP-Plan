@@ -1,4 +1,4 @@
-import { backendApiBaseUrl } from "@/lib/api/backend-proxy";
+import { backendApiBaseUrl, backendApiRequestHeaders } from "@/lib/api/backend-proxy";
 import { mcpReportAgentHealthUrl, mcpReportAgentUrl } from "@/lib/mcp/report-agent-config";
 import { buildSessionReportExportPayload } from "@/lib/mcp/session-report-export-v2";
 import { loadMcpSessionReportSource } from "@/lib/mcp/session-report-source";
@@ -50,7 +50,7 @@ function fallbackResult(reason: string): AgentResult {
     follow_up_list: [],
     order_opportunities: [],
     risks: [reason],
-    next_steps: ["Kiểm tra endpoint Cloud Run và log MCP Report Agent."]
+    next_steps: ["Kiểm tra cấu hình và log MCP Report Agent."]
   };
 }
 
@@ -113,15 +113,16 @@ async function persistAgentResult(
   aiResult: Record<string, unknown>
 ) {
   const analyzedAt = new Date().toISOString();
+  const { headers } = backendApiRequestHeaders(undefined, {
+    hasBody: true,
+    contentType: "application/json"
+  });
   const response = await fetch(
     `${backendApiBaseUrl()}/api/mcp-session-report/ai-result`,
     {
       method: "POST",
       cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json"
-      },
+      headers,
       body: JSON.stringify({ sessionId, aiResult, analyzedAt })
     }
   );
@@ -173,7 +174,7 @@ export async function GET() {
 
     return Response.json(
       { ok: false, error: reason },
-      { status: 502, headers: { "Cache-Control": "no-store" } }
+      { status: 503, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
@@ -211,11 +212,7 @@ export async function POST(request: Request) {
 
     const snapshot = buildSessionReportExportPayload(source);
     const agentUrl = mcpReportAgentUrl();
-    const token = text(
-      process.env.MCP_REPORT_AGENT_TOKEN ||
-        process.env.AI_AGENT_TOKEN ||
-        process.env.ADK_AGENT_TOKEN
-    );
+    const token = text(process.env.MCP_REPORT_AGENT_TOKEN);
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json; charset=utf-8"

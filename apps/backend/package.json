@@ -1,12 +1,14 @@
 {
   "name": "mcp-plan-backend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch server.js",
-    "start": "node server.js",
-    "build": "node -e \"console.log('No build step required for plain Node backend')\""
+    "dev": "node --watch bootstrap.js",
+    "start": "node bootstrap.js",
+    "build": "node --check bootstrap.js && node --check server.js && node --check foundation/config.js && node --check foundation/cors.js && node --check foundation/gateway.js && node --check foundation/request-context.js && node --check foundation/supabase-adapter.js && node --check foundation/transitional-api.js",
+    "test": "node --test foundation/config.test.js foundation/request-context.test.js foundation/gateway.test.js foundation/transitional-api.test.js",
+    "verify": "npm run build && npm run test"
   },
   "engines": {
     "node": ">=20"
