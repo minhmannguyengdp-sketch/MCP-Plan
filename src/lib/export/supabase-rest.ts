@@ -1,8 +1,5 @@
 type QueryValue = string | number | boolean | null | undefined;
 
-const DEFAULT_SUPABASE_URL = "https://noiadkpkvdohljgopgfb.supabase.co";
-const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_n6LXv-fd-ImF3XzeU2mrjg_G7tBGy66";
-
 const RAW_FILTER_PREFIXES = ["eq.", "neq.", "gte.", "lte.", "lt.", "gt.", "ilike.", "like.", "is.", "in."];
 
 type RequestOptions = {
@@ -12,19 +9,23 @@ type RequestOptions = {
   filters?: Record<string, QueryValue>;
 };
 
+function requiredServerEnv(name: "SUPABASE_URL" | "SUPABASE_ANON_KEY") {
+  const value = String(process.env[name] || "").trim();
+  if (!value) throw new Error(`missing_${name.toLowerCase()}`);
+  return value;
+}
+
 export function supabaseRestConfig() {
-  const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim().replace(/\/+$/, "");
-  const key = String(
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    DEFAULT_SUPABASE_PUBLISHABLE_KEY
-  ).trim();
-  if (!url || !key) throw new Error("missing_supabase_config");
-  return { url, key };
+  const rawUrl = requiredServerEnv("SUPABASE_URL");
+  const key = requiredServerEnv("SUPABASE_ANON_KEY");
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("invalid_supabase_url");
+  }
+  if (!/^https?:$/.test(parsed.protocol)) throw new Error("invalid_supabase_url");
+  return { url: parsed.toString().replace(/\/+$/, ""), key };
 }
 
 function filterValue(value: QueryValue) {
