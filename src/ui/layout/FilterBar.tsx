@@ -8,7 +8,7 @@ type FilterBarProps = {
   filters: FilterItem[];
 };
 
-export function FilterBar({ title = "Bo loc nhanh", filters }: FilterBarProps) {
+export function FilterBar({ title = "Bộ lọc nhanh", filters }: FilterBarProps) {
   return (
     <div className="filter-bar">
       <strong>{title}</strong>

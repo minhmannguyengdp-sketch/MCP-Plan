@@ -237,7 +237,7 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
   return (
     <AppShell activeHref="/mcp">
       <PageHeader eyebrow="MCP" title="Kết quả thử sản phẩm" subtitle="Tổng hợp kết quả thử sản phẩm theo từng phiên đi tuyến và điểm bán."><span className="badge">{needAction} cần xử lý</span></PageHeader>
-      <FilterBar filters={[{ label: "Nguồn", value: "Phiên MCP" }, { label: "Nhóm", value: "Theo phiên đi tuyến" }, { label: "Màn", value: "Theo dõi kết quả" }]} />
+      <FilterBar filters={[{ label: "Phạm vi", value: "Theo phiên đi tuyến" }, { label: "Trạng thái", value: needAction ? `${needAction} cần xử lý` : "Đã cập nhật" }, { label: "Sắp xếp", value: "Mới nhất trước" }]} />
 
       <section className={styles.setupGrid}>
         <div className={styles.setupCard}>
@@ -247,7 +247,7 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
           <div className={styles.setupMetrics}>
             <strong><b>{setup.sessions}</b><small>Phiên</small></strong>
             <strong><b>{setup.routes}</b><small>Tuyến</small></strong>
-            <strong><b>{setup.customers}</b><small>Khách</small></strong>
+            <strong><b>{setup.customers}</b><small>Điểm bán</small></strong>
           </div>
         </div>
 

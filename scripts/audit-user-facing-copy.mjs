@@ -39,7 +39,16 @@ const forbidden = [
   "popup BC",
   "dàn flat",
   "bam Chia se",
-  "Dang mo..."
+  "Dang mo...",
+  "Bo loc nhanh",
+  "Đánh giá snapshot",
+  "Đơn/Test",
+  "Theo snapshot đã chốt",
+  "Đọc từ health đã lưu",
+  "customer_details hoàn chỉnh",
+  "Supabase live",
+  "Tuyến active",
+  "Xem test"
 ];
 
 function walk(directory) {

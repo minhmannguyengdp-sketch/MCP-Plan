@@ -7,6 +7,7 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
+import { businessOwner, businessText, isTechnicalSourceText } from "@/lib/ui/business-text";
 
 type Row = Record<string, unknown>;
 type RestOptions = { select?: string; order?: string; limit?: number; filters?: Record<string, string | number | boolean | null | undefined> };
@@ -168,10 +169,10 @@ function renderAction(action: DashboardActionDto) {
     <article className="action-card dashboard-action-card" key={action.title}>
       <div>
         <span className={`dashboard-priority priority-${action.priority}`}>Ưu tiên {getPriorityLabel(action.priority)}</span>
-        <h3>{action.title}</h3>
-        <p>{action.description}</p>
+        <h3>{businessText(action.title)}</h3>
+        <p>{businessText(action.description)}</p>
       </div>
-      <strong>{action.owner}</strong>
+      <strong>{businessOwner(action.owner)}</strong>
     </article>
   );
 }
@@ -246,7 +247,7 @@ export async function DashboardPage() {
       title: latestSessionTitle,
       value: latestSession?.id ? `${sessionMetrics.visited}/${sessionMetrics.planned || "-"}` : `${totalVisited}/${totalPlanned || "-"}`,
       description: latestSession?.id ? `${sessionStatusText(latestSessionStatus)} · ${sessionMetrics.orders} đơn · ${sessionMetrics.tests} lượt thử sản phẩm · ${sessionMetrics.observations} ghi nhận thị trường` : "Mở phiên từ tuyến bán hàng để bắt đầu ghi đơn, thử sản phẩm và ghi nhận thị trường.",
-      meta: latestSession?.id ? [`${sessionMetrics.pending} chờ`, `${sessionMetrics.followups} việc theo dõi`, text(latestSession.sales) || "Chưa phân công"] : [`${totalRoutes} tuyến`, `${totalVisitRate}% ghé`, "Chưa có phiên"],
+      meta: latestSession?.id ? [`${sessionMetrics.pending} chờ`, `${sessionMetrics.followups} việc theo dõi`, businessOwner(latestSession.sales)] : [`${totalRoutes} tuyến`, `${totalVisitRate}% ghé`, "Chưa có phiên"],
       cta: hasActiveSession ? "Tiếp tục phiên" : "Xem phiên",
       tone: hasActiveSession ? "watch" : latestSession?.id ? "good" : "risk"
     },
@@ -263,9 +264,9 @@ export async function DashboardPage() {
     {
       href: "/actions",
       eyebrow: "Việc cần xử lý",
-      title: dashboard.actions[0]?.title || "Không có việc khẩn cấp",
+      title: businessText(dashboard.actions[0]?.title, "Không có việc khẩn cấp"),
       value: dashboard.actions.length,
-      description: dashboard.actions[0]?.description || "Chưa có cảnh báo vận hành nổi bật từ dữ liệu hiện tại.",
+      description: businessText(dashboard.actions[0]?.description, "Chưa có cảnh báo vận hành nổi bật từ dữ liệu hiện tại."),
       meta: [`${highActions} ưu tiên cao`, `${dashboard.actions.length - highActions} còn lại`, "theo dữ liệu hiện tại"],
       cta: dashboard.actions.length ? "Xem việc" : "Mở danh sách",
       tone: highActions ? "risk" : dashboard.actions.length ? "watch" : "good"
@@ -302,7 +303,7 @@ export async function DashboardPage() {
       description: "Báo cáo mới nhất có thử sản phẩm nhưng chưa tạo việc theo dõi. Nên bổ sung việc theo dõi để không mất tín hiệu mua hàng.",
       priority: "medium",
       href: "/reports",
-      cta: "Xem test"
+      cta: "Xem kết quả thử"
     } : null,
     riskRoutes > 0 ? {
       title: "Có tuyến rủi ro",
@@ -325,7 +326,7 @@ export async function DashboardPage() {
       <PageHeader
         eyebrow="Tổng quan"
         title="Điều hành hôm nay"
-        subtitle="Nhìn nhanh phiên MCP, Báo cáo mới nhất, việc cần xử lý và sức khỏe tuyến — tập trung vào tình hình kinh doanh và công việc cần xử lý."
+        subtitle="Nhìn nhanh phiên MCP, báo cáo mới nhất, việc cần xử lý và tình hình tuyến bán hàng."
       >
         <SourceBadge source={dashboardResult.source} />
       </PageHeader>
@@ -355,14 +356,14 @@ export async function DashboardPage() {
         ]}
       />
 
-      <CompactKpiStrip items={dashboard.kpis.map((item) => ({ label: item.label, value: item.value, hint: item.trend }))} />
+      <CompactKpiStrip items={dashboard.kpis.map((item) => ({ label: businessText(item.label), value: item.value, hint: businessText(item.trend) }))} />
 
       <section className="dashboard-section dashboard-alerts-section">
         <div className="dashboard-section-head">
           <h2>Cảnh báo cần xử lý</h2>
           <span>{alerts.length ? `${alerts.length} cảnh báo` : "đang ổn"}</span>
         </div>
-        {alerts.length ? <div className="dashboard-alert-list">{alerts.map(renderAlert)}</div> : <div className="empty-inline">Chưa có cảnh báo nổi bật từ phiên, BC và tuyến hiện tại.</div>}
+        {alerts.length ? <div className="dashboard-alert-list">{alerts.map(renderAlert)}</div> : <div className="empty-inline">Chưa có cảnh báo nổi bật từ phiên, báo cáo và tuyến hiện tại.</div>}
       </section>
 
       <section className="dashboard-section dashboard-actions-section">
@@ -382,10 +383,10 @@ export async function DashboardPage() {
       </section>
 
       <section className="dashboard-insight-strip" aria-label="Chỉ số phụ">
-        {dashboard.insights.map((item) => (
+        {dashboard.insights.filter((item) => !isTechnicalSourceText(`${item.label} ${item.value}`)).map((item) => (
           <div className="metric-row" key={item.label}>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
+            <span>{businessText(item.label)}</span>
+            <strong>{businessText(item.value)}</strong>
           </div>
         ))}
       </section>
