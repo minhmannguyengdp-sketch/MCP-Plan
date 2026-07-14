@@ -20,17 +20,23 @@ cleanup_stage() {
 
 rollback() {
   trap - ERR
-  echo "Deployment failed; restoring previous MCP runtime..." >&2
-  "$PM2_BIN" delete "$PM2_NAME" >/dev/null 2>&1 || true
 
   if [[ "$SWAPPED" == "1" && -d "$BACKUP" ]]; then
+    echo "Deployment failed; restoring previous MCP runtime..." >&2
+    "$PM2_BIN" delete "$PM2_NAME" >/dev/null 2>&1 || true
     rm -rf "$RUNTIME"
     mv "$BACKUP" "$RUNTIME"
+
+    ROLLBACK_ENTRY="$RUNTIME/bootstrap.js"
+    if [[ ! -f "$ROLLBACK_ENTRY" ]]; then
+      ROLLBACK_ENTRY="$RUNTIME/server.js"
+    fi
+
     env -i \
       PATH="$PATH" \
       HOME="$HOME" \
       PM2_HOME="${PM2_HOME:-$HOME/.pm2}" \
-      "$PM2_BIN" start "$RUNTIME/server.js" \
+      "$PM2_BIN" start "$ROLLBACK_ENTRY" \
         --name "$PM2_NAME" \
         --cwd "$RUNTIME"
     "$PM2_BIN" save
@@ -43,9 +49,10 @@ rollback() {
 trap rollback ERR
 trap cleanup_stage EXIT
 
-for command_name in git node npm curl ss "$PM2_BIN"; do
+for command_name in git node npm curl ss; do
   command -v "$command_name" >/dev/null
- done
+done
+[[ -x "$PM2_BIN" ]]
 
 [[ -d "$SOURCE/.git" ]]
 [[ -s "$RUNTIME/.env" ]]
@@ -85,10 +92,36 @@ read -r PUBLIC_PORT INTERNAL_PORT < <(
 
 [[ "$PUBLIC_PORT" != "$INTERNAL_PORT" ]]
 
-if ss -lntH | awk '{print $4}' | grep -Eq "(^|:)${INTERNAL_PORT}$"; then
-  echo "LEGACY_INTERNAL_PORT ${INTERNAL_PORT} is already occupied; aborting before downtime." >&2
-  ss -lntp | grep -E ":${INTERNAL_PORT}([[:space:]]|$)" || true
-  exit 1
+OLD_PID="$("$PM2_BIN" pid "$PM2_NAME" 2>/dev/null | tail -n 1 | tr -dc '0-9' || true)"
+if [[ "$OLD_PID" == "0" ]]; then
+  OLD_PID=""
+fi
+
+INTERNAL_LISTENERS="$(ss -lntp | awk -v suffix=":${INTERNAL_PORT}" '$4 ~ suffix"$" { print }')"
+if [[ -n "$INTERNAL_LISTENERS" ]]; then
+  mapfile -t INTERNAL_PIDS < <(
+    printf '%s\n' "$INTERNAL_LISTENERS" \
+      | grep -o 'pid=[0-9]*' \
+      | cut -d= -f2 \
+      | sort -u
+  )
+
+  PORT_CONFLICT=0
+  if [[ "${#INTERNAL_PIDS[@]}" -eq 0 ]]; then
+    PORT_CONFLICT=1
+  else
+    for listener_pid in "${INTERNAL_PIDS[@]}"; do
+      if [[ -z "$OLD_PID" || "$listener_pid" != "$OLD_PID" ]]; then
+        PORT_CONFLICT=1
+      fi
+    done
+  fi
+
+  if [[ "$PORT_CONFLICT" == "1" ]]; then
+    echo "LEGACY_INTERNAL_PORT ${INTERNAL_PORT} is occupied by another process; aborting before downtime." >&2
+    printf '%s\n' "$INTERNAL_LISTENERS" >&2
+    exit 1
+  fi
 fi
 
 echo "runtime_env=OK public=127.0.0.1:${PUBLIC_PORT} legacy=127.0.0.1:${INTERNAL_PORT}"
