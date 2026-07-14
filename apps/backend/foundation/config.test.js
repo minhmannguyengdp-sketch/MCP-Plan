@@ -12,6 +12,8 @@ function validEnv(overrides = {}) {
     NPP_CODE: "NPP-DEMO",
     MCP_LEGACY_ACTOR_ID: "service:npp-demo:mcp-v1",
     BACKEND_API_TOKEN: "0123456789abcdef0123456789abcdef",
+    SUPABASE_URL: "https://project.example.com",
+    SUPABASE_SERVICE_ROLE_KEY: "server-only-service-role-key",
     CORS_ORIGINS: "https://app.example.com",
     AUTH_MODE: "proxy-service",
     ...overrides
@@ -31,12 +33,26 @@ test("production config is fail-fast", () => {
     () => loadFoundationConfig(validEnv({ CORS_ORIGINS: "*" })),
     /cors_wildcard_forbidden/
   );
+  assert.throws(
+    () => loadFoundationConfig(validEnv({ SUPABASE_URL: "" })),
+    /missing_supabase_url/
+  );
+  assert.throws(
+    () => loadFoundationConfig(validEnv({ SUPABASE_SERVICE_ROLE_KEY: "" })),
+    /missing_supabase_service_role_key/
+  );
+  assert.throws(
+    () => loadFoundationConfig(validEnv({ SUPABASE_URL: "http://project.example.com" })),
+    /supabase_url_https_required/
+  );
 });
 
 test("installation values are fixed server config", () => {
   const config = loadFoundationConfig(validEnv());
   assert.equal(config.installationId, "npp-demo-prod");
   assert.equal(config.nppCode, "NPP-DEMO");
+  assert.equal(config.supabaseUrl, "https://project.example.com");
+  assert.equal(config.supabaseServiceRoleKey, "server-only-service-role-key");
   assert.deepEqual(config.corsOrigins, ["https://app.example.com"]);
   assert.equal(config.publicPort, 3001);
   assert.equal(config.internalPort, 3002);
