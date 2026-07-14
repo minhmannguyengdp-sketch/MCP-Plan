@@ -1,3 +1,9 @@
+import {
+  apiErrorResponse,
+  apiFailureFromPayload,
+  apiSuccessResponse,
+  normalizeApiRequestId
+} from "@/lib/api/api-contract";
 import { backendApiBaseUrl, backendApiRequestHeaders } from "@/lib/api/backend-proxy";
 import { mcpReportAgentHealthUrl, mcpReportAgentUrl } from "@/lib/mcp/report-agent-config";
 import { buildSessionReportExportPayload } from "@/lib/mcp/session-report-export-v2";
@@ -110,10 +116,12 @@ async function fetchWithTimeout(
 
 async function persistAgentResult(
   sessionId: string,
-  aiResult: Record<string, unknown>
+  aiResult: Record<string, unknown>,
+  requestId: string
 ) {
   const analyzedAt = new Date().toISOString();
   const { headers } = backendApiRequestHeaders(undefined, {
+    requestId,
     hasBody: true,
     contentType: "application/json"
   });
@@ -129,7 +137,8 @@ async function persistAgentResult(
 
   const payload = object(await response.json().catch(() => ({})));
   if (!response.ok) {
-    throw new Error(text(payload.error || payload.message) || `save_ai_result_${response.status}`);
+    const failure = apiFailureFromPayload(payload);
+    throw new Error(failure.code || "save_ai_result_failed");
   }
 
   const data = object(payload.data);
@@ -139,7 +148,9 @@ async function persistAgentResult(
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestId = normalizeApiRequestId(request.headers.get("x-request-id"));
+
   try {
     const response = await fetchWithTimeout(
       mcpReportAgentHealthUrl(),
@@ -152,62 +163,80 @@ export async function GET() {
 
     const rawText = await response.text();
     const health = object(parseJson(rawText));
+    const available = response.ok && health.ok !== false;
 
-    return Response.json(
+    if (!available) {
+      return apiErrorResponse("REPORT_AGENT_UNAVAILABLE", {
+        requestId,
+        status: 503,
+        retryable: true,
+        details: {
+          source: "mcp_report_agent_health",
+          upstreamStatus: response.status
+        }
+      });
+    }
+
+    return apiSuccessResponse(
       {
-        ok: response.ok && health.ok !== false,
+        available: true,
         status: response.status,
-        source: "mcp_report_agent_health",
-        health,
-        receivedAt: new Date().toISOString()
+        source: "mcp_report_agent_health"
       },
-      {
-        status: response.ok ? 200 : 502,
-        headers: { "Cache-Control": "no-store" }
-      }
+      { requestId }
     );
   } catch (error) {
-    const reason =
-      error instanceof Error
-        ? error.message
-        : "mcp_report_agent_health_failed";
-
-    return Response.json(
-      { ok: false, error: reason },
-      { status: 503, headers: { "Cache-Control": "no-store" } }
+    const timedOut = error instanceof Error && error.name === "AbortError";
+    return apiErrorResponse(
+      timedOut ? "REPORT_AGENT_TIMEOUT" : "REPORT_AGENT_UNAVAILABLE",
+      {
+        requestId,
+        status: timedOut ? 504 : 503,
+        retryable: true
+      }
     );
   }
 }
 
 export async function POST(request: Request) {
-  const body = object(await request.json().catch(() => ({})));
-  const sessionId = text(body.sessionId || body.session_id);
+  const requestId = normalizeApiRequestId(request.headers.get("x-request-id"));
+  let body: Record<string, unknown>;
 
+  try {
+    body = object(await request.json());
+  } catch {
+    return apiErrorResponse("INVALID_JSON_BODY", {
+      requestId,
+      status: 400,
+      message: "Nội dung JSON không hợp lệ."
+    });
+  }
+
+  const sessionId = text(body.sessionId || body.session_id);
   if (!sessionId) {
-    return Response.json(
-      {
-        ok: false,
-        error: "session_id_required",
+    return apiErrorResponse("SESSION_ID_REQUIRED", {
+      requestId,
+      status: 400,
+      details: {
         result: fallbackResult("Thiếu sessionId để phân tích BC phiên.")
-      },
-      { status: 400 }
-    );
+      }
+    });
   }
 
   try {
     const source = await loadMcpSessionReportSource({ sessionId });
     if (source.origin !== "snapshot" || !source.snapshotId) {
-      return Response.json(
-        {
-          ok: false,
+      return apiErrorResponse("SESSION_REPORT_SNAPSHOT_REQUIRED", {
+        requestId,
+        status: 409,
+        details: {
           source: "missing_snapshot",
-          error: "session_report_snapshot_required",
+          reportSource: source.origin,
           result: fallbackResult(
             "BC phiên chưa có snapshot chính thức. Hãy rebuild BC trước khi chạy AI."
           )
-        },
-        { status: 409, headers: { "Cache-Control": "no-store" } }
-      );
+        }
+      });
     }
 
     const snapshot = buildSessionReportExportPayload(source);
@@ -236,62 +265,65 @@ export async function POST(request: Request) {
     const raw = object(parseJson(responseText));
     const result = normalizeResult(extractResult(raw));
     const agentOk = response.ok && raw.ok !== false;
-    const agentSource = text(raw.source) || "mcp_report_agent_url";
+    const agentSource = text(raw.source) || "mcp_report_agent";
 
     if (!agentOk) {
-      return Response.json(
-        {
-          ok: false,
+      return apiErrorResponse("REPORT_AGENT_REJECTED", {
+        requestId,
+        status: 502,
+        retryable: true,
+        details: {
           source: agentSource,
-          status: response.status,
+          upstreamStatus: response.status,
           result,
           reportSource: source.origin,
           snapshotId: source.snapshotId,
-          persisted: false,
-          receivedAt: new Date().toISOString()
-        },
-        { status: 502, headers: { "Cache-Control": "no-store" } }
-      );
+          persisted: false
+        }
+      });
     }
 
-    const saved = await persistAgentResult(sessionId, {
-      schemaVersion: "mcp.session-report.ai-result.v1",
-      source: agentSource,
-      status: response.status,
-      result,
-      generatedAt: new Date().toISOString()
-    });
-
-    return Response.json(
+    const saved = await persistAgentResult(
+      sessionId,
       {
-        ok: true,
+        schemaVersion: "mcp.session-report.ai-result.v1",
+        source: agentSource,
+        status: response.status,
+        result,
+        generatedAt: new Date().toISOString()
+      },
+      requestId
+    );
+
+    return apiSuccessResponse(
+      {
         source: agentSource,
         status: response.status,
         result,
         reportSource: source.origin,
         snapshotId: source.snapshotId,
         persisted: true,
-        aiAnalyzedAt: saved.analyzedAt,
-        receivedAt: new Date().toISOString()
+        aiAnalyzedAt: saved.analyzedAt
       },
-      { headers: { "Cache-Control": "no-store" } }
+      { requestId }
     );
   } catch (error) {
-    const reason =
-      error instanceof Error
-        ? error.name === "AbortError"
-          ? "Agent phân tích quá thời gian chờ."
-          : error.message
-        : "mcp_report_agent_failed";
-
-    return Response.json(
+    const timedOut = error instanceof Error && error.name === "AbortError";
+    return apiErrorResponse(
+      timedOut ? "REPORT_AGENT_TIMEOUT" : "REPORT_ANALYSIS_FAILED",
       {
-        ok: false,
-        source: "mcp_report_agent_exception",
-        error: reason,
-        result: fallbackResult(reason)
-      },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+        requestId,
+        status: timedOut ? 504 : 500,
+        retryable: timedOut,
+        details: {
+          source: "mcp_report_agent_exception",
+          result: fallbackResult(
+            timedOut
+              ? "Agent phân tích quá thời gian chờ."
+              : "Không thể hoàn tất phân tích báo cáo."
+          )
+        }
+      }
     );
   }
 }

@@ -1,6 +1,12 @@
 import http from "node:http";
 import { corsHeaders, resolveCorsOrigin } from "./cors.js";
 import {
+  canonicalErrorPayload,
+  canonicalSuccessPayload,
+  normalizeApiPayload,
+  parseJsonPayload
+} from "./api-contract.js";
+import {
   authenticateProxy,
   buildRequestContext,
   forwardedContextHeaders,
@@ -9,6 +15,7 @@ import {
 import { handleTransitionalApi } from "./transitional-api.js";
 
 const PUBLIC_HEALTH_PATHS = new Set(["/", "/health", "/api/health"]);
+const MAX_UPSTREAM_RESPONSE_BYTES = 16 * 1024 * 1024;
 const REQUEST_HEADER_BLOCKLIST = new Set([
   "connection",
   "host",
@@ -21,25 +28,15 @@ const REQUEST_HEADER_BLOCKLIST = new Set([
   "x-actor-type",
   "x-actor-authentication"
 ]);
-const RESPONSE_HEADER_BLOCKLIST = new Set([
-  "connection",
-  "access-control-allow-origin",
-  "access-control-allow-methods",
-  "access-control-allow-headers",
-  "access-control-max-age",
-  "access-control-allow-credentials",
-  "vary"
-]);
 
-function json(res, statusCode, payload, requestId, origin = null, extraHeaders = {}) {
+function json(res, statusCode, payload, requestId, origin = null) {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
     "Cache-Control": "no-store",
     "X-Request-Id": requestId,
-    ...corsHeaders(origin),
-    ...extraHeaders
+    ...corsHeaders(origin)
   });
   res.end(body);
 }
@@ -53,24 +50,12 @@ function noContent(res, requestId, origin = null) {
   res.end();
 }
 
-function errorPayload(error, requestId) {
+function healthData(config) {
   return {
-    ok: false,
-    error: error instanceof Error ? error.message : "foundation_boundary_failed",
-    requestId,
-    receivedAt: new Date().toISOString()
-  };
-}
-
-function healthPayload(config, requestId) {
-  return {
-    ok: true,
     service: config.service,
     installationConfigured: Boolean(config.installationId && config.nppCode),
     providerConfigured: Boolean(config.supabaseUrl && config.supabaseServiceRoleKey),
-    authBoundary: config.authMode,
-    requestId,
-    receivedAt: new Date().toISOString()
+    authBoundary: config.authMode
   };
 }
 
@@ -88,20 +73,20 @@ function upstreamHeaders(req, context, config) {
   return headers;
 }
 
-function responseHeaders(headers, requestId, origin) {
-  const output = {};
-  for (const [name, value] of Object.entries(headers)) {
-    if (value === undefined || RESPONSE_HEADER_BLOCKLIST.has(name.toLowerCase())) continue;
-    output[name] = value;
-  }
-  output["x-request-id"] = requestId;
-  Object.assign(output, corsHeaders(origin));
-  output["cache-control"] = "no-store";
-  return output;
+function writeNormalized(res, normalized, requestId, origin) {
+  json(res, normalized.statusCode, normalized.payload, requestId, origin);
 }
 
 function proxyToLegacy(req, res, url, context, origin, config) {
   return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return false;
+      finished = true;
+      resolve();
+      return true;
+    };
+
     const upstream = http.request(
       {
         host: config.internalHost,
@@ -111,12 +96,58 @@ function proxyToLegacy(req, res, url, context, origin, config) {
         headers: upstreamHeaders(req, context, config)
       },
       (upstreamResponse) => {
-        res.writeHead(
-          upstreamResponse.statusCode || 502,
-          responseHeaders(upstreamResponse.headers, context.requestId, origin)
-        );
-        upstreamResponse.pipe(res);
-        upstreamResponse.on("end", resolve);
+        const chunks = [];
+        let size = 0;
+
+        upstreamResponse.on("data", (chunk) => {
+          if (finished) return;
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          size += buffer.length;
+          if (size > MAX_UPSTREAM_RESPONSE_BYTES) {
+            upstreamResponse.destroy();
+            if (finish()) {
+              writeNormalized(
+                res,
+                canonicalErrorPayload(
+                  { code: "UPSTREAM_RESPONSE_INVALID", statusCode: 502 },
+                  { requestId: context.requestId, receivedAt: context.receivedAt, status: 502 }
+                ),
+                context.requestId,
+                origin
+              );
+            }
+            return;
+          }
+          chunks.push(buffer);
+        });
+
+        upstreamResponse.on("end", () => {
+          if (!finish()) return;
+          const parsed = parseJsonPayload(Buffer.concat(chunks).toString("utf8"));
+          if (!parsed.ok) {
+            writeNormalized(
+              res,
+              canonicalErrorPayload(
+                { code: "UPSTREAM_RESPONSE_INVALID", statusCode: 502 },
+                { requestId: context.requestId, receivedAt: context.receivedAt, status: 502 }
+              ),
+              context.requestId,
+              origin
+            );
+            return;
+          }
+
+          writeNormalized(
+            res,
+            normalizeApiPayload(parsed.value, {
+              status: upstreamResponse.statusCode || 502,
+              requestId: context.requestId,
+              receivedAt: context.receivedAt
+            }),
+            context.requestId,
+            origin
+          );
+        });
       }
     );
 
@@ -125,12 +156,21 @@ function proxyToLegacy(req, res, url, context, origin, config) {
     });
 
     upstream.on("error", (error) => {
+      if (!finish()) return;
       if (!res.headersSent) {
-        json(res, 502, errorPayload(error, context.requestId), context.requestId, origin);
+        writeNormalized(
+          res,
+          canonicalErrorPayload(error, {
+            requestId: context.requestId,
+            receivedAt: context.receivedAt,
+            status: error.message === "legacy_upstream_timeout" ? 504 : 502
+          }),
+          context.requestId,
+          origin
+        );
       } else {
         res.destroy(error);
       }
-      resolve();
     });
 
     req.on("aborted", () => upstream.destroy(new Error("client_aborted")));
@@ -141,6 +181,7 @@ function proxyToLegacy(req, res, url, context, origin, config) {
 export function createFoundationGateway(config) {
   return http.createServer(async (req, res) => {
     const requestId = normalizeRequestId(req.headers["x-request-id"]);
+    const receivedAt = new Date().toISOString();
     req.headers["x-request-id"] = requestId;
     let origin = null;
 
@@ -154,7 +195,13 @@ export function createFoundationGateway(config) {
       }
 
       if (PUBLIC_HEALTH_PATHS.has(url.pathname)) {
-        json(res, 200, healthPayload(config, requestId), requestId, origin);
+        json(
+          res,
+          200,
+          canonicalSuccessPayload(healthData(config), { requestId, receivedAt }),
+          requestId,
+          origin
+        );
         return;
       }
 
@@ -164,10 +211,13 @@ export function createFoundationGateway(config) {
 
       const transitional = await handleTransitionalApi(req, url, context, config);
       if (transitional) {
-        json(
+        writeNormalized(
           res,
-          transitional.statusCode,
-          transitional.payload,
+          normalizeApiPayload(transitional.payload, {
+            status: transitional.statusCode,
+            requestId: context.requestId,
+            receivedAt: context.receivedAt
+          }),
           context.requestId,
           origin
         );
@@ -176,8 +226,13 @@ export function createFoundationGateway(config) {
 
       await proxyToLegacy(req, res, url, context, origin, config);
     } catch (error) {
-      const statusCode = Number(error?.statusCode || 500);
-      json(res, statusCode, errorPayload(error, requestId), requestId, origin);
+      const status = Number(error?.statusCode || 500);
+      writeNormalized(
+        res,
+        canonicalErrorPayload(error, { requestId, receivedAt, status }),
+        requestId,
+        origin
+      );
     }
   });
 }

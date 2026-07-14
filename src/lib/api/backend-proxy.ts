@@ -1,6 +1,9 @@
-import { randomUUID } from "node:crypto";
+import {
+  apiErrorResponse,
+  canonicalizeUpstreamResponse,
+  normalizeApiRequestId
+} from "@/lib/api/api-contract";
 
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 const DEVELOPMENT_BACKEND_API_BASE_URL = "http://127.0.0.1:3001";
 
 function text(value: unknown) {
@@ -26,11 +29,6 @@ function normalizeHttpBaseUrl(value: string, name: string) {
   return url.toString().replace(/\/+$/, "");
 }
 
-function normalizeRequestId(value: unknown) {
-  const candidate = text(value);
-  return REQUEST_ID_PATTERN.test(candidate) ? candidate : `req_${randomUUID()}`;
-}
-
 export function backendApiBaseUrl() {
   const configured = text(process.env.BACKEND_API_BASE_URL);
   if (configured) return normalizeHttpBaseUrl(configured, "BACKEND_API_BASE_URL");
@@ -41,13 +39,16 @@ export function backendApiBaseUrl() {
 type BackendHeaderOptions = {
   hasBody?: boolean;
   contentType?: string;
+  requestId?: string;
 };
 
 export function backendApiRequestHeaders(
   request?: Request,
   options: BackendHeaderOptions = {}
 ) {
-  const requestId = normalizeRequestId(request?.headers.get("x-request-id"));
+  const requestId = normalizeApiRequestId(
+    options.requestId || request?.headers.get("x-request-id")
+  );
   const headers: Record<string, string> = {
     Accept: "application/json",
     "X-Backend-Token": requiredServerEnv("BACKEND_API_TOKEN"),
@@ -76,54 +77,43 @@ export async function proxyBackendRequest(
   path: string,
   method = request.method
 ) {
-  const sourceUrl = new URL(request.url);
-  const targetUrl = new URL(path, `${backendApiBaseUrl()}/`);
+  const requestId = normalizeApiRequestId(request.headers.get("x-request-id"));
 
-  sourceUrl.searchParams.forEach((value, key) => {
-    targetUrl.searchParams.append(key, value);
-  });
-
-  const upperMethod = method.toUpperCase();
-  const hasBody = upperMethod !== "GET" && upperMethod !== "HEAD";
-  const body = hasBody ? await request.text() : undefined;
-  const { headers, requestId } = backendApiRequestHeaders(request, {
-    hasBody: Boolean(body),
-    contentType: request.headers.get("content-type") || undefined
-  });
-
-  let response: Response;
   try {
-    response = await fetch(targetUrl, {
+    const sourceUrl = new URL(request.url);
+    const targetUrl = new URL(path, `${backendApiBaseUrl()}/`);
+
+    sourceUrl.searchParams.forEach((value, key) => {
+      targetUrl.searchParams.append(key, value);
+    });
+
+    const upperMethod = method.toUpperCase();
+    const hasBody = upperMethod !== "GET" && upperMethod !== "HEAD";
+    const body = hasBody ? await request.text() : undefined;
+    const { headers } = backendApiRequestHeaders(request, {
+      requestId,
+      hasBody: Boolean(body),
+      contentType: request.headers.get("content-type") || undefined
+    });
+
+    const response = await fetch(targetUrl, {
       method: upperMethod,
       cache: "no-store",
       headers,
       body: body || undefined
     });
-  } catch {
-    return Response.json(
+
+    return canonicalizeUpstreamResponse(response, requestId);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "backend_unavailable";
+    const configFailure = reason.startsWith("missing_") || reason.startsWith("invalid_");
+    return apiErrorResponse(
+      configFailure ? "BACKEND_PROXY_CONFIG_INVALID" : "BACKEND_UNAVAILABLE",
       {
-        ok: false,
-        error: "backend_unavailable",
         requestId,
-        receivedAt: new Date().toISOString()
-      },
-      {
-        status: 502,
-        headers: { "Cache-Control": "no-store", "X-Request-Id": requestId }
+        status: configFailure ? 500 : 502,
+        retryable: !configFailure
       }
     );
   }
-
-  const responseBody = await response.text();
-  const responseRequestId = response.headers.get("x-request-id") || requestId;
-  return new Response(responseBody, {
-    status: response.status,
-    headers: {
-      "Content-Type":
-        response.headers.get("content-type") ||
-        "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Request-Id": responseRequestId
-    }
-  });
 }
