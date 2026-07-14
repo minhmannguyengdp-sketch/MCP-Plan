@@ -1,7 +1,8 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
+const findingsPath = path.join(root, "runtime-hardcode-findings.txt");
 const scanRoots = ["src", "apps/backend"];
 const rootFiles = [".env.example", "next.config.mjs", "package.json", "vercel.json"];
 const ignoredDirectories = new Set(["node_modules", ".next", "coverage", "dist", "build"]);
@@ -47,10 +48,14 @@ for (const relativePath of files) {
   });
 }
 
+const report = findings.length
+  ? `runtime_hardcode_audit_failed\n${findings.map((finding) => `- ${finding}`).join("\n")}\n`
+  : `runtime_hardcode_audit_passed files=${files.size}\n`;
+await writeFile(findingsPath, report, "utf8");
+
 if (findings.length) {
-  console.error("runtime_hardcode_audit_failed");
-  findings.forEach((finding) => console.error(`- ${finding}`));
+  console.error(report.trimEnd());
   process.exit(1);
 }
 
-console.log(`runtime_hardcode_audit_passed files=${files.size}`);
+console.log(report.trimEnd());
