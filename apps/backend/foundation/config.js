@@ -25,6 +25,23 @@ function identifier(env, name) {
   return value;
 }
 
+function httpUrl(env, name, { httpsInProduction = false, nodeEnv = "development" } = {}) {
+  const value = required(env, name);
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    fail(`invalid_${name.toLowerCase()}`, `${name} must be a valid URL`);
+  }
+  if (!/^https?:$/.test(parsed.protocol)) {
+    fail(`invalid_${name.toLowerCase()}`, `${name} must use http or https`);
+  }
+  if (httpsInProduction && nodeEnv === "production" && parsed.protocol !== "https:") {
+    fail(`${name.toLowerCase()}_https_required`, `${name} must use https in production`);
+  }
+  return parsed.toString().replace(/\/+$/, "");
+}
+
 function port(value, fallback, name) {
   const raw = text(value);
   const parsed = raw ? Number(raw) : fallback;
@@ -120,6 +137,8 @@ export function loadFoundationConfig(env = process.env) {
     legacyActorId,
     backendApiToken,
     authMode,
+    supabaseUrl: httpUrl(env, "SUPABASE_URL", { httpsInProduction: true, nodeEnv }),
+    supabaseServiceRoleKey: required(env, "SUPABASE_SERVICE_ROLE_KEY"),
     corsOrigins: parseCorsOrigins(env.CORS_ORIGINS, { nodeEnv }),
     upstreamTimeoutMs: positiveInteger(env.UPSTREAM_TIMEOUT_MS, 65000, "UPSTREAM_TIMEOUT_MS")
   });
@@ -136,6 +155,7 @@ export function publicFoundationConfig(config) {
     publicPort: config.publicPort,
     internalHost: config.internalHost,
     internalPort: config.internalPort,
+    providerConfigured: Boolean(config.supabaseUrl && config.supabaseServiceRoleKey),
     corsOrigins: [...config.corsOrigins]
   });
 }
