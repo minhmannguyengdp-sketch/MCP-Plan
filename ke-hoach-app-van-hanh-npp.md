@@ -3,7 +3,8 @@
 > Trạng thái: **ACTIVE MASTER PLAN**  
 > Bắt đầu phase: **2026-07-14**  
 > MCP v1: **CORE COMPLETE / FROZEN**  
-> Tài liệu khóa MCP: [`MCP_EXECUTION_PLAN.md`](./MCP_EXECUTION_PLAN.md)
+> Tài liệu khóa MCP: [`MCP_EXECUTION_PLAN.md`](./MCP_EXECUTION_PLAN.md)  
+> Foundation bắt buộc: [`docs/npp-plan/FOUNDATION_MULTI_TENANT_PORTABILITY.md`](./docs/npp-plan/FOUNDATION_MULTI_TENANT_PORTABILITY.md)
 
 ## 1. Tuyên bố chuyển phase
 
@@ -21,8 +22,34 @@ Từ thời điểm này:
 3. MCP chỉ được sửa khi có lỗi thật, vấn đề hiệu năng, bảo mật hoặc nâng cấp có migration/version/smoke test rõ ràng.
 4. Trọng tâm phát triển chuyển sang **MCP-Plan như một ứng dụng quản lý NPP hoàn chỉnh**.
 5. MCP trở thành một phân hệ vận hành thị trường nằm trong App NPP tổng thể.
+6. Sản phẩm phải được thiết kế để có thể bán cho nhiều NPP, dùng chung hạ tầng hoặc tách riêng hạ tầng tùy khách hàng.
 
-## 2. Bản đồ module App NPP
+## 2. Mục tiêu sản phẩm nhiều NPP
+
+Một codebase và một contract nghiệp vụ phải chạy được ở cả ba mode:
+
+```text
+Mode A — Shared SaaS
+Nhiều NPP dùng chung frontend, backend và database; dữ liệu tách bằng tenant_id.
+
+Mode B — Shared application, isolated database
+Dùng chung code/backend nhưng mỗi NPP có database hoặc schema riêng.
+
+Mode C — Dedicated deployment
+Một NPP có backend, database, storage và cấu hình riêng.
+```
+
+Quy tắc khóa:
+
+- Không fork logic nghiệp vụ riêng cho từng NPP.
+- Không để frontend phụ thuộc vào Supabase, tên bảng hoặc cấu trúc backend hiện tại.
+- Không để public API trở thành bản sao của database schema.
+- Chuyển một NPP sang DB/backend khác chỉ thay adapter, cấu hình installation và luồng migrate dữ liệu; domain rules và frontend contract không đổi.
+- Có thể dùng chung MCP, DB và backend ở giai đoạn đầu, nhưng mọi dữ liệu/nghiệp vụ mới phải có tenant ownership rõ ràng.
+
+Chi tiết bắt buộc nằm tại [`FOUNDATION_MULTI_TENANT_PORTABILITY.md`](./docs/npp-plan/FOUNDATION_MULTI_TENANT_PORTABILITY.md).
+
+## 3. Bản đồ module App NPP
 
 Thứ tự hiển thị/nghiệp vụ chính:
 
@@ -43,6 +70,7 @@ Mỗi module có một execution plan riêng để theo dõi, bổ sung và khó
 
 | Mã | Module | Plan | Trạng thái |
 |---|---|---|---|
+| FOUNDATION | Multi-tenant và portability | [`docs/npp-plan/FOUNDATION_MULTI_TENANT_PORTABILITY.md`](./docs/npp-plan/FOUNDATION_MULTI_TENANT_PORTABILITY.md) | **Required first** |
 | NPP-00 | Tổng quan điều hành | [`docs/npp-plan/00-tong-quan-dieu-hanh.md`](./docs/npp-plan/00-tong-quan-dieu-hanh.md) | Planned |
 | NPP-01 | Khách hàng | [`docs/npp-plan/01-khach-hang.md`](./docs/npp-plan/01-khach-hang.md) | Planned |
 | NPP-02 | Sản phẩm | [`docs/npp-plan/02-san-pham.md`](./docs/npp-plan/02-san-pham.md) | Planned |
@@ -54,7 +82,26 @@ Mỗi module có một execution plan riêng để theo dõi, bổ sung và khó
 | NPP-08 | Báo cáo | [`docs/npp-plan/08-bao-cao.md`](./docs/npp-plan/08-bao-cao.md) | Planned |
 | NPP-09 | Cài đặt và phân quyền | [`docs/npp-plan/09-cai-dat-phan-quyen.md`](./docs/npp-plan/09-cai-dat-phan-quyen.md) | Foundation |
 
-## 3. Nguyên tắc kiến trúc bắt buộc
+## 4. Kiến trúc mục tiêu bắt buộc
+
+Không coi Supabase/VPS hiện tại là domain architecture. Đó chỉ là adapter đang dùng.
+
+```text
+Browser/PWA
+  -> Public API contract / Next.js proxy
+    -> Backend transport/controllers
+      -> Application use cases
+        -> Domain rules/invariants
+          -> Ports/interfaces
+            -> Infrastructure adapters
+               - PostgreSQL/Supabase hiện tại
+               - Auth provider
+               - Object storage
+               - Queue/event
+               - DB/backend khác trong tương lai
+```
+
+Runtime hiện tại:
 
 ```text
 Browser/PWA
@@ -63,20 +110,63 @@ Browser/PWA
   -> Supabase/PostgreSQL
 ```
 
+Nguyên tắc:
+
 1. Frontend không tự quyết định logic nghiệp vụ quan trọng.
-2. Mutation có ảnh hưởng đơn hàng, kho, công nợ, quyền hoặc audit phải chạy qua VPS backend.
+2. Mutation có ảnh hưởng đơn hàng, kho, công nợ, quyền hoặc audit phải chạy qua backend.
 3. Mỗi thay đổi schema phải có migration rõ ràng; không sửa DB thủ công rồi bỏ quên migration.
 4. Không chắp vá theo triệu chứng. Phải tái hiện lỗi, tìm đúng tầng chịu trách nhiệm, sửa logic và thêm test hồi quy.
 5. Không dùng một cột trạng thái để gánh nhiều loại sự thật khác nhau.
 6. Dữ liệu đã phát sinh ảnh hưởng kho/công nợ không hard-delete; dùng hủy, đảo bút toán hoặc chứng từ điều chỉnh.
 7. API mutation phải idempotent ở các luồng có nguy cơ gọi lặp.
-8. Mọi thao tác quan trọng phải có `created_by`, `updated_by`, thời gian và audit/event log.
-9. Các báo cáo lấy dữ liệu từ nguồn nghiệp vụ đã khóa, không tự tính theo logic riêng khác với backend.
-10. Triển khai theo vertical slice hoàn chỉnh: migration -> backend contract -> UI -> test -> deploy -> production smoke.
+8. Mọi thao tác quan trọng phải có actor, thời gian và audit/event log.
+9. Báo cáo lấy dữ liệu từ nguồn nghiệp vụ đã khóa hoặc read model tái tạo được.
+10. Triển khai theo vertical slice: migration -> backend contract -> UI -> test -> deploy -> production smoke.
+11. Mọi request nghiệp vụ phải chạy trong `TenantContext` được backend xác thực.
+12. Không tin `tenantId` do frontend gửi nếu chưa kiểm tra membership.
+13. Mọi bảng nghiệp vụ mới mặc định có `tenant_id NOT NULL`.
+14. Unique, FK, index, cache, idempotency, storage path và job phải tenant-scoped.
+15. Domain/application không import Supabase SDK, SQL, Next.js response hoặc Express response.
+16. Public API chỉ trả DTO và error code trung tính; không lộ tên bảng, SQL, RPC hoặc lỗi provider.
+17. RLS là defense-in-depth; backend authorization và tenant filtering vẫn bắt buộc.
+18. Service role không được bypass permission nghiệp vụ hoặc tenant scope.
+19. Mọi adapter DB/backend mới phải chạy cùng repository contract tests và canonical API tests.
+20. Phải có export/import versioned để tách riêng một NPP khỏi shared infrastructure.
 
-## 4. Tách miền dữ liệu, không nhập nhằng
+## 5. Tenant model tối thiểu
 
-Các miền chính:
+Khái niệm:
+
+```text
+tenant / organization / distributor = một NPP độc lập
+membership                        = tài khoản được quyền vào NPP
+installation                      = hạ tầng đang phục vụ NPP
+branch                            = chi nhánh
+warehouse                         = kho
+actor                             = người/system job thực hiện thao tác
+```
+
+Mỗi request nghiệp vụ có context trung tính:
+
+```text
+tenantId
+actorId
+membershipId
+branch/warehouse scope
+roles/permissions
+requestId
+```
+
+Một tài khoản được phép có membership ở một hoặc nhiều NPP. UI phase đầu có thể đơn giản hóa thành một NPP, nhưng data model và backend không được khóa cứng giả định đó.
+
+Đối với MCP legacy chưa có tenant model đầy đủ:
+
+- trước mắt dùng `fixedTenantContext` do backend cấu hình, không cho client đổi;
+- không thêm field âm thầm vào MCP v1 frozen;
+- khi bán đa NPP phải audit và tạo migration/backfill/version contract rõ ràng;
+- chạy lại full MCP smoke và tenant isolation test.
+
+## 6. Tách miền dữ liệu, không nhập nhằng
 
 ```text
 MCP market operations
@@ -90,6 +180,7 @@ Employee and responsibility
 Planning and action
 Reporting snapshots/read models
 Identity, role and permission
+Tenant, installation and entitlement
 Audit and configuration
 ```
 
@@ -100,23 +191,73 @@ Quy tắc liên kết:
 - Giao hàng là nguồn sự thật về số lượng thực giao.
 - Tồn kho là nguồn sự thật về nhập/xuất/giữ/điều chỉnh.
 - Công nợ là nguồn sự thật về phải thu, thu tiền, hoàn tiền và bù trừ.
-- Dashboard và báo cáo chỉ đọc từ các nguồn sự thật trên hoặc read model được tái tạo được.
+- Dashboard và báo cáo chỉ đọc từ các nguồn sự thật trên hoặc read model tái tạo được.
+- Tenant/installation quyết định dữ liệu nằm ở đâu, không thay đổi ý nghĩa nghiệp vụ của dữ liệu.
 
-## 5. Thứ tự triển khai đúng theo phụ thuộc
+## 7. API contract trung tính
 
-Thứ tự menu không đồng nghĩa thứ tự xây kỹ thuật. Thứ tự triển khai:
+Success wrapper:
 
-### Phase A — Khóa nền tảng dùng chung
-
-```text
-A1. Audit user/role hiện có
-A2. Chốt tenant/NPP scope
-A3. Chốt actor/audit/event contract
-A4. Chốt money, quantity, unit, timezone, document numbering
-A5. Chốt permission matrix tối thiểu
+```json
+{
+  "data": {},
+  "receivedAt": "2026-07-14T00:00:00.000Z",
+  "requestId": "req_..."
+}
 ```
 
-Không cần hoàn thiện toàn bộ màn hình cài đặt trước, nhưng nền quyền và audit phải có trước mutation quan trọng.
+Error wrapper:
+
+```json
+{
+  "error": {
+    "code": "ORDER_ALREADY_CONFIRMED",
+    "message": "Đơn hàng đã được xác nhận.",
+    "details": {},
+    "retryable": false
+  },
+  "receivedAt": "2026-07-14T00:00:00.000Z",
+  "requestId": "req_..."
+}
+```
+
+Cấm trả trực tiếp:
+
+```text
+Supabase/PostgREST/PostgreSQL error nguyên bản
+tên bảng/cột/RPC
+stack trace
+provider URL hoặc cấu hình hạ tầng
+SELECT * row chưa qua mapper
+```
+
+Luồng chuẩn:
+
+```text
+request DTO -> application command/query -> domain result
+-> response DTO -> provider-neutral HTTP response
+```
+
+## 8. Thứ tự triển khai đúng theo phụ thuộc
+
+Thứ tự menu không đồng nghĩa thứ tự xây kỹ thuật.
+
+### Phase A — Khóa foundation multi-tenant và portability
+
+```text
+A1. Audit auth/user/role và dữ liệu hiện có
+A2. Chốt tenant/organization/membership/installation model
+A3. Chốt TenantContext và backend middleware
+A4. Chốt actor/audit/event contract
+A5. Chốt canonical success/error DTO
+A6. Chốt repository/transaction/idempotency ports
+A7. Chốt tenant_id, unique, FK, index, cache, storage và job rules
+A8. Chốt money, quantity, unit, timezone và document numbering
+A9. Chốt permission matrix tối thiểu
+A10. Chốt export/import/reconciliation contract
+```
+
+Không code mutation lõi mới trước khi các mục A2-A7 được khóa.
 
 ### Phase B — Chuẩn hóa master data
 
@@ -137,9 +278,10 @@ C3. Sửa/hủy có version và audit
 C4. Giao đủ/giao thiếu/giao nhiều lần
 C5. Trả hàng/đổi hàng
 C6. Liên kết tồn kho và công nợ
+C7. Repository contract và tenant isolation tests
 ```
 
-Đây là phase ưu tiên cao nhất vì các module kho, công nợ và báo cáo đều phụ thuộc logic đơn.
+Đây là phase nghiệp vụ ưu tiên cao nhất, nhưng chỉ bắt đầu sau foundation multi-tenant tối thiểu.
 
 ### Phase D — Tồn kho và giao nhận
 
@@ -170,9 +312,10 @@ F2. Nhân viên và hiệu suất
 F3. Kế hoạch/action
 F4. Báo cáo
 F5. Cài đặt/phân quyền hoàn chỉnh
+F6. Tenant export/import và dedicated deployment smoke
 ```
 
-## 6. Quy tắc đặc biệt cho đơn hàng
+## 9. Quy tắc đặc biệt cho đơn hàng
 
 Đơn hàng không dùng một trạng thái duy nhất. Tối thiểu phải tách:
 
@@ -212,29 +355,36 @@ Các trường hợp bắt buộc phải thiết kế trước khi code:
 13. Điều chỉnh giá/chiết khấu sau xác nhận.
 14. Hoàn tiền hoặc bù trừ công nợ.
 15. Đơn từ MCP gọi lại nhiều lần không được duplicate.
+16. Cùng idempotency key ở hai tenant không được va nhau.
+17. Không được tham chiếu customer/product/warehouse thuộc tenant khác.
+18. Canonical order DTO phải giống nhau dù chạy shared DB hay dedicated DB.
 
-Plan chi tiết nằm tại [`docs/npp-plan/03-don-hang.md`](./docs/npp-plan/03-don-hang.md).
+Plan chi tiết: [`docs/npp-plan/03-don-hang.md`](./docs/npp-plan/03-don-hang.md).
 
-## 7. Mẫu theo dõi bắt buộc cho từng module
+## 10. Mẫu theo dõi bắt buộc cho từng module
 
-Mỗi plan module phải duy trì các mục:
+Mỗi plan module phải duy trì:
 
 ```text
 1. Mục tiêu và phạm vi
 2. Ngoài phạm vi
 3. Nguồn dữ liệu hiện có
-4. Contract cần khóa
-5. Data model/migration
-6. Backend API
-7. UI/UX
-8. Permission matrix
-9. Audit/event log
-10. Test matrix
-11. Migration/backfill
-12. Deploy/smoke/rollback
-13. Open questions
-14. Decision log
-15. Checklist trạng thái
+4. Tenant ownership và installation behavior
+5. Contract cần khóa
+6. Canonical request/response DTO
+7. Data model/migration
+8. Ports và infrastructure adapters
+9. Backend API
+10. UI/UX
+11. Permission matrix
+12. Audit/event log
+13. Tenant isolation/repository contract tests
+14. Migration/backfill
+15. Export/import nếu có
+16. Deploy/smoke/rollback
+17. Open questions
+18. Decision log
+19. Checklist trạng thái
 ```
 
 Trạng thái task chuẩn:
@@ -244,21 +394,25 @@ TODO -> DESIGNING -> CONTRACT LOCKED -> IMPLEMENTING
 -> REVIEW -> VERIFIED -> DEPLOYED -> FROZEN
 ```
 
-Không đánh dấu `DONE` chỉ vì UI đã hiện; phải đủ DB, backend, permission, test và production smoke.
+Không đánh dấu `DONE` chỉ vì UI đã hiện; phải đủ DB, backend, permission, tenant isolation, test và production smoke.
 
-## 8. Definition of Ready
+## 11. Definition of Ready
 
 Một module chỉ được bắt đầu code mutation khi:
 
 - Đã audit bảng/API/UI hiện có.
 - Đã vẽ luồng chuẩn và luồng ngoại lệ.
 - Đã xác định nguồn sự thật.
+- Đã chốt tenant ownership và tenant scope.
+- Đã chốt canonical DTO, không trả thẳng DB row.
+- Đã chốt port/repository cần dùng và adapter hiện tại.
 - Đã chốt trạng thái và transition hợp lệ.
 - Đã chốt quyền ai được xem/tạo/sửa/hủy/duyệt.
 - Đã có migration plan và rollback/forward-fix plan.
-- Đã có acceptance test cho happy path và edge case.
+- Đã có acceptance test cho happy path, edge case và cross-tenant attack.
+- Đã xác định cách export/import khi entity thuộc tenant portability scope.
 
-## 9. Definition of Done
+## 12. Definition of Done
 
 Một vertical slice chỉ hoàn thành khi:
 
@@ -266,46 +420,61 @@ Một vertical slice chỉ hoàn thành khi:
 - Backend áp dụng đúng transaction và idempotency.
 - Frontend không bypass backend mutation.
 - Permission deny-by-default hoạt động.
+- Tenant A không thể đọc hoặc mutate dữ liệu Tenant B.
+- Unique/FK/cache/idempotency/storage/job không bị va chéo tenant.
+- Domain/application không phụ thuộc provider SDK.
+- Public API không lộ schema/provider.
+- Repository contract và canonical API tests pass.
 - Audit/event đầy đủ.
-- Unit/integration/contract test pass.
+- Unit/integration/contract/security tests pass.
 - Build pass.
 - Deploy VPS/Vercel đúng phần liên quan.
-- Production smoke pass.
+- Production smoke pass cho mode triển khai đang hỗ trợ.
 - Tài liệu và decision log được cập nhật.
 
-## 10. Quy tắc thay đổi contract
+## 13. Quy tắc thay đổi contract
 
 Khi thay đổi logic đã khóa:
 
 1. Ghi rõ lý do nghiệp vụ.
-2. Xác định dữ liệu cũ bị ảnh hưởng.
-3. Tạo migration/version mới.
-4. Cập nhật API contract.
-5. Thêm test hồi quy.
-6. Có kế hoạch deploy và rollback/forward-fix.
-7. Cập nhật module plan và master plan.
-8. Không sửa âm thầm để chữa một màn hình riêng.
+2. Xác định tenant và dữ liệu cũ bị ảnh hưởng.
+3. Xác định thay đổi domain contract hay chỉ infrastructure adapter.
+4. Tạo migration/version mới; không sửa migration đã chạy.
+5. Cập nhật canonical API contract nếu behavior/output đổi.
+6. Cập nhật adapters liên quan nhưng không fork business rule.
+7. Thêm test hồi quy, repository contract và tenant isolation test.
+8. Có kế hoạch deploy và rollback/forward-fix.
+9. Cập nhật module plan, foundation và master plan.
+10. Không sửa âm thầm để chữa một màn hình hoặc một NPP riêng.
 
-## 11. Mốc triển khai gần nhất
+## 14. Mốc triển khai gần nhất
 
 ```text
-[ ] NPP-F01 Audit toàn bộ order/order_items/API/UI hiện có
-[ ] NPP-F02 Khóa order lifecycle và transition matrix
-[ ] NPP-F03 Khóa product/unit/price contract tối thiểu cho đơn
-[ ] NPP-F04 Khóa warehouse/inventory movement contract tối thiểu
-[ ] NPP-F05 Khóa receivable posting contract tối thiểu
-[ ] NPP-F06 Thiết kế migration theo vertical slice đầu tiên
-[ ] NPP-F07 Implement đơn draft -> confirmed với audit/idempotency
-[ ] NPP-F08 Implement giao một phần và backorder
-[ ] NPP-F09 Implement trả/đổi hàng
-[ ] NPP-F10 Kết nối dashboard/read model sau khi nguồn sự thật ổn định
+[ ] NPP-F00 Audit multi-tenant: DB/API/auth/cache/storage/job/MCP legacy
+[ ] NPP-F01 Chốt tenant/membership/installation và TenantContext
+[ ] NPP-F02 Chốt canonical response/error DTO
+[ ] NPP-F03 Chốt repository/transaction/idempotency ports
+[ ] NPP-F04 Tạo tenant isolation và repository contract test harness
+[ ] NPP-F05 Audit toàn bộ order/order_items/API/UI hiện có
+[ ] NPP-F06 Khóa order lifecycle và transition matrix
+[ ] NPP-F07 Khóa product/unit/price contract tối thiểu cho đơn
+[ ] NPP-F08 Khóa warehouse/inventory movement contract tối thiểu
+[ ] NPP-F09 Khóa receivable posting contract tối thiểu
+[ ] NPP-F10 Thiết kế migration theo vertical slice đầu tiên
+[ ] NPP-F11 Implement đơn draft -> confirmed với audit/idempotency/tenant scope
+[ ] NPP-F12 Implement giao một phần và backorder
+[ ] NPP-F13 Implement trả/đổi hàng
+[ ] NPP-F14 Chốt tenant export/import manifest và reconciliation
+[ ] NPP-F15 Kết nối dashboard/read model sau khi nguồn sự thật ổn định
 ```
 
-## 12. Kết luận
+## 15. Kết luận
 
 ```text
 MCP v1 = frozen core, tiếp tục tồn tại như module vận hành thị trường.
-MCP-Plan = App quản lý NPP tổng thể.
-Đơn hàng = miền ưu tiên số 1 và phải khóa logic trước khi mở rộng kho/công nợ.
-Mỗi module = một plan riêng, có contract, checklist, test và decision log độc lập.
+MCP-Plan = App quản lý NPP tổng thể, có thể phục vụ nhiều NPP.
+Shared DB/backend = lựa chọn triển khai hiện tại, không phải ràng buộc domain.
+TenantContext + canonical contract + ports/adapters = nền để chuyển DB/backend.
+Đơn hàng = miền nghiệp vụ ưu tiên số 1 sau khi foundation tối thiểu được khóa.
+Mỗi module = một plan riêng, có contract, tenant scope, test và decision log độc lập.
 ```
