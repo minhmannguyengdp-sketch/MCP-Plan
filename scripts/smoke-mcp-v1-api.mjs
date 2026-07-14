@@ -1,6 +1,7 @@
 const base = String(
   process.env.MCP_API_BASE_URL || "http://127.0.0.1:3001"
 ).replace(/\/+$/, "");
+const backendToken = String(process.env.BACKEND_API_TOKEN || "").trim();
 
 const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const cleanupRouteIds = new Set();
@@ -15,12 +16,22 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function errorCode(payload) {
+  const envelope = object(payload.error);
+  if (envelope.code) return String(envelope.code);
+  if (typeof payload.error === "string" && payload.error) return payload.error;
+  if (payload.message) return String(payload.message);
+  return "request_failed";
+}
+
 async function call(path, init = {}) {
   const response = await fetch(`${base}${path}`, {
     cache: "no-store",
     ...init,
     headers: {
       Accept: "application/json",
+      "X-Backend-Token": backendToken,
+      "X-Request-Id": `mcp_v1_smoke_${stamp}`,
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(init.headers || {})
     }
@@ -33,7 +44,7 @@ async function must(path, init = {}) {
   const result = await call(path, init);
   if (!result.response.ok) {
     throw new Error(
-      `${init.method || "GET"} ${path} -> ${result.response.status}: ${result.payload.error || result.payload.message || "request_failed"}`
+      `${init.method || "GET"} ${path} -> ${result.response.status}: ${errorCode(result.payload)}`
     );
   }
   return object(result.payload.data);
@@ -43,7 +54,7 @@ async function mustConflict(path, init = {}) {
   const result = await call(path, init);
   assert(
     result.response.status === 409,
-    `${init.method || "GET"} ${path} expected 409, got ${result.response.status}: ${result.payload.error || "unknown"}`
+    `${init.method || "GET"} ${path} expected 409, got ${result.response.status}: ${errorCode(result.payload)}`
   );
   return result.payload;
 }
@@ -90,7 +101,7 @@ async function cleanupRoute(routeId) {
   });
   if (!result.response.ok && result.response.status !== 404) {
     throw new Error(
-      `cleanup route ${routeId} failed: ${result.response.status} ${result.payload.error || "unknown"}`
+      `cleanup route ${routeId} failed: ${result.response.status} ${errorCode(result.payload)}`
     );
   }
   cleanupRouteIds.delete(routeId);
@@ -313,6 +324,8 @@ async function frozenEmptySnapshotSmoke() {
 }
 
 try {
+  assert(backendToken, "missing_BACKEND_API_TOKEN");
+
   const healthResult = await call("/api/health");
   assert(healthResult.response.ok, `health_http_${healthResult.response.status}`);
   assert(healthResult.payload.ok === true, "health_not_ok");
@@ -326,6 +339,7 @@ try {
         ok: true,
         base,
         health: true,
+        authBoundary: true,
         fullSession,
         frozenEmptySnapshot
       },
