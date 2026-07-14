@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Canonical MCP-Plan VPS deployer.
+# Install once with:
+#   install -m 755 /var/www/mcp-plan-source/ops/pullmcp /usr/local/bin/pullmcp
+
+SOURCE="${MCP_PLAN_SOURCE:-/var/www/mcp-plan-source}"
+RUNTIME="${MCP_PLAN_RUNTIME:-/var/www/mcp-plan-backend}"
+PM2_NAME="${MCP_PLAN_PM2_NAME:-mcp-plan-backend}"
+PM2_BIN="$(command -v pm2)"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+STAGE="${RUNTIME}.next.${STAMP}"
+BACKUP="${RUNTIME}.backup.${STAMP}"
+SWAPPED=0
+
+cleanup_stage() {
+  rm -rf "$STAGE"
+}
+
+rollback() {
+  trap - ERR
+  echo "Deployment failed; restoring previous MCP runtime..." >&2
+  "$PM2_BIN" delete "$PM2_NAME" >/dev/null 2>&1 || true
+
+  if [[ "$SWAPPED" == "1" && -d "$BACKUP" ]]; then
+    rm -rf "$RUNTIME"
+    mv "$BACKUP" "$RUNTIME"
+    env -i \
+      PATH="$PATH" \
+      HOME="$HOME" \
+      PM2_HOME="${PM2_HOME:-$HOME/.pm2}" \
+      "$PM2_BIN" start "$RUNTIME/server.js" \
+        --name "$PM2_NAME" \
+        --cwd "$RUNTIME"
+    "$PM2_BIN" save
+  fi
+
+  cleanup_stage
+  exit 1
+}
+
+trap rollback ERR
+trap cleanup_stage EXIT
+
+for command_name in git node npm curl ss "$PM2_BIN"; do
+  command -v "$command_name" >/dev/null
+ done
+
+[[ -d "$SOURCE/.git" ]]
+[[ -s "$RUNTIME/.env" ]]
+
+echo "1) Pull source..."
+cd "$SOURCE"
+git fetch origin main
+git reset --hard origin/main
+
+[[ -f "$SOURCE/apps/backend/bootstrap.js" ]]
+[[ -f "$SOURCE/apps/backend/server.js" ]]
+[[ -d "$SOURCE/apps/backend/foundation" ]]
+
+echo "2) Stage complete backend runtime..."
+rm -rf "$STAGE"
+install -d "$STAGE"
+cp -a "$SOURCE/apps/backend/." "$STAGE/"
+install -m 600 "$RUNTIME/.env" "$STAGE/.env"
+
+for backup_env in "$RUNTIME"/.env.backup.*; do
+  [[ -e "$backup_env" ]] || continue
+  cp -a "$backup_env" "$STAGE/"
+done
+
+echo "3) Verify source and exact production environment..."
+cd "$STAGE"
+npm run verify
+
+read -r PUBLIC_PORT INTERNAL_PORT < <(
+  env -i PATH="$PATH" HOME="$HOME" \
+    node --env-file="$STAGE/.env" --input-type=module -e '
+      const { loadFoundationConfig } = await import("./foundation/config.js");
+      const config = loadFoundationConfig(process.env);
+      process.stdout.write(`${config.publicPort} ${config.internalPort}\n`);
+    '
+)
+
+[[ "$PUBLIC_PORT" != "$INTERNAL_PORT" ]]
+
+if ss -lntH | awk '{print $4}' | grep -Eq "(^|:)${INTERNAL_PORT}$"; then
+  echo "LEGACY_INTERNAL_PORT ${INTERNAL_PORT} is already occupied; aborting before downtime." >&2
+  ss -lntp | grep -E ":${INTERNAL_PORT}([[:space:]]|$)" || true
+  exit 1
+fi
+
+echo "runtime_env=OK public=127.0.0.1:${PUBLIC_PORT} legacy=127.0.0.1:${INTERNAL_PORT}"
+
+echo "4) Atomically replace runtime and start Foundation Gateway..."
+mv "$RUNTIME" "$BACKUP"
+mv "$STAGE" "$RUNTIME"
+SWAPPED=1
+
+"$PM2_BIN" delete "$PM2_NAME" >/dev/null 2>&1 || true
+
+env -i \
+  PATH="$PATH" \
+  HOME="$HOME" \
+  PM2_HOME="${PM2_HOME:-$HOME/.pm2}" \
+  "$PM2_BIN" start "$RUNTIME/bootstrap.js" \
+    --name "$PM2_NAME" \
+    --cwd "$RUNTIME"
+
+for _ in $(seq 1 20); do
+  if curl -fsS "http://127.0.0.1:${PUBLIC_PORT}/api/health" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+TOKEN="$(
+  env -i PATH="$PATH" HOME="$HOME" \
+    node --env-file="$RUNTIME/.env" -e 'process.stdout.write(process.env.BACKEND_API_TOKEN || "")'
+)"
+[[ -n "$TOKEN" ]]
+
+HEADERS="$(mktemp)"
+BODY="$(mktemp)"
+trap 'rm -f "$HEADERS" "$BODY"; cleanup_stage' EXIT
+
+echo "5) Smoke Foundation boundary..."
+curl -fsS -D "$HEADERS" \
+  "http://127.0.0.1:${PUBLIC_PORT}/api/health" \
+  -o "$BODY"
+grep -qi '^x-request-id:' "$HEADERS"
+echo "health=200 request_id=OK"
+
+UNAUTH_CODE="$(curl -sS -o "$BODY" -w '%{http_code}' \
+  "http://127.0.0.1:${PUBLIC_PORT}/api/routes")"
+[[ "$UNAUTH_CODE" == "401" ]]
+echo "without_token=401"
+
+AUTH_CODE="$(curl -sS -D "$HEADERS" -o "$BODY" -w '%{http_code}' \
+  -H "X-Backend-Token: $TOKEN" \
+  -H "X-Request-Id: vps_smoke_12345678" \
+  "http://127.0.0.1:${PUBLIC_PORT}/api/routes")"
+[[ "$AUTH_CODE" == 2* ]]
+grep -qi '^x-request-id: vps_smoke_12345678' "$HEADERS"
+echo "with_token=${AUTH_CODE} request_id=OK"
+
+DENIED_CODE="$(curl -sS -o "$BODY" -w '%{http_code}' \
+  -H 'Origin: https://evil.example.com' \
+  -H "X-Backend-Token: $TOKEN" \
+  "http://127.0.0.1:${PUBLIC_PORT}/api/routes")"
+[[ "$DENIED_CODE" == "403" ]]
+echo "denied_origin=403"
+
+"$PM2_BIN" save
+SWAPPED=0
+trap - ERR
+
+echo "6) Process and ports..."
+"$PM2_BIN" describe "$PM2_NAME"
+ss -lntp | grep -E ":${PUBLIC_PORT}|:${INTERNAL_PORT}" || true
+
+echo "F0.2_VPS_SMOKE=PASS"
+echo "Previous runtime backup: $BACKUP"
