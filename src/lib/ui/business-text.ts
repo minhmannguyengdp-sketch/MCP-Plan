@@ -1,4 +1,5 @@
 const REPLACEMENTS: Array<[RegExp, string]> = [
+  [/Từ route master\/report sync/gi, "Đồng bộ từ tuyến và báo cáo"],
   [/route master\/report sync/gi, "Đồng bộ từ tuyến và báo cáo"],
   [/route master/gi, "dữ liệu tuyến"],
   [/report sync/gi, "đồng bộ báo cáo"],
