@@ -77,7 +77,9 @@ test("health is public but business API requires proxy authentication", async (t
 
   const health = await request(state.publicPort, "/api/health");
   assert.equal(health.status, 200);
-  assert.equal(health.body.installationId, "installation-a");
+  assert.equal(health.body.installationConfigured, true);
+  assert.equal(health.body.installationId, undefined);
+  assert.equal(health.body.nppCode, undefined);
   assert.match(health.headers["x-request-id"], /^req_/);
 
   const unauthorized = await request(state.publicPort, "/api/routes");
