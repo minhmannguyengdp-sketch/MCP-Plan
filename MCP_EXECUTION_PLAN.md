@@ -2,7 +2,8 @@
 
 > Trạng thái: **CORE COMPLETE / FROZEN**  
 > Ngày khóa: **2026-07-12**  
-> Tài liệu chi tiết: `docs/MCP_V1_FREEZE.md`
+> Tài liệu chi tiết: `docs/MCP_V1_FREEZE.md`  
+> Phase kế tiếp: [`ke-hoach-app-van-hanh-npp.md`](./ke-hoach-app-van-hanh-npp.md)
 
 Tài liệu này thay thế các checklist MCP cũ. Không dùng lại các mục `todo` hoặc contract cũ trước ngày freeze.
 
@@ -117,6 +118,15 @@ mcp_visits.has_order / order_id
 mcp_session_customers.order_id
 mcp_route_sessions.order_count
 ```
+
+Lưu ý phase App NPP:
+
+- Endpoint MCP trên chỉ là **nguồn tạo đơn từ hoạt động thị trường**.
+- Vòng đời sửa/hủy/giao thiếu/trả/đổi/kho/công nợ thuộc domain Đơn hàng App NPP.
+- Không mở rộng âm thầm endpoint MCP để gánh toàn bộ order lifecycle.
+- Thiết kế order lifecycle mới phải giữ tương thích source reference/idempotency với đơn từ MCP.
+
+Plan order lifecycle: [`docs/npp-plan/03-don-hang.md`](./docs/npp-plan/03-don-hang.md).
 
 ### 3.2 Test sản phẩm
 
@@ -354,23 +364,107 @@ MCP_API_BASE_URL=http://127.0.0.1:3001 node scripts/smoke-mcp-v1-api.mjs
 
 Không sửa code trực tiếp trong `/var/www/mcp-plan-backend`.
 
-## 9. Phạm vi update sau MCP v1
+## 9. Trạng thái sau khi đóng phase MCP
 
-Được phát triển tiếp mà không thay contract MCP v1:
+Tuyên bố chính thức:
 
 ```text
-Warehouse
-Transport
-Accounting
+Đóng phase phát triển lõi MCP.
+Không đóng module MCP.
+MCP v1 tiếp tục vận hành như phân hệ thị trường trong App NPP.
+```
+
+MCP v1 từ đây chỉ nhận các loại thay đổi:
+
+1. Sửa lỗi thật có bước tái hiện và test hồi quy.
+2. Tối ưu hiệu năng không làm đổi contract nghiệp vụ.
+3. Hardening bảo mật không phá đường vận hành đã khóa.
+4. Nâng cấp có migration, version contract và smoke test rõ ràng.
+5. Adapter/integration sang App NPP nhưng không mutate lịch sử/snapshot MCP sai contract.
+
+Không được:
+
+- thêm trạng thái/field rồi dùng ngầm không cập nhật contract;
+- đổi logic snapshot vì nhu cầu một màn hình mới;
+- dùng bảng MCP làm nơi chứa toàn bộ dữ liệu App NPP;
+- mở lại mutation trực tiếp từ Vercel/browser;
+- sửa dữ liệu production thủ công thay cho migration/backfill có kiểm soát;
+- biến endpoint tạo đơn MCP thành toàn bộ vòng đời đơn hàng;
+- ghi đè follow-up/report/session lịch sử để phục vụ plan/report mới.
+
+## 10. Handoff sang App NPP tổng thể
+
+Master plan:
+
+[`ke-hoach-app-van-hanh-npp.md`](./ke-hoach-app-van-hanh-npp.md)
+
+Các module độc lập:
+
+```text
+NPP-00 Tổng quan điều hành
+NPP-01 Khách hàng
+NPP-02 Sản phẩm
+NPP-03 Đơn hàng
+NPP-04 Tồn kho
+NPP-05 Công nợ
+NPP-06 Nhân viên
+NPP-07 Kế hoạch
+NPP-08 Báo cáo
+NPP-09 Cài đặt và phân quyền
+```
+
+Thứ tự menu/nghiệp vụ:
+
+```text
+Tổng quan điều hành -> Khách hàng -> Sản phẩm -> Đơn hàng
+-> Tồn kho -> Công nợ -> Nhân viên -> Kế hoạch
+-> Báo cáo -> Cài đặt và phân quyền
+```
+
+Thứ tự triển khai kỹ thuật phải theo phụ thuộc, không làm frontend trước contract:
+
+```text
+Permission/audit foundation
+-> Customer/Product master tối thiểu
+-> Order lifecycle
+-> Inventory/Fulfillment
+-> Receivables/Payment
+-> Dashboard/Employee/Plan/Report
+-> Settings/permission hoàn chỉnh
+```
+
+## 11. Change control khi buộc phải thay MCP core
+
+Khi cần thay core MCP v1:
+
+1. Tạo issue/decision log ghi rõ lỗi hoặc nhu cầu nghiệp vụ.
+2. Xác định đây là bug fix tương thích hay contract v2.
+3. Audit dữ liệu production bị ảnh hưởng.
+4. Tạo migration mới; không sửa migration đã chạy.
+5. Version contract mới nếu behavior/output thay đổi.
+6. Cập nhật backend, proxy và consumer liên quan.
+7. Thêm unit/integration/idempotency/permission test tương ứng.
+8. Chạy lại full MCP v1 smoke và test mới.
+9. Có deploy/rollback hoặc forward-fix plan.
+10. Cập nhật tài liệu freeze và master App NPP.
+11. Không sửa âm thầm contract đã freeze.
+
+## 12. Phạm vi mở rộng không được nhập nhằng với MCP core
+
+Các miền sau thuộc App NPP hoặc module mở rộng, không tự động trở thành MCP core:
+
+```text
+Warehouse/Inventory
+Transport/Fulfillment
+Accounting/Receivables
+Customer master mở rộng
+Product/Pricing master
+Order amendment/cancel/partial delivery/return/exchange
+Employee/permission
 Dashboard/report mở rộng
-AI/ADK trên snapshot báo cáo
+AI/ADK trên snapshot/read model
 Offline/mobile queue
 Template nâng cao ngoài core hiện tại
 ```
 
-Khi cần thay core MCP v1:
-
-1. Tạo migration mới.
-2. Version contract mới.
-3. Thêm smoke test tương ứng.
-4. Không sửa âm thầm contract đã freeze.
+Mọi miền trên phải theo plan riêng, migration riêng và contract riêng. MCP chỉ cung cấp source/context cần thiết qua integration đã định nghĩa.
