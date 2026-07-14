@@ -30,7 +30,16 @@ const forbidden = [
   "Daily Session",
   "Global template",
   "product catalog thật",
-  "Dữ liệu từ phiên MCP"
+  "Dữ liệu từ phiên MCP",
+  "Route Master",
+  "Route Customer Master",
+  "Session Customer Snapshot",
+  "MCP Daily Session",
+  "MCP Report Agent",
+  "popup BC",
+  "dàn flat",
+  "bam Chia se",
+  "Dang mo..."
 ];
 
 function walk(directory) {
@@ -53,10 +62,20 @@ for (const filename of walk(srcRoot)) {
   }
 }
 
+const sourceFiles = walk(srcRoot);
+const integrityChecks = [
+  { path: "src/features/mcp/McpSessionsManagerSafe.tsx", phrase: "lượt thửCount" },
+  { path: "src/features/market-checks/MarketChecksClientPage.tsx", phrase: "Phiên: check.sessionId" },
+  { path: "src/features/mcp/McpSessionCompactViewFinal2.tsx", phrase: "TEST_PRODUCT_CHIPS" },
+  { path: "src/features/mcp/McpMarketReportFields.tsx", phrase: "USED_PRODUCT_GROUPS" }
+];
+for (const check of integrityChecks) {
+  const content = fs.readFileSync(path.join(process.cwd(), check.path), "utf8");
+  if (content.includes(check.phrase)) failures.push(check.path + ": " + check.phrase);
+}
 if (failures.length) {
-  console.error("Phát hiện nội dung kỹ thuật hoặc nội dung mẫu còn xuất hiện trong giao diện:");
+  console.error("Phát hiện nội dung kỹ thuật, nội dung mẫu hoặc lỗi toàn vẹn do thay copy:");
   failures.forEach((failure) => console.error("- " + failure));
   process.exit(1);
 }
-
 console.log("User-facing copy audit passed.");

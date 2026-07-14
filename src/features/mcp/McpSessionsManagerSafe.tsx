@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { userFacingError } from "@/lib/ui/user-facing-error";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { ExportMenu, buildExportLink } from "@/features/exports/ExportLinks";
 
@@ -16,7 +17,7 @@ type SessionRow = {
   plannedCustomers: number;
   visitedCustomers: number;
   orderCount?: number;
-  lượt thửCount?: number;
+  testCount?: number;
   reportCount?: number;
   followupCount?: number;
 };
@@ -60,7 +61,7 @@ function toDraft(session: SessionRow): EditDraft {
 }
 
 function branchSummary(session: SessionRow) {
-  return `${session.orderCount || 0} đơn · ${session.testCount || 0} lượt thử · ${session.reportCount || 0} BC · ${session.followupCount || 0} việc theo dõi`;
+  return `${session.orderCount || 0} đơn · ${session.testCount || 0} lượt thử · ${session.reportCount || 0} báo cáo · ${session.followupCount || 0} việc theo dõi`;
 }
 
 function isClosedSession(session: SessionRow) {
@@ -90,7 +91,7 @@ function friendlyError(error: unknown, fallback: string) {
     return "Không thể xóa phiên. Dữ liệu vẫn được giữ nguyên.";
   }
 
-  return raw;
+  return userFacingError(error, fallback);
 }
 
 async function callApi(path: string, init: RequestInit) {
@@ -261,7 +262,7 @@ export function McpSessionsManagerSafe({
         setMessage(`Đã tạo lại báo cáo phiên ${session.routeName} · ${session.sessionDate}`);
         router.refresh();
       } catch (error) {
-        setMessage(friendlyError(error, "Không rebuild được BC phiên"));
+        setMessage(friendlyError(error, "Không tạo lại được báo cáo phiên"));
       } finally {
         setRebuildingId(null);
       }
@@ -379,7 +380,7 @@ export function McpSessionsManagerSafe({
                         {rebuildingId === session.id ? "Đang tạo lại..." : "Tạo lại báo cáo"}
                       </button>
                       <small className="page-subtitle">
-                        Đã khóa checklist và xóa phiên
+                        Phiên đã chốt, chỉ có thể xem và xuất báo cáo
                       </small>
                     </>
                   ) : (
@@ -538,8 +539,8 @@ export function McpSessionsManagerSafe({
               <span>Cảnh báo</span>
               <strong>Chỉ phiên chưa phát sinh hoạt động mới được xóa</strong>
               <small>
-                Khách snapshot chưa ghé chỉ là kế hoạch và sẽ được xóa cùng phiên.
-                Database sẽ chặn nếu đã có lượt ghé, đơn, lượt thử, báo cáo hoặc việc theo dõi.
+                Danh sách điểm bán chưa phát sinh hoạt động sẽ được xóa cùng phiên.
+                Phiên đã có lượt ghé, đơn hàng, thử sản phẩm, báo cáo hoặc việc theo dõi sẽ được giữ lại.
               </small>
             </div>
             <div className="metric-row">

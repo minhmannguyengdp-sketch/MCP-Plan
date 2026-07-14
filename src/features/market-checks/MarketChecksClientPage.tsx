@@ -63,7 +63,7 @@ function TestSessionCard({ group, onOpen }: { group: MarketCheckSessionGroup; on
       title="Kết quả thử sản phẩm"
       description={`${group.customerCount} điểm bán có thử · ${group.resultCount} kết quả · ${sessionStatusLabel(group.status)}`}
       badge={<strong className={styles.status}>{group.riskCount > 0 ? `${group.riskCount} rủi ro` : `${group.opportunityCount} cơ hội`}</strong>}
-      meta={[`routeId: ${group.routeId || "-"}`, `Phiên: ${group.sessionId}`, `${group.visitedCustomers}/${group.plannedCustomers} khách đã ghé`]}
+      meta={[`Tuyến: ${group.routeName}`, sessionStatusLabel(group.status), `${group.visitedCustomers}/${group.plannedCustomers} điểm bán đã ghé`]}
       actions={[{ label: "Xem kết quả", tone: "primary", onClick: () => onOpen(group) }]}
     />
   );
@@ -125,7 +125,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
       productName,
       status,
       note,
-      Phiên: check.sessionId,
+      sessionId: check.sessionId,
       sessionCustomerId: check.sessionCustomerId,
       routeId: check.routeId,
       sessionDate: check.sessionDate
@@ -242,8 +242,8 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
       <section className={styles.setupGrid}>
         <div className={styles.setupCard}>
           <span>Theo phiên đi tuyến</span>
-          <h2>Test nằm trong phiên MCP</h2>
-          <p>Không còn dàn flat từng dòng như module riêng. Danh sách dưới đây là từng phiên có nhánh test.</p>
+          <h2>Kết quả thử sản phẩm theo phiên</h2>
+          <p>Mỗi phiên hiển thị các điểm bán, sản phẩm đã thử và kết quả cần cập nhật.</p>
           <div className={styles.setupMetrics}>
             <strong><b>{setup.sessions}</b><small>Phiên</small></strong>
             <strong><b>{setup.routes}</b><small>Tuyến</small></strong>
@@ -254,7 +254,7 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
         <div className={styles.setupCard}>
           <span>Cập nhật kết quả</span>
           <h2>{needAction} cần xử lý</h2>
-          <p>Vào từng phiên để xem các khách/sản phẩm test và nhập kết quả khi cần.</p>
+          <p>Mở từng phiên để xem điểm bán, sản phẩm đã thử và cập nhật kết quả.</p>
         </div>
       </section>
 
@@ -262,10 +262,10 @@ export function MarketChecksClientPage({ groups }: { groups: MarketCheckSessionG
 
       <section className={styles.section}>
         <div className="dashboard-section-head"><h2>Phiên có nhánh test</h2><span>{sessionGroups.length} phiên</span></div>
-        <div className={styles.list}>{sessionGroups.length ? sessionGroups.map((group) => <TestSessionCard key={group.sessionId} group={group} onOpen={setSelectedGroup} />) : <div className="empty-inline">Chưa có test nào được gắn với phiên MCP.</div>}</div>
+        <div className={styles.list}>{sessionGroups.length ? sessionGroups.map((group) => <TestSessionCard key={group.sessionId} group={group} onOpen={setSelectedGroup} />) : <div className="empty-inline">Chưa có kết quả thử sản phẩm trong các phiên đi tuyến.</div>}</div>
       </section>
 
-      <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Vai trò màn này</h2><div className="grid"><div className="metric-row"><span>Thao tác chính</span><strong>/visits</strong></div><div className="metric-row"><span>Màn này</span><strong>Tổng hợp phụ</strong></div><div className="metric-row"><span>Logic nhóm</span><strong>Theo phiên đi tuyến</strong></div></div></section>
+      <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Thông tin tổng hợp</h2><div className="grid"><div className="metric-row"><span>Nguồn dữ liệu</span><strong>Phiên đi tuyến</strong></div><div className="metric-row"><span>Phạm vi</span><strong>Theo từng phiên</strong></div><div className="metric-row"><span>Sắp xếp</span><strong>Mới nhất trước</strong></div></div></section>
 
       <SessionBranchSheet group={selectedGroup} onClose={() => setSelectedGroup(null)} onSelect={setSelectedCheck} />
       <FieldCheckSheet check={selectedCheck} onClose={() => setSelectedCheck(null)} onSaved={handleSaved} />
