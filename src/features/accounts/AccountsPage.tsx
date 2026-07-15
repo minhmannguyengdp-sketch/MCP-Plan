@@ -1,9 +1,11 @@
 import { createApiClient } from "@/lib/api/api-client";
+import { accountsFromRouteCustomers } from "./accounts-from-route-customers";
 import { OutletsClientPage } from "./OutletsClientPage";
 
 export async function AccountsPage() {
   const api = createApiClient();
-  const accountsResult = await api.getAccountsData();
+  const routeCustomersResult = await api.getRouteCustomersData();
+  const accountsData = accountsFromRouteCustomers(routeCustomersResult.data);
 
-  return <OutletsClientPage kpis={accountsResult.data.kpis} items={accountsResult.data.accounts} />;
+  return <OutletsClientPage kpis={accountsData.kpis} items={accountsData.accounts} />;
 }
