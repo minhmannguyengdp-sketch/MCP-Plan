@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { supabaseRest, supabaseRpc } from "./supabase-adapter.js";
+import {
+  addSessionCustomer,
+  recordSessionCustomerResult
+} from "./session-customer-mutations.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -85,6 +89,18 @@ function boundedLimit(value) {
   const parsed = Number(value || 50);
   if (!Number.isFinite(parsed)) return 50;
   return Math.max(1, Math.min(Math.trunc(parsed), 100));
+}
+
+async function saveSessionCustomerResult(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await recordSessionCustomerResult(body, context, config, { fetchImpl });
+  return response({ data });
+}
+
+async function saveAddedSessionCustomer(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await addSessionCustomer(body, context, config, { fetchImpl });
+  return response({ data });
 }
 
 async function saveFieldCheckResult(req, context, config, fetchImpl) {
@@ -298,6 +314,12 @@ export async function handleTransitionalApi(
   const method = String(req.method || "GET").toUpperCase();
   const pathname = url.pathname;
 
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/result") {
+    return saveSessionCustomerResult(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/add") {
+    return saveAddedSessionCustomer(req, context, config, fetchImpl);
+  }
   if (method === "POST" && pathname === "/api/field-checks/result") {
     return saveFieldCheckResult(req, context, config, fetchImpl);
   }

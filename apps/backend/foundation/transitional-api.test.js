@@ -11,8 +11,10 @@ const config = {
 const context = {
   requestId: "request_12345678",
   installation: { id: "installation-a", nppCode: "NPP-A" },
-  actor: { id: "service:npp-a:mcp-v1", type: "service" }
+  actor: { id: "service:npp-a:mcp-v1", type: "service", authentication: "proxy-token" }
 };
+
+const edgeFunctionPath = ["", "functions", "v1", ""].join("/");
 
 function request(method, body) {
   const stream = Readable.from(body === undefined ? [] : [JSON.stringify(body)]);
@@ -20,6 +22,124 @@ function request(method, body) {
   stream.headers = {};
   return stream;
 }
+
+test("session customer result uses the atomic RPC instead of the public Edge function", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url: String(url), init });
+    return new Response(JSON.stringify({
+      sessionCustomer: { id: "session-customer-1", visit_status: "visited" },
+      visit: { id: "visit-1", has_order: true },
+      createdVisit: true
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  const result = await handleTransitionalApi(
+    request("POST", {
+      sessionCustomerId: "session-customer-1",
+      resultType: "order",
+      orderId: "order-1",
+      hasOrder: true,
+      note: "Đã chốt đơn"
+    }),
+    new URL("http://local/api/mcp-day/session-customer/result"),
+    context,
+    config,
+    { fetchImpl }
+  );
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.payload.data.visit.id, "visit-1");
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_record_session_customer_result$/);
+  assert.equal(calls[0].url.includes(edgeFunctionPath), false);
+  assert.equal(calls[0].init.headers.apikey, "server-only-key");
+
+  const args = JSON.parse(calls[0].init.body);
+  assert.equal(args.p_session_customer_id, "session-customer-1");
+  assert.equal(args.p_result_type, "order");
+  assert.equal(args.p_order_id, "order-1");
+  assert.equal(args.p_has_order, true);
+  assert.equal(args.p_context.requestId, "request_12345678");
+  assert.equal(args.p_context.installationId, "installation-a");
+  assert.equal(args.p_context.actorId, "service:npp-a:mcp-v1");
+});
+
+test("session customer add requires an explicit session and uses the atomic RPC", async () => {
+  let providerCalled = false;
+  await assert.rejects(
+    handleTransitionalApi(
+      request("POST", { customerName: "Khách phát sinh" }),
+      new URL("http://local/api/mcp-day/session-customer/add"),
+      context,
+      config,
+      { fetchImpl: async () => { providerCalled = true; } }
+    ),
+    (error) => error.message === "session_id_required" && error.statusCode === 400
+  );
+  assert.equal(providerCalled, false);
+
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url: String(url), init });
+    return new Response(JSON.stringify({
+      sessionCustomer: { id: "session-customer-added", source: "added" },
+      created: true
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  const result = await handleTransitionalApi(
+    request("POST", {
+      sessionId: "session-1",
+      customerName: "Khách phát sinh",
+      phone: "0900000000",
+      area: "Khu vực A"
+    }),
+    new URL("http://local/api/mcp-day/session-customer/add"),
+    context,
+    config,
+    { fetchImpl }
+  );
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.payload.data.sessionCustomer.id, "session-customer-added");
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_add_session_customer$/);
+  assert.equal(calls[0].url.includes(edgeFunctionPath), false);
+
+  const args = JSON.parse(calls[0].init.body);
+  assert.equal(args.p_session_id, "session-1");
+  assert.equal(args.p_customer_name, "Khách phát sinh");
+  assert.equal(args.p_phone, "0900000000");
+  assert.equal(args.p_context.nppCode, "NPP-A");
+});
+
+test("closed session provider errors become business conflicts", async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({
+    code: "23514",
+    message: "session_closed_read_only"
+  }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" }
+  });
+
+  await assert.rejects(
+    handleTransitionalApi(
+      request("POST", { sessionCustomerId: "session-customer-1", note: "Đã ghé" }),
+      new URL("http://local/api/mcp-day/session-customer/result"),
+      context,
+      config,
+      { fetchImpl }
+    ),
+    (error) => error.message === "provider_request_failed" && error.statusCode === 409
+  );
+});
 
 test("field check writes use VPS service role and persist foundation context", async () => {
   const calls = [];

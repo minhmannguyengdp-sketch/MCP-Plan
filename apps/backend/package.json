@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node --watch bootstrap.js",
     "start": "node bootstrap.js",
-    "build": "node --check bootstrap.js && node --check server.js && node --check foundation/api-contract.js && node --check foundation/config.js && node --check foundation/cors.js && node --check foundation/gateway.js && node --check foundation/request-context.js && node --check foundation/supabase-adapter.js && node --check foundation/transitional-api.js",
-    "test": "node --test foundation/api-contract.test.js foundation/config.test.js foundation/request-context.test.js foundation/gateway.test.js foundation/transitional-api.test.js",
+    "build": "node --check bootstrap.js && node --check server.js && node --check foundation/api-contract.js && node --check foundation/config.js && node --check foundation/cors.js && node --check foundation/gateway.js && node --check foundation/request-context.js && node --check foundation/supabase-adapter.js && node --check foundation/session-customer-mutations.js && node --check foundation/transitional-api.js",
+    "test": "node --test foundation/api-contract.test.js foundation/config.test.js foundation/request-context.test.js foundation/gateway.test.js foundation/session-customer-migration.test.js foundation/transitional-api.test.js",
     "verify": "npm run build && npm run test"
   },
   "engines": {
