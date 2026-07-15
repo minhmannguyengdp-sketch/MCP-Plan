@@ -1,0 +1,49 @@
+name: A5.3 Apply Legacy Edge Caller Removal
+
+on:
+  push:
+    branches:
+      - a5-3-remove-legacy-edge-caller
+    paths:
+      - .github/workflows/a5-3-apply-server-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: a5-3-remove-legacy-edge-caller
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Remove legacy Edge caller
+        run: node scripts/patch-a5-3-remove-legacy-edge-caller.mjs
+
+      - name: Verify patched source and audit policy
+        run: |
+          node --check apps/backend/server.js
+          node --test test/a5-3-no-legacy-edge-caller.test.mjs
+          node scripts/audit-direct-db-mutation-policy.mjs
+
+      - name: Remove temporary patch machinery
+        run: |
+          rm scripts/patch-a5-3-remove-legacy-edge-caller.mjs
+          rm .github/workflows/a5-3-apply-server-patch.yml
+
+      - name: Commit deterministic result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/backend/server.js scripts/direct-db-mutation-retirements.json test/a5-3-no-legacy-edge-caller.test.mjs package.json .github/workflows/a5-3-apply-server-patch.yml scripts/patch-a5-3-remove-legacy-edge-caller.mjs
+          git commit -m "A5.3 remove legacy Edge fallback caller"
+          git push origin HEAD:a5-3-remove-legacy-edge-caller
