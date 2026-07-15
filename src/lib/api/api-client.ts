@@ -1,3 +1,5 @@
+import "server-only";
+
 import { accountsMock } from "@/features/accounts/accounts.mock";
 import type { AccountsData } from "@/features/accounts/accounts.types";
 import { actionsMock } from "@/features/actions/actions.mock";
@@ -61,12 +63,25 @@ function getApiBaseUrl(): string | null {
   return value ? value.replace(/\/+$/, "") : null;
 }
 
+function getBackendApiToken(): string | null {
+  const value = (process.env.BACKEND_API_TOKEN || "").trim();
+  return value || null;
+}
+
 function isProductionRuntime() {
   return process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
 }
 
 function noMockInProductionError(message: string) {
   return new Error(`production_no_mock: ${message}`);
+}
+
+function backendHeaders(backendApiToken: string | null, json = false): Record<string, string> {
+  return {
+    Accept: "application/json",
+    ...(json ? { "Content-Type": "application/json" } : {}),
+    ...(backendApiToken ? { "X-Backend-Token": backendApiToken } : {})
+  };
 }
 
 function isNextDynamicUsageError(error: unknown) {
@@ -112,8 +127,16 @@ function selectedRouteNotLoaded(query?: ListQuery): McpDayData {
   };
 }
 
-async function fetchJson<T>(baseUrl: string, path: string, query?: ListQuery): Promise<ApiResult<T>> {
-  const response = await fetch(`${baseUrl}${path}${toQueryString(query)}`, { cache: "no-store", headers: { Accept: "application/json" } });
+async function fetchJson<T>(
+  baseUrl: string,
+  path: string,
+  backendApiToken: string | null,
+  query?: ListQuery
+): Promise<ApiResult<T>> {
+  const response = await fetch(`${baseUrl}${path}${toQueryString(query)}`, {
+    cache: "no-store",
+    headers: backendHeaders(backendApiToken)
+  });
   if (!response.ok) throw new Error(`API ${path} failed with ${response.status}`);
   const payload = (await response.json()) as T | { data: T; receivedAt?: string };
   if (payload && typeof payload === "object" && "data" in payload) {
@@ -123,8 +146,18 @@ async function fetchJson<T>(baseUrl: string, path: string, query?: ListQuery): P
   return result(payload as T, "api");
 }
 
-async function postJson<T>(baseUrl: string, path: string, body: unknown): Promise<ApiResult<T>> {
-  const response = await fetch(`${baseUrl}${path}`, { method: "POST", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+async function postJson<T>(
+  baseUrl: string,
+  path: string,
+  backendApiToken: string | null,
+  body: unknown
+): Promise<ApiResult<T>> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: backendHeaders(backendApiToken, true),
+    body: JSON.stringify(body)
+  });
   const payload = (await response.json().catch(() => ({}))) as T | { data: T; receivedAt?: string; error?: string; detail?: string };
   if (!response.ok) {
     const errorPayload = payload as { error?: string; detail?: string };
@@ -143,14 +176,23 @@ function normalizeSessionStatus(value?: string) {
   return "active";
 }
 
-async function getMcpDayDataWithSessionStatus(baseUrl: string, query?: ListQuery): Promise<ApiResult<McpDayData>> {
-  const dayResult = await fetchJson<McpDayData>(baseUrl, "/api/mcp-day/data", query);
+async function getMcpDayDataWithSessionStatus(
+  baseUrl: string,
+  backendApiToken: string | null,
+  query?: ListQuery
+): Promise<ApiResult<McpDayData>> {
+  const dayResult = await fetchJson<McpDayData>(baseUrl, "/api/mcp-day/data", backendApiToken, query);
   const routeId = getRouteId(query);
   const sessionDate = getSessionDate(query);
 
   if (!routeId || !sessionDate || !dayResult.data.sessionOpened) return dayResult;
 
-  const statusResult = await fetchJson<McpSessionStatusData>(baseUrl, "/api/mcp-settings/session-status", { routeId });
+  const statusResult = await fetchJson<McpSessionStatusData>(
+    baseUrl,
+    "/api/mcp-settings/session-status",
+    backendApiToken,
+    { routeId }
+  );
   const session = statusResult.data.sessions?.find((item) => item.routeId === routeId && item.sessionDate === sessionDate);
   if (!session?.status) return dayResult;
 
@@ -199,36 +241,42 @@ export const mockApiClient: McpApiClient = {
   async getActionsData() { return result(actionsMock); }
 };
 
-function createHttpApiClient(baseUrl: string): McpApiClient {
+function createHttpApiClient(baseUrl: string, backendApiToken: string | null): McpApiClient {
   return {
-    getDashboardSummary() { return withMockFallback(() => fetchJson<DashboardSummaryDto>(baseUrl, "/api/dashboard/summary"), () => mockApiClient.getDashboardSummary()); },
-    getDashboardOverview() { return withMockFallback(() => fetchJson<DashboardOverviewDto>(baseUrl, "/api/dashboard/overview"), () => mockApiClient.getDashboardOverview()); },
-    listRoutes(query) { return withMockFallback(() => fetchJson<RouteDto[]>(baseUrl, "/api/routes", query), () => mockApiClient.listRoutes(query)); },
-    getRoutesData(query) { return withMockFallback(() => fetchJson<RoutesData>(baseUrl, "/api/routes/data", query), () => mockApiClient.getRoutesData(query)); },
-    getRouteCustomersData(query) { return withMockFallback(() => fetchJson<RouteCustomersData>(baseUrl, "/api/routes/customers/data", query), () => mockApiClient.getRouteCustomersData(query)); },
-    listAccounts(query) { return withMockFallback(() => fetchJson<AccountDto[]>(baseUrl, "/api/accounts", query), () => mockApiClient.listAccounts(query)); },
-    getAccountsData(query) { return withMockFallback(() => fetchJson<AccountsData>(baseUrl, "/api/accounts/data", query), () => mockApiClient.getAccountsData(query)); },
-    getCurrentDayRun(query) { return withMockFallback(() => fetchJson<DayRunDto>(baseUrl, "/api/mcp-day/current", query), () => mockApiClient.getCurrentDayRun(query)); },
+    getDashboardSummary() { return withMockFallback(() => fetchJson<DashboardSummaryDto>(baseUrl, "/api/dashboard/summary", backendApiToken), () => mockApiClient.getDashboardSummary()); },
+    getDashboardOverview() { return withMockFallback(() => fetchJson<DashboardOverviewDto>(baseUrl, "/api/dashboard/overview", backendApiToken), () => mockApiClient.getDashboardOverview()); },
+    listRoutes(query) { return withMockFallback(() => fetchJson<RouteDto[]>(baseUrl, "/api/routes", backendApiToken, query), () => mockApiClient.listRoutes(query)); },
+    getRoutesData(query) { return withMockFallback(() => fetchJson<RoutesData>(baseUrl, "/api/routes/data", backendApiToken, query), () => mockApiClient.getRoutesData(query)); },
+    getRouteCustomersData(query) { return withMockFallback(() => fetchJson<RouteCustomersData>(baseUrl, "/api/routes/customers/data", backendApiToken, query), () => mockApiClient.getRouteCustomersData(query)); },
+    listAccounts(query) { return withMockFallback(() => fetchJson<AccountDto[]>(baseUrl, "/api/accounts", backendApiToken, query), () => mockApiClient.listAccounts(query)); },
+    getAccountsData(query) { return withMockFallback(() => fetchJson<AccountsData>(baseUrl, "/api/accounts/data", backendApiToken, query), () => mockApiClient.getAccountsData(query)); },
+    getCurrentDayRun(query) { return withMockFallback(() => fetchJson<DayRunDto>(baseUrl, "/api/mcp-day/current", backendApiToken, query), () => mockApiClient.getCurrentDayRun(query)); },
     getMcpDayData(query) {
-      if (hasRouteContext(query)) return getMcpDayDataWithSessionStatus(baseUrl, query);
-      return withMockFallback(() => getMcpDayDataWithSessionStatus(baseUrl, query), () => mockApiClient.getMcpDayData(query));
+      if (hasRouteContext(query)) return getMcpDayDataWithSessionStatus(baseUrl, backendApiToken, query);
+      return withMockFallback(() => getMcpDayDataWithSessionStatus(baseUrl, backendApiToken, query), () => mockApiClient.getMcpDayData(query));
     },
-    createMcpDayResult(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", payload); },
-    addMcpDayCustomer(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", payload); },
-    createMcpDayFollowup(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", payload); },
-    listMarketChecks(query) { return withMockFallback(() => fetchJson<MarketCheckDto[]>(baseUrl, "/api/market-checks", query), () => mockApiClient.listMarketChecks(query)); },
-    getMarketChecksData(query) { return withMockFallback(() => fetchJson<MarketChecksData>(baseUrl, "/api/market-checks/data", query), () => mockApiClient.getMarketChecksData(query)); },
-    listOrders(query) { return withMockFallback(() => fetchJson<OrderDto[]>(baseUrl, "/api/orders", query), () => mockApiClient.listOrders(query)); },
-    listActions(query) { return withMockFallback(() => fetchJson<ActionDto[]>(baseUrl, "/api/actions", query), () => mockApiClient.listActions(query)); },
-    getActionsData(query) { return withMockFallback(() => fetchJson<ActionsData>(baseUrl, "/api/actions/data", query), () => mockApiClient.getActionsData(query)); }
+    createMcpDayResult(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", backendApiToken, payload); },
+    addMcpDayCustomer(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", backendApiToken, payload); },
+    createMcpDayFollowup(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", backendApiToken, payload); },
+    listMarketChecks(query) { return withMockFallback(() => fetchJson<MarketCheckDto[]>(baseUrl, "/api/market-checks", backendApiToken, query), () => mockApiClient.listMarketChecks(query)); },
+    getMarketChecksData(query) { return withMockFallback(() => fetchJson<MarketChecksData>(baseUrl, "/api/market-checks/data", backendApiToken, query), () => mockApiClient.getMarketChecksData(query)); },
+    listOrders(query) { return withMockFallback(() => fetchJson<OrderDto[]>(baseUrl, "/api/orders", backendApiToken, query), () => mockApiClient.listOrders(query)); },
+    listActions(query) { return withMockFallback(() => fetchJson<ActionDto[]>(baseUrl, "/api/actions", backendApiToken, query), () => mockApiClient.listActions(query)); },
+    getActionsData(query) { return withMockFallback(() => fetchJson<ActionsData>(baseUrl, "/api/actions/data", backendApiToken, query), () => mockApiClient.getActionsData(query)); }
   };
 }
 
 export function createApiClient(): McpApiClient {
   const apiBaseUrl = getApiBaseUrl();
+  const backendApiToken = getBackendApiToken();
+
   if (!apiBaseUrl) {
     if (isProductionRuntime()) throw noMockInProductionError("missing_backend_api_base_url");
     return mockApiClient;
   }
-  return createHttpApiClient(apiBaseUrl);
+  if (!backendApiToken && isProductionRuntime()) {
+    throw noMockInProductionError("missing_backend_api_token");
+  }
+
+  return createHttpApiClient(apiBaseUrl, backendApiToken);
 }
