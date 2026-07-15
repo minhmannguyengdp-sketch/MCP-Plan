@@ -14,6 +14,8 @@ const context = {
   actor: { id: "service:npp-a:mcp-v1", type: "service", authentication: "proxy-token" }
 };
 
+const edgeFunctionPath = ["", "functions", "v1", ""].join("/");
+
 function request(method, body) {
   const stream = Readable.from(body === undefined ? [] : [JSON.stringify(body)]);
   stream.method = method;
@@ -53,7 +55,7 @@ test("session customer result uses the atomic RPC instead of the public Edge fun
   assert.equal(result.payload.data.visit.id, "visit-1");
   assert.equal(calls.length, 1);
   assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_record_session_customer_result$/);
-  assert.equal(calls[0].url.includes("/functions/v1/"), false);
+  assert.equal(calls[0].url.includes(edgeFunctionPath), false);
   assert.equal(calls[0].init.headers.apikey, "server-only-key");
 
   const args = JSON.parse(calls[0].init.body);
@@ -109,7 +111,7 @@ test("session customer add requires an explicit session and uses the atomic RPC"
   assert.equal(result.payload.data.sessionCustomer.id, "session-customer-added");
   assert.equal(calls.length, 1);
   assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_add_session_customer$/);
-  assert.equal(calls[0].url.includes("/functions/v1/"), false);
+  assert.equal(calls[0].url.includes(edgeFunctionPath), false);
 
   const args = JSON.parse(calls[0].init.body);
   assert.equal(args.p_session_id, "session-1");
