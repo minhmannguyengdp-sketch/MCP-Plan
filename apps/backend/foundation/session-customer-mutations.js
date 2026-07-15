@@ -44,22 +44,36 @@ function foundationContext(context) {
   };
 }
 
+function providerBusinessCode(error) {
+  const normalized = String(error?.providerMessage || "").trim().toLowerCase();
+  return /^[a-z][a-z0-9_]{2,127}$/.test(normalized) ? normalized : null;
+}
+
 function normalizeMutationError(error) {
-  const message = String(error?.providerMessage || error?.message || "");
-  if (message.includes("not_found")) error.statusCode = 404;
-  else if (
-    message.includes("closed") ||
-    message.includes("read_only") ||
-    message.includes("cancelled") ||
-    message.includes("has_activity") ||
-    message.includes("already_exists")
-  ) error.statusCode = 409;
-  else if (
-    message.includes("required") ||
-    message.includes("invalid_") ||
-    message.includes("route_mismatch") ||
-    message.includes("result_required")
-  ) error.statusCode = 400;
+  const code = providerBusinessCode(error);
+  if (!code) return error;
+
+  if (code.endsWith("_not_found")) {
+    error.statusCode = 404;
+    error.code = code;
+  } else if (
+    code.includes("closed") ||
+    code.includes("read_only") ||
+    code.includes("cancelled") ||
+    code.includes("has_activity") ||
+    code.includes("already_exists")
+  ) {
+    error.statusCode = 409;
+    error.code = code;
+  } else if (
+    code.includes("required") ||
+    code.startsWith("invalid_") ||
+    code.includes("route_mismatch") ||
+    code === "result_required"
+  ) {
+    error.statusCode = 400;
+    error.code = code;
+  }
   return error;
 }
 
