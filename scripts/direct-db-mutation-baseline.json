@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "description": "Audited direct Supabase/PostgreSQL provider access. Entries are keyed by stable fingerprints and must not use directory wildcards.",
+  "entries": []
+}
