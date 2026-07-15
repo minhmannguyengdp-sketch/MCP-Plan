@@ -107,28 +107,6 @@ async function supabasePatch(table, values, params = {}) {
   return response.json();
 }
 
-async function proxySupabaseFunction(functionName, body, extraBody = {}) {
-  assertSupabaseConfig();
-  const response = await fetch(new URL(`/functions/v1/${functionName}`, SUPABASE_URL), {
-    method: "POST",
-    headers: supabaseHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ ...body, ...extraBody })
-  });
-  const text = await response.text();
-  let payload = {};
-  if (text) {
-    try { payload = JSON.parse(text); } catch { payload = { raw: text }; }
-  }
-  if (!response.ok) {
-    const error = new Error(payload.error || "edge_function_failed");
-    error.statusCode = response.status || 502;
-    error.detail = payload.detail || payload.raw || text;
-    error.table = payload.table;
-    throw error;
-  }
-  return payload.data ?? payload;
-}
-
 async function supabaseRpc(functionName, args = {}) {
   assertSupabaseConfig();
   const response = await fetch(new URL(`/rest/v1/rpc/${functionName}`, SUPABASE_URL), {
@@ -1794,8 +1772,6 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/session-customer/order") return wrap(await createMcpSessionCustomerOrderV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/test") return wrap(await createMcpSessionCustomerTestV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/report") return wrap(await createMcpSessionCustomerReportV1(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-day/session-customer/result") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-day/session-customer/add") return wrap(await proxySupabaseFunction("mcp-day-8b3", await readJsonBody(req), { action: "add" }));
   if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await createMcpSessionCustomerFollowupV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/order-template") return wrap(await saveMcpOrderTemplateSettings(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-settings/test-template") return wrap(await saveMcpTestTemplateSettings(await readJsonBody(req)));
