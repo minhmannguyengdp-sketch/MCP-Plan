@@ -1,17 +1,24 @@
-name: A5.3 Build Final Legacy Edge Caller Patch
+name: A5.3 Create Final Legacy Edge Caller PR
 
 on:
   pull_request:
+    branches:
+      - main
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
-  build-final-patch:
+  create-final-pr:
+    if: github.head_ref == 'a5-3-finalize-legacy-edge-caller'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR
+      - name: Checkout tooling branch
         uses: actions/checkout@v4
+        with:
+          ref: a5-3-finalize-legacy-edge-caller
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -37,14 +44,29 @@ jobs:
           SUPABASE_ANON_KEY: ci-publishable-key
         run: npm run build
 
-      - name: Upload verified final source
-        uses: actions/upload-artifact@v4
+      - name: Remove one-time tooling from final diff
+        run: |
+          rm scripts/finalize-a5-3-legacy-edge-caller.mjs
+          rm .github/workflows/a5-3-finalize-legacy-edge-caller.yml
+
+      - name: Create final runtime pull request
+        uses: peter-evans/create-pull-request@v7
         with:
-          name: a5-3-finalized-source
-          if-no-files-found: error
-          path: |
-            apps/backend/server.js
-            scripts/direct-db-mutation-retirements.json
-            package.json
-            test/a5-3-no-legacy-edge-caller.test.mjs
-            docs/npp-plan/A5_3_EDGE_RETIREMENT.md
+          token: ${{ github.token }}
+          branch: a5-3-final-legacy-edge-caller-removal
+          base: main
+          delete-branch: true
+          commit-message: A5.3 remove legacy Edge fallback caller
+          title: 'A5.3: remove legacy Edge fallback caller'
+          body: |
+            Final A5.3 runtime closure generated from the deterministic, fully verified source transformation.
+
+            - removes the legacy backend helper that called Supabase Edge functions;
+            - removes internal fallback result/add routes to the retired `mcp-day-8b3` function;
+            - keeps canonical result/add ownership in the authenticated Foundation Gateway;
+            - records the completed A5.2 caller retirement in the immutable audit ledger;
+            - adds regression tests preventing the Edge caller from returning;
+            - updates the A5.3 runbook status to VPS pull pending.
+
+            The generating workflow ran full Foundation verification and a production frontend build before creating this PR. No temporary workflow or finalizer script is included in this PR.
+          labels: foundation,a5
