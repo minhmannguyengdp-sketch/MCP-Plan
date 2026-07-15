@@ -11,7 +11,7 @@
     "audit:runtime-config": "node scripts/audit-runtime-hardcodes.mjs",
     "audit:direct-db-mutation": "node scripts/audit-direct-db-mutation-policy.mjs",
     "test:direct-db-mutation": "node --test test/audit-direct-db-mutations.test.mjs",
-    "test:edge-retirement": "node --test test/a5-3-edge-retirement.test.mjs",
+    "test:edge-retirement": "node --test test/a5-3-edge-retirement.test.mjs test/a5-3-no-legacy-edge-caller.test.mjs",
     "test:pullmcp-deployer": "node --test test/pullmcp-deployer.test.mjs",
     "test:backend-api-auth": "node --test test/api-client-backend-auth.test.mjs test/production-tab-data-contract.test.mjs",
     "validate:runtime-config": "node scripts/validate-runtime-config.mjs",
@@ -28,7 +28,7 @@
   "devDependencies": {
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.0",
+    "@types/react-dom": "^18.0.0",
     "typescript": "^5.6.2"
   }
 }
