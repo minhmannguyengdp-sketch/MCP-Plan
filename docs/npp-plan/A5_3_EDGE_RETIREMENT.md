@@ -1,6 +1,6 @@
 # A5.3 — Retire public MCP mutation Edge Functions
 
-> Trạng thái: **IMPLEMENTING / SOURCE PREPARED / PRODUCTION NOT YET DEPLOYED**  
+> Trạng thái: **SOURCE COMPLETE / EDGE DEPLOYED / VPS PULL PENDING**  
 > Ngày thực hiện: **2026-07-15**  
 > Phụ thuộc đã đạt: A5 audit, A5.1 scanner, A5.2 atomic session-customer result/add, production Gateway cutover
 
