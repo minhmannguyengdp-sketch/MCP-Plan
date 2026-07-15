@@ -3,6 +3,15 @@
   "description": "Completed direct-provider debt retirements. Entries remain linked to the immutable audit baseline.",
   "entries": [
     {
+      "phase": "A5.2",
+      "completedAt": "2026-07-15",
+      "owner": "legacy-backend",
+      "reason": "The legacy server fallback caller to mcp-day-8b3 was removed after the authenticated Gateway result/add cutover was verified. Direct internal fallback now fails closed instead of restoring the retired Edge hop.",
+      "fingerprints": [
+        "554f43f7c06fc8a9a4da0b21"
+      ]
+    },
+    {
       "phase": "A5.3",
       "completedAt": "2026-07-15",
       "owner": "edge-retirement",
