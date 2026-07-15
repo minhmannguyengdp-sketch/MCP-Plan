@@ -23,6 +23,16 @@ test("pullmcp never runs backend verification from the partial stage tree", () =
   assert.doesNotMatch(script, /npm --prefix "?\$STAGE"? run verify/);
 });
 
+test("staged production config resolves modules from the staged runtime cwd", () => {
+  const validateStage = position('echo "4) Validate exact production environment..."');
+  const swapRuntime = position('echo "5) Atomically replace runtime and start Foundation Gateway..."');
+  const validationBlock = script.slice(validateStage, swapRuntime);
+
+  assert.match(validationBlock, /read -r PUBLIC_PORT INTERNAL_PORT < <\(\s*cd "\$STAGE"/);
+  assert.match(validationBlock, /node --env-file="\$STAGE\/\.env" --input-type=module/);
+  assert.match(validationBlock, /import\("\.\/foundation\/config\.js"\)/);
+});
+
 test("pullmcp requires the A5.2 migration in source before deploy", () => {
   assert.match(
     script,
