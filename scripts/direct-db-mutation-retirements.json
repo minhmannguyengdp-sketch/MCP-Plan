@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "description": "Completed direct-provider debt retirements. Entries remain linked to the immutable audit baseline.",
+  "entries": [
+    {
+      "phase": "A5.3",
+      "completedAt": "2026-07-15",
+      "owner": "edge-retirement",
+      "reason": "The public mcp-day-8b3 and mcp-day-followup mutation implementations were replaced by credential-free HTTP 410 retirement stubs after canonical backend cutover.",
+      "fingerprints": [
+        "fcbaef4f9996c0ff6c43501a",
+        "a2722c622aaeb46fbfa52ca0",
+        "fdcde64e0ea369172bbf7dc9",
+        "795c66580b4d05afc8b60072",
+        "78082b2855076469e6892a28",
+        "09d2b7806124ac29a1765959",
+        "8ed762098374aef3fbc74269",
+        "67a000fe12e139d399ec5c38",
+        "0a47ea9ec8b031e3b19ff663"
+      ]
+    }
+  ]
+}
