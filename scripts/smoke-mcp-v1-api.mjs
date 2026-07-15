@@ -5,6 +5,7 @@ const backendToken = String(process.env.BACKEND_API_TOKEN || "").trim();
 
 const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const cleanupRouteIds = new Set();
+const cleanupResults = [];
 
 function object(value) {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -99,12 +100,33 @@ async function cleanupRoute(routeId) {
     method: "POST",
     body: "{}"
   });
-  if (!result.response.ok && result.response.status !== 404) {
+  if (result.response.status === 404) {
+    cleanupRouteIds.delete(routeId);
+    return;
+  }
+  if (!result.response.ok) {
     throw new Error(
       `cleanup route ${routeId} failed: ${result.response.status} ${errorCode(result.payload)}`
     );
   }
+  const data = object(result.payload.data);
+  assert(data.smokeCleanup === true, `cleanup route ${routeId} was not guarded smoke cleanup`);
+  cleanupResults.push(data);
   cleanupRouteIds.delete(routeId);
+}
+
+async function cleanupAllRoutes() {
+  const errors = [];
+  for (const routeId of Array.from(cleanupRouteIds).reverse()) {
+    try {
+      await cleanupRoute(routeId);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length > 0) {
+    throw new AggregateError(errors, "mcp_v1_smoke_cleanup_failed");
+  }
 }
 
 async function fullSessionSmoke() {
@@ -160,7 +182,7 @@ async function fullSessionSmoke() {
         {
           productName: "API Smoke Product",
           sku: "SMOKE-001",
-          unit: "gÃ³i",
+          unit: "gói",
           quantity: 2,
           unitPrice: 15000,
           discount: 0
@@ -180,7 +202,7 @@ async function fullSessionSmoke() {
         {
           productName: "API Smoke Product",
           status: "ok",
-          note: "Äáº¡t"
+          note: "Đạt"
         }
       ]
     })
@@ -194,9 +216,9 @@ async function fullSessionSmoke() {
       reportType: "market_report",
       content: "API smoke market report",
       fields: {
-        priceSummary: "GiÃ¡ á»•n",
-        demandSummary: "CÃ³ nhu cáº§u",
-        nextAction: "Theo dÃµi Ä‘Æ¡n"
+        priceSummary: "Giá ổn",
+        demandSummary: "Có nhu cầu",
+        nextAction: "Theo dõi đơn"
       },
       selected: {
         competitors: [],
@@ -221,7 +243,7 @@ async function fullSessionSmoke() {
       priority: "high",
       owner: "API Smoke",
       followupType: "order",
-      note: "Gá»i láº¡i chá»‘t Ä‘Æ¡n"
+      note: "Gọi lại chốt đơn"
     })
   });
   assert(Object.keys(followup).length > 0, "full_followup_not_created");
@@ -246,8 +268,6 @@ async function fullSessionSmoke() {
     })
   });
 
-  await cleanupRoute(routeId);
-
   return {
     routeId,
     sessionId,
@@ -259,8 +279,7 @@ async function fullSessionSmoke() {
     activityDeleteBlocked: true,
     closedStatus: closed.status,
     closeSnapshotCreated: true,
-    closedMutationBlocked: true,
-    cleanup: true
+    closedMutationBlocked: true
   };
 }
 
@@ -308,8 +327,6 @@ async function frozenEmptySnapshotSmoke() {
   });
   assert(deleted.deleted === true, "snapshot_once_empty_cancelled_delete_failed");
 
-  await cleanupRoute(routeId);
-
   return {
     routeId,
     sessionId,
@@ -318,49 +335,61 @@ async function frozenEmptySnapshotSmoke() {
     backfillSkipped: object(secondOpen.backfill).skipped,
     snapshotCountAfterRouteCustomerAdded: day.lines.length,
     cancelledStatus: cancelled.status,
-    emptyCancelledSessionDeleted: deleted.deleted,
-    cleanup: true
+    emptyCancelledSessionDeleted: deleted.deleted
   };
 }
 
-try {
-  assert(backendToken, "missing_BACKEND_API_TOKEN");
+async function runSmoke() {
+  let output = null;
+  let primaryError = null;
+  let cleanupError = null;
 
-  const healthResult = await call("/api/health");
-  assert(healthResult.response.ok, `health_http_${healthResult.response.status}`);
-  const healthData = object(healthResult.payload.data);
-  assert(healthData.service === "mcp-plan-backend", "health_service_invalid");
-  assert(healthData.installationConfigured === true, "health_installation_not_configured");
-  assert(healthData.providerConfigured === true, "health_provider_not_configured");
-  assert(healthData.authBoundary === "proxy-service", "health_auth_boundary_invalid");
+  try {
+    assert(backendToken, "missing_BACKEND_API_TOKEN");
 
-  const fullSession = await fullSessionSmoke();
-  const frozenEmptySnapshot = await frozenEmptySnapshotSmoke();
+    const healthResult = await call("/api/health");
+    assert(healthResult.response.ok, `health_http_${healthResult.response.status}`);
+    const healthData = object(healthResult.payload.data);
+    assert(healthData.service === "mcp-plan-backend", "health_service_invalid");
+    assert(healthData.installationConfigured === true, "health_installation_not_configured");
+    assert(healthData.providerConfigured === true, "health_provider_not_configured");
+    assert(healthData.authBoundary === "proxy-service", "health_auth_boundary_invalid");
 
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        base,
-        health: true,
-        authBoundary: true,
-        fullSession,
-        frozenEmptySnapshot
-      },
-      null,
-      2
-    )
-  );
-} catch (error) {
-  for (const routeId of Array.from(cleanupRouteIds).reverse()) {
-    try {
-      await cleanupRoute(routeId);
-    } catch (cleanupError) {
-      console.error(
-        cleanupError instanceof Error ? cleanupError.message : cleanupError
-      );
-    }
+    const fullSession = await fullSessionSmoke();
+    const frozenEmptySnapshot = await frozenEmptySnapshotSmoke();
+
+    output = {
+      ok: true,
+      base,
+      health: true,
+      authBoundary: true,
+      fullSession,
+      frozenEmptySnapshot
+    };
+  } catch (error) {
+    primaryError = error;
   }
+
+  try {
+    await cleanupAllRoutes();
+  } catch (error) {
+    cleanupError = error;
+  }
+
+  if (primaryError || cleanupError) {
+    throw new AggregateError(
+      [primaryError, cleanupError].filter(Boolean),
+      "mcp_v1_api_smoke_failed"
+    );
+  }
+
+  return { ...output, cleanup: cleanupResults };
+}
+
+try {
+  const result = await runSmoke();
+  console.log(JSON.stringify(result, null, 2));
+} catch (error) {
   console.error(error instanceof Error ? error.stack || error.message : error);
   process.exitCode = 1;
 }

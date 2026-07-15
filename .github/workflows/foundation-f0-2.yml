@@ -41,6 +41,10 @@ jobs:
         run: |
           npm run test:direct-db-mutation
           npm run test:edge-retirement
+          npm run test:direct-rest-retirement
+
+      - name: Verify production hygiene contracts
+        run: npm run test:production-hygiene
 
       - name: Audit direct DB mutations
         run: npm run audit:direct-db-mutation
