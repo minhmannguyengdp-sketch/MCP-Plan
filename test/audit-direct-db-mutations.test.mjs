@@ -87,6 +87,23 @@ test("known legacy debt passes but stays visible", async () => {
   });
 });
 
+test("next-server service-role mutation must be explicit legacy debt", async () => {
+  await withRepo({
+    "src/lib/legacy-write.ts": `const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;\nexport async function saveLegacy(url, body) {\n  return fetch(new URL("/rest/v1/mcp_session_reports", url), { method: "POST", headers: { Authorization: \`Bearer \${SUPABASE_SERVICE_ROLE_KEY}\` }, body: JSON.stringify(body) });\n}\n`
+  }, async (root) => {
+    const first = await scan(root, ["src"]);
+    assert.ok(first.errors.some((error) => error.startsWith("service_role_wrong_consumer:")));
+    await writeBaseline(root, [baselineEntry(first.findings[0], "known-legacy-debt", {
+      owner: "session-report",
+      replacementPhase: "A5.4"
+    })]);
+    const second = await scan(root, ["src"]);
+    assert.deepEqual(second.errors, []);
+    assert.equal(second.findings[0].operation, "mutation");
+    assert.equal(second.summary.legacyDebt, 1);
+  });
+});
+
 test("new finding outside baseline fails", async () => {
   await withRepo({
     "apps/backend/new-write.js": `export async function save(body) { return supabasePatch("orders", body); }\n`
