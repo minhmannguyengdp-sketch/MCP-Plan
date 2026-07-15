@@ -87,7 +87,7 @@ Không tạo RPC mới cho nhóm này. Exit đúng là xóa implementation chế
 
 | Endpoint | Function | Provider target | Fingerprint |
 |---|---|---|---|
-| `POST /api/field-checks/result` | `saveFieldCheckResult` | insert/patch `test_customer_results` | `474001fbfa0d1d138336878e3` / `f70d562b03f15f08cae868e8` |
+| `POST /api/field-checks/result` | `saveFieldCheckResult` | insert/patch `test_customer_results` | `474001fbfa0d1de1ed003364` / `f70d562b03f15f08cae868e8` |
 | `POST /api/mcp-market-reports` | `saveMarketReport` | insert `market_reports` | `ffb1c503e59aa8fcf8f0344f` |
 | `POST /api/mcp-report-setting-groups` | `createSettingGroup` | insert `mcp_setting_groups` | `6ae585a158e2fd800062fb45` |
 | `PATCH /api/mcp-report-setting-groups` | `updateSettingGroup` | patch `mcp_setting_groups` | `500b241ecd80ff8d74047e27` |
