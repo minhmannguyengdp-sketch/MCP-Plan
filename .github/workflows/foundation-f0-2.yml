@@ -37,6 +37,22 @@ jobs:
           path: runtime-hardcode-findings.txt
           if-no-files-found: error
 
+      - name: Test direct mutation scanner
+        run: npm run test:direct-db-mutation
+
+      - name: Audit direct DB mutations
+        run: npm run audit:direct-db-mutation
+
+      - name: Upload direct mutation audit diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: direct-db-mutation-findings
+          path: |
+            direct-db-mutation-findings.txt
+            direct-db-mutation-findings.json
+          if-no-files-found: error
+
       - name: Verify backend foundation
         run: npm --prefix apps/backend run verify
 
