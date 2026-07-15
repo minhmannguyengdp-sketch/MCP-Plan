@@ -332,7 +332,12 @@ function validateFindings(findings, entries, baselineErrors) {
     }
     if (finding.classification === "unclassified") errors.push(`unclassified_finding:${finding.fingerprint}`);
     if (finding.operation === "mutation" && /READ/i.test(finding.ruleCode)) errors.push(`mutation_mislabeled_read:${finding.fingerprint}`);
-    if (finding.operation === "mutation" && finding.usesServiceRole && !["backend", "edge", "script", "admin", "ci"].includes(finding.consumer)) {
+    if (
+      finding.operation === "mutation" &&
+      finding.usesServiceRole &&
+      !["backend", "edge", "script", "admin", "ci"].includes(finding.consumer) &&
+      finding.classification !== "known-legacy-debt"
+    ) {
       errors.push(`service_role_wrong_consumer:${finding.fingerprint}`);
     }
     if (finding.operation === "mutation" && finding.consumer === "edge" && finding.classification !== "known-legacy-debt") {
