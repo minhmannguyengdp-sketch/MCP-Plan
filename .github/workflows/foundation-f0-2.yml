@@ -53,6 +53,11 @@ jobs:
             direct-db-mutation-findings.json
           if-no-files-found: error
 
+      - name: Verify pullmcp deploy contract
+        run: |
+          bash -n ops/pullmcp
+          npm run test:pullmcp-deployer
+
       - name: Verify backend foundation
         run: npm --prefix apps/backend run verify
 

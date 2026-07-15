@@ -65,8 +65,13 @@ git reset --hard origin/main
 [[ -f "$SOURCE/apps/backend/bootstrap.js" ]]
 [[ -f "$SOURCE/apps/backend/server.js" ]]
 [[ -d "$SOURCE/apps/backend/foundation" ]]
+[[ -f "$SOURCE/supabase/migrations/20260715101500_add_atomic_session_customer_mutations.sql" ]]
 
-echo "2) Stage complete backend runtime..."
+echo "2) Verify complete source tree..."
+cd "$SOURCE"
+npm --prefix apps/backend run verify
+
+echo "3) Stage complete backend runtime..."
 rm -rf "$STAGE"
 install -d "$STAGE"
 cp -a "$SOURCE/apps/backend/." "$STAGE/"
@@ -77,10 +82,7 @@ for backup_env in "$RUNTIME"/.env.backup.*; do
   cp -a "$backup_env" "$STAGE/"
 done
 
-echo "3) Verify source and exact production environment..."
-cd "$STAGE"
-npm run verify
-
+echo "4) Validate exact production environment..."
 read -r PUBLIC_PORT INTERNAL_PORT < <(
   env -i PATH="$PATH" HOME="$HOME" \
     node --env-file="$STAGE/.env" --input-type=module -e '
@@ -126,7 +128,7 @@ fi
 
 echo "runtime_env=OK public=127.0.0.1:${PUBLIC_PORT} legacy=127.0.0.1:${INTERNAL_PORT}"
 
-echo "4) Atomically replace runtime and start Foundation Gateway..."
+echo "5) Atomically replace runtime and start Foundation Gateway..."
 mv "$RUNTIME" "$BACKUP"
 mv "$STAGE" "$RUNTIME"
 SWAPPED=1
@@ -158,7 +160,7 @@ HEADERS="$(mktemp)"
 BODY="$(mktemp)"
 trap 'rm -f "$HEADERS" "$BODY"; cleanup_stage' EXIT
 
-echo "5) Smoke Foundation boundary..."
+echo "6) Smoke Foundation boundary..."
 curl -fsS -D "$HEADERS" \
   "http://127.0.0.1:${PUBLIC_PORT}/api/health" \
   -o "$BODY"
@@ -189,7 +191,7 @@ echo "denied_origin=403"
 SWAPPED=0
 trap - ERR
 
-echo "6) Process and ports..."
+echo "7) Process and ports..."
 "$PM2_BIN" describe "$PM2_NAME"
 ss -lntp | grep -E ":${PUBLIC_PORT}|:${INTERNAL_PORT}" || true
 
