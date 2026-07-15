@@ -34,6 +34,8 @@ function optionalBoolean(body, camelKey, snakeKey) {
 function foundationContext(context) {
   return {
     requestId: context.requestId,
+    idempotencyKey: context.idempotencyKey || null,
+    receivedAt: context.receivedAt || null,
     installationId: context.installation.id,
     nppCode: context.installation.nppCode,
     actorId: context.actor.id,
