@@ -137,7 +137,33 @@ test("closed session provider errors become business conflicts", async () => {
       config,
       { fetchImpl }
     ),
-    (error) => error.message === "provider_request_failed" && error.statusCode === 409
+    (error) =>
+      error.message === "provider_request_failed" &&
+      error.statusCode === 409 &&
+      error.code === "session_closed_read_only"
+  );
+});
+
+test("unrecognized provider failures remain infrastructure errors", async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({
+    message: "database connection failed"
+  }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" }
+  });
+
+  await assert.rejects(
+    handleTransitionalApi(
+      request("POST", { sessionCustomerId: "session-customer-1", note: "Đã ghé" }),
+      new URL("http://local/api/mcp-day/session-customer/result"),
+      context,
+      config,
+      { fetchImpl }
+    ),
+    (error) =>
+      error.message === "provider_request_failed" &&
+      error.statusCode === 502 &&
+      error.code === undefined
   );
 });
 
