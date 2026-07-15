@@ -249,6 +249,8 @@ begin
     raise exception 'customer_name_required' using errcode = '23514';
   end if;
 
+  -- The session row is the serialization lock for add operations in one
+  -- session. It protects max(sort_order) and the duplicate check below.
   select * into v_session
     from public.mcp_route_sessions
    where id = p_session_id
@@ -274,11 +276,13 @@ begin
       raise exception 'route_customer_route_mismatch' using errcode = '23514';
     end if;
 
+    -- Do not lock the existing snapshot here. result/status mutations lock the
+    -- snapshot before the session row; taking the reverse pair would deadlock.
+    -- The session lock plus the unique partial index serializes add retries.
     select * into v_existing
       from public.mcp_session_customers
      where session_id = v_session.id
-       and route_customer_id = v_route_customer_id
-     for update;
+       and route_customer_id = v_route_customer_id;
 
     if v_existing.id is not null then
       perform public.mcp_recalc_route_session_counters(v_session.id);
