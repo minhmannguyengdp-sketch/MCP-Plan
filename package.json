@@ -12,7 +12,7 @@
     "audit:direct-db-mutation": "node scripts/audit-direct-db-mutations.mjs",
     "test:direct-db-mutation": "node --test test/audit-direct-db-mutations.test.mjs",
     "test:pullmcp-deployer": "node --test test/pullmcp-deployer.test.mjs",
-    "test:backend-api-auth": "node --test test/api-client-backend-auth.test.mjs",
+    "test:backend-api-auth": "node --test test/api-client-backend-auth.test.mjs test/production-tab-data-contract.test.mjs",
     "validate:runtime-config": "node scripts/validate-runtime-config.mjs",
     "smoke:f0-2-boundary": "node scripts/smoke-f0-2-boundary.mjs",
     "test:foundation": "npm --prefix apps/backend test",
