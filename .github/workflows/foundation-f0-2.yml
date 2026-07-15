@@ -37,8 +37,10 @@ jobs:
           path: runtime-hardcode-findings.txt
           if-no-files-found: error
 
-      - name: Test direct mutation scanner
-        run: npm run test:direct-db-mutation
+      - name: Test direct mutation scanner and retirement policy
+        run: |
+          npm run test:direct-db-mutation
+          npm run test:edge-retirement
 
       - name: Audit direct DB mutations
         run: npm run audit:direct-db-mutation
