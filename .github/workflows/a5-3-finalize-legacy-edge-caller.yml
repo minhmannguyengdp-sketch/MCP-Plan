@@ -1,4 +1,4 @@
-name: A5.3 Create Final Legacy Edge Caller PR
+name: A5.3 Push Final Legacy Edge Caller Branch
 
 on:
   pull_request:
@@ -7,10 +7,9 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  create-final-pr:
+  push-final-branch:
     if: github.head_ref == 'a5-3-finalize-legacy-edge-caller'
     runs-on: ubuntu-latest
     steps:
@@ -49,24 +48,10 @@ jobs:
           rm scripts/finalize-a5-3-legacy-edge-caller.mjs
           rm .github/workflows/a5-3-finalize-legacy-edge-caller.yml
 
-      - name: Create final runtime pull request
-        uses: peter-evans/create-pull-request@v7
+      - name: Push verified final runtime branch
+        uses: stefanzweifel/git-auto-commit-action@v6
         with:
-          token: ${{ github.token }}
+          commit_message: A5.3 remove legacy Edge fallback caller
           branch: a5-3-final-legacy-edge-caller-removal
-          base: main
-          delete-branch: true
-          commit-message: A5.3 remove legacy Edge fallback caller
-          title: 'A5.3: remove legacy Edge fallback caller'
-          body: |
-            Final A5.3 runtime closure generated from the deterministic, fully verified source transformation.
-
-            - removes the legacy backend helper that called Supabase Edge functions;
-            - removes internal fallback result/add routes to the retired `mcp-day-8b3` function;
-            - keeps canonical result/add ownership in the authenticated Foundation Gateway;
-            - records the completed A5.2 caller retirement in the immutable audit ledger;
-            - adds regression tests preventing the Edge caller from returning;
-            - updates the A5.3 runbook status to VPS pull pending.
-
-            The generating workflow ran full Foundation verification and a production frontend build before creating this PR. No temporary workflow or finalizer script is included in this PR.
-          labels: foundation,a5
+          create_branch: true
+          file_pattern: 'apps/backend/server.js scripts/direct-db-mutation-retirements.json package.json test/a5-3-no-legacy-edge-caller.test.mjs docs/npp-plan/A5_3_EDGE_RETIREMENT.md scripts/finalize-a5-3-legacy-edge-caller.mjs .github/workflows/a5-3-finalize-legacy-edge-caller.yml'
