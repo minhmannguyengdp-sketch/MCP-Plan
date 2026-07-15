@@ -84,6 +84,7 @@ done
 
 echo "4) Validate exact production environment..."
 read -r PUBLIC_PORT INTERNAL_PORT < <(
+  cd "$STAGE"
   env -i PATH="$PATH" HOME="$HOME" \
     node --env-file="$STAGE/.env" --input-type=module -e '
       const { loadFoundationConfig } = await import("./foundation/config.js");
