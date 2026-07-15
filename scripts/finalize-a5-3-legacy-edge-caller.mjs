@@ -7,12 +7,13 @@ const testPath = "test/a5-3-no-legacy-edge-caller.test.mjs";
 const docPath = "docs/npp-plan/A5_3_EDGE_RETIREMENT.md";
 
 const helperName = ["proxy", "Supabase", "Function"].join("");
+const rpcHelperName = ["supabase", "Rpc"].join("");
 const retiredFunctionName = ["mcp", "-day", "-8b3"].join("");
 
 let server = await readFile(serverPath, "utf8");
 const helperSignature = `async function ${helperName}(functionName, body, extraBody = {}) {`;
 const helperStart = server.indexOf(helperSignature);
-const helperEndMarker = "\n\nasync function supabaseRpc(functionName, args = {}) {";
+const helperEndMarker = `\n\nasync function ${rpcHelperName}(functionName, args = {}) {`;
 const helperEnd = server.indexOf(helperEndMarker, helperStart);
 
 if (helperStart < 0 || helperEnd < 0) {
