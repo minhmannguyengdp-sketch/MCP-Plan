@@ -36,6 +36,9 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "MCP-Plan"
   },
+  other: {
+    "mobile-web-app-capable": "yes"
+  },
   formatDetection: { telephone: false }
 };
 
