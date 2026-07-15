@@ -1,7 +1,7 @@
 # A5.4 — Migrate remaining direct REST mutations
 
-> Trạng thái: **AUDIT COMPLETE / IMPLEMENTATION NOT STARTED**  
-> Ngày audit: **2026-07-15**  
+> Trạng thái: **A5.4.1 SOURCE VERIFIED / DEPLOY PENDING**
+> Ngày audit: **2026-07-15**
 > Phụ thuộc đã đạt: A5 audit, A5.1 scanner, A5.2 atomic result/add, A5.3 Edge retirement and strict production smoke
 
 ## 1. Mục tiêu

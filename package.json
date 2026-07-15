@@ -18,7 +18,8 @@
     "smoke:f0-2-boundary": "node scripts/smoke-f0-2-boundary.mjs",
     "test:foundation": "npm --prefix apps/backend test",
     "verify:copy": "npm run audit:copy && npm run typecheck",
-    "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:foundation && npm run typecheck"
+    "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run test:direct-rest-retirement && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:foundation && npm run typecheck",
+    "test:direct-rest-retirement": "node --test test/a5-4-1-dead-session-mutations.test.mjs"
   },
   "dependencies": {
     "next": "^14.2.35",

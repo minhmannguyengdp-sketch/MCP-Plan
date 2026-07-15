@@ -6,9 +6,16 @@
       "phase": "A5.2",
       "completedAt": "2026-07-15",
       "owner": "legacy-backend",
-      "reason": "The legacy server fallback caller to mcp-day-8b3 was removed after the authenticated Gateway result/add cutover was verified. Direct internal fallback now fails closed instead of restoring the retired Edge hop.",
+      "reason": "The authenticated Gateway/RPC cutover was verified for MCP day result/add/open/status. The legacy backend-to-Edge caller and unreachable direct-table open/status implementations were removed; direct internal fallback now fails closed instead of restoring retired mutation paths.",
       "fingerprints": [
-        "554f43f7c06fc8a9a4da0b21"
+        "554f43f7c06fc8a9a4da0b21",
+        "1dc555d44cc89f4bfaa50180",
+        "abf55ef270a7e39894bf265d",
+        "89edbaea655813b7ea00bc40",
+        "7b35ad1f6bb6f4a506761a51",
+        "4c9adfa1c08d263a002e5cde",
+        "2dfa3c8e754823d8ce845e11",
+        "6e5f15d9cd15ee8e012e151d"
       ]
     },
     {
