@@ -25,7 +25,7 @@ function request(port, path, { method = "GET", headers = {}, body } = {}) {
   });
 }
 
-async function setup(legacyHandler) {
+async function setup(legacyHandler, configOverrides = {}) {
   const legacy = http.createServer(legacyHandler || ((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
@@ -52,7 +52,8 @@ async function setup(legacyHandler) {
     backendApiToken: "0123456789abcdef0123456789abcdef",
     authMode: "proxy-service",
     corsOrigins: ["https://app.example.com"],
-    upstreamTimeoutMs: 1000
+    upstreamTimeoutMs: 1000,
+    ...configOverrides
   };
 
   const gateway = createFoundationGateway(config);
@@ -106,6 +107,55 @@ test("gateway injects context and wraps legacy success as canonical data", async
   assert.equal(result.body.data.idempotencyKey, "route-read-12345678");
   assert.equal(result.body.data.leakedToken, false);
   assert.equal(result.headers["access-control-allow-origin"], "https://app.example.com");
+});
+
+test("session mutation business errors remain canonical through the Gateway", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    const message = target.endsWith("/mcp_record_session_customer_result")
+      ? "session_customer_not_found"
+      : target.endsWith("/mcp_add_session_customer")
+        ? "session_not_found"
+        : null;
+    if (!message) throw new Error(`unexpected_provider_request:${target}`);
+    return new Response(JSON.stringify({ code: "23503", message }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const state = await setup(undefined, {
+    supabaseUrl: "https://project.example.com",
+    supabaseServiceRoleKey: "server-only-key"
+  });
+  t.after(async () => { await close(state.gateway); await close(state.legacy); });
+
+  const headers = {
+    "x-backend-token": state.config.backendApiToken,
+    "content-type": "application/json"
+  };
+
+  const result = await request(state.publicPort, "/api/mcp-day/session-customer/result", {
+    method: "POST",
+    headers: { ...headers, "x-request-id": "request_result_12345678" },
+    body: JSON.stringify({ sessionCustomerId: "missing-sc", note: "smoke" })
+  });
+  assert.equal(result.status, 404);
+  assert.equal(result.body.error.code, "SESSION_CUSTOMER_NOT_FOUND");
+  assert.deepEqual(result.body.error.details, {});
+  assert.equal(result.body.error.retryable, false);
+
+  const add = await request(state.publicPort, "/api/mcp-day/session-customer/add", {
+    method: "POST",
+    headers: { ...headers, "x-request-id": "request_add_12345678" },
+    body: JSON.stringify({ sessionId: "missing-session", customerName: "Khách phát sinh" })
+  });
+  assert.equal(add.status, 404);
+  assert.equal(add.body.error.code, "SESSION_NOT_FOUND");
+  assert.deepEqual(add.body.error.details, {});
+  assert.equal(add.body.error.retryable, false);
 });
 
 test("CORS is deny-by-default with canonical errors", async (t) => {
