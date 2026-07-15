@@ -1,6 +1,6 @@
 export type AccountStatus = "active" | "need_visit" | "inactive";
 
-export type AccountTier = "A" | "B" | "C";
+export type AccountTier = "A" | "B" | "C" | "-";
 
 export type AccountItem = {
   id: string;
