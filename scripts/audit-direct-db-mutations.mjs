@@ -12,42 +12,15 @@ const DEFAULT_SCAN_ROOTS = [
   ".github",
   "agent-backend"
 ];
-
-const IGNORED_DIRECTORIES = new Set([
-  ".git",
-  ".next",
-  "node_modules",
-  "coverage",
-  "dist",
-  "build"
-]);
-
-const SELF_EXCLUDED_FILES = new Set([
+const IGNORED_DIRECTORIES = new Set([".git", ".next", "node_modules", "coverage", "dist", "build"]);
+const EXCLUDED_FILES = new Set([
   "scripts/audit-direct-db-mutations.mjs",
   "scripts/direct-db-mutation-baseline.json"
 ]);
-
-const SELF_EXCLUDED_PREFIXES = [
-  "scripts/__tests__/fixtures/"
-];
-
-const SOURCE_EXTENSIONS = new Set([
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".ts",
-  ".tsx",
-  ".py",
-  ".ps1",
-  ".yml",
-  ".yaml",
-  ".json"
-]);
-
-const MUTATION_METHOD_PATTERN = /\bmethod\s*:\s*["'`](POST|PUT|PATCH|DELETE)["'`]|\bmethod\s*=\s*["'`](POST|PUT|PATCH|DELETE)["'`]|\brequests\.(post|put|patch|delete)\s*\(|\bfetch\s*\([^)]*\{[\s\S]*?\bmethod\s*:\s*["'`](POST|PUT|PATCH|DELETE)["'`]/i;
-const READ_METHOD_PATTERN = /\bmethod\s*:\s*["'`]GET["'`]|\bmethod\s*=\s*["'`]GET["'`]|\brequests\.get\s*\(/i;
+const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".ps1", ".yml", ".yaml", ".json"]);
 const SERVICE_ROLE_PATTERN = /SUPABASE_SERVICE_ROLE_KEY|supabaseServiceRoleKey|service_role/i;
+const MUTATION_METHOD_PATTERN = /\bmethod\s*:\s*["'`](POST|PUT|PATCH|DELETE)["'`]|\bmethod\s*=\s*["'`](POST|PUT|PATCH|DELETE)["'`]|\brequests\.(post|put|patch|delete)\s*\(/i;
+const READ_METHOD_PATTERN = /\bmethod\s*:\s*["'`]GET["'`]|\bmethod\s*=\s*["'`]GET["'`]|\brequests\.get\s*\(/i;
 
 function normalizePath(value) {
   return value.split(path.sep).join("/");
@@ -61,14 +34,17 @@ function normalizeToken(value) {
     .slice(0, 180);
 }
 
-function hashFingerprint(parts) {
-  return createHash("sha256").update(parts.join("\n")).digest("hex").slice(0, 24);
+function fingerprintOf(relativePath, ruleCode, functionName, target) {
+  return createHash("sha256")
+    .update([relativePath, ruleCode, functionName, target].join("\n"))
+    .digest("hex")
+    .slice(0, 24);
 }
 
 function classifyConsumer(relativePath, content) {
   if (relativePath.startsWith("src/")) {
     if (/^[\s\r\n]*["']use client["'];?/m.test(content)) return "browser";
-    return relativePath.startsWith("src/app/api/") ? "next-server" : "next-server";
+    return "next-server";
   }
   if (relativePath.startsWith("apps/backend/foundation/gateway")) return "gateway";
   if (relativePath.startsWith("apps/backend/")) return "backend";
@@ -91,7 +67,6 @@ function functionRanges(content) {
     /(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{/g,
     /(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?[A-Za-z_$][\w$]*\s*=>\s*\{/g
   ];
-
   for (const pattern of patterns) {
     for (const match of content.matchAll(pattern)) {
       const braceIndex = content.indexOf("{", match.index);
@@ -99,9 +74,8 @@ function functionRanges(content) {
     }
   }
 
-  starts.sort((a, b) => a.start - b.start);
   const ranges = [];
-  for (const item of starts) {
+  for (const item of starts.sort((a, b) => a.start - b.start)) {
     let depth = 0;
     let quote = null;
     let escaped = false;
@@ -138,243 +112,158 @@ function functionRanges(content) {
   return ranges;
 }
 
-function owningFunction(ranges, index) {
+function ownerAt(ranges, index, content) {
   const candidates = ranges.filter((range) => range.start <= index && index < range.end);
-  if (candidates.length === 0) return { name: "<file>", start: 0, end: Number.MAX_SAFE_INTEGER };
+  if (candidates.length === 0) return { name: "<file>", start: 0, end: content.length, text: content };
   return candidates.sort((a, b) => b.start - a.start)[0];
 }
 
-function literalTargets(text, pattern, fallback) {
-  const targets = new Set();
-  for (const match of text.matchAll(pattern)) targets.add(normalizeToken(match[1] || fallback));
-  if (targets.size === 0) targets.add(fallback);
-  return [...targets];
-}
-
-function detectOperation(block, defaultOperation = "unknown") {
+function operationFrom(block, fallback = "unknown") {
   if (MUTATION_METHOD_PATTERN.test(block)) return "mutation";
   if (READ_METHOD_PATTERN.test(block)) return "read";
-  return defaultOperation;
+  return fallback;
 }
 
-function buildRawFinding({ relativePath, content, matchIndex, functionName, ruleCode, operation, providerSurface, target, evidence }) {
-  const normalizedTarget = normalizeToken(target || "<dynamic>");
-  const fingerprint = hashFingerprint([relativePath, ruleCode, functionName, normalizedTarget]);
-  return {
-    fingerprint,
-    file: relativePath,
-    line: lineNumberAt(content, matchIndex),
-    functionName,
-    consumer: classifyConsumer(relativePath, content),
-    operation,
-    providerSurface,
-    classification: "unclassified",
-    ruleCode,
-    target: normalizedTarget,
-    reason: "No audited baseline entry matches this finding.",
-    replacementTarget: null,
-    owner: null,
-    replacementPhase: null,
-    usesServiceRole: SERVICE_ROLE_PATTERN.test(content),
-    evidence: normalizeToken(evidence)
-  };
+function targetsFrom(text, regex, fallback) {
+  const values = new Set();
+  for (const match of text.matchAll(regex)) values.add(normalizeToken(match[1] || fallback));
+  if (values.size === 0) values.add(fallback);
+  return [...values];
 }
 
 function detectFindings(relativePath, content) {
-  const findings = [];
   const ranges = functionRanges(content);
+  const findings = [];
   const emitted = new Set();
+  const consumer = classifyConsumer(relativePath, content);
+  const usesServiceRole = SERVICE_ROLE_PATTERN.test(content);
 
-  function emit(input) {
-    const finding = buildRawFinding({ relativePath, content, ...input });
-    if (emitted.has(finding.fingerprint)) return;
-    emitted.add(finding.fingerprint);
-    findings.push(finding);
+  function emit({ index, functionName, ruleCode, operation, providerSurface, target, evidence }) {
+    const normalizedTarget = normalizeToken(target || "<dynamic>");
+    const fingerprint = fingerprintOf(relativePath, ruleCode, functionName, normalizedTarget);
+    if (emitted.has(fingerprint)) return;
+    emitted.add(fingerprint);
+    findings.push({
+      fingerprint,
+      file: relativePath,
+      line: lineNumberAt(content, index),
+      functionName,
+      consumer,
+      operation,
+      providerSurface,
+      classification: "unclassified",
+      ruleCode,
+      target: normalizedTarget,
+      reason: "No audited baseline entry matches this finding.",
+      replacementTarget: null,
+      owner: null,
+      replacementPhase: null,
+      usesServiceRole,
+      evidence: normalizeToken(evidence)
+    });
   }
 
-  const providerImportPatterns = [
-    ["SUPABASE_SDK_IMPORT", "sdk", /@supabase\/supabase-js/g],
-    ["SUPABASE_CREATE_CLIENT", "sdk", /\bcreateClient\s*\(/g]
-  ];
-  for (const [ruleCode, providerSurface, pattern] of providerImportPatterns) {
-    for (const match of content.matchAll(pattern)) {
-      const owner = owningFunction(ranges, match.index);
-      emit({
-        matchIndex: match.index,
-        functionName: owner.name,
-        ruleCode,
-        operation: "unknown",
-        providerSurface,
-        target: match[0],
-        evidence: match[0]
-      });
+  for (const [ruleCode, regex] of [
+    ["SUPABASE_SDK_IMPORT", /@supabase\/supabase-js/g],
+    ["SUPABASE_CREATE_CLIENT", /\bcreateClient\s*\(/g]
+  ]) {
+    for (const match of content.matchAll(regex)) {
+      const owner = ownerAt(ranges, match.index, content);
+      emit({ index: match.index, functionName: owner.name, ruleCode, operation: "unknown", providerSurface: "sdk", target: match[0], evidence: match[0] });
     }
   }
 
   const helperRules = [
     {
-      ruleCode: "HELPER_REST_CALL",
-      providerSurface: "rest",
-      pattern: /\bsupabaseRest\s*\(/g,
-      targets: (block) => literalTargets(block, /supabaseRest\s*\(\s*[^,]+,\s*["'`]([^"'`]+)["'`]/g, "<dynamic-rest-resource>"),
-      operation: (block) => detectOperation(block, "read")
+      code: "HELPER_REST_CALL",
+      surface: "rest",
+      regex: /\bsupabaseRest\s*\(/g,
+      targetRegex: /supabaseRest\s*\(\s*[^,]+,\s*["'`]([^"'`]+)["'`]/g,
+      fallback: "<dynamic-rest-resource>",
+      operation: (block) => operationFrom(block, "read")
     },
     {
-      ruleCode: "HELPER_RPC_CALL",
-      providerSurface: "rpc",
-      pattern: /\bsupabaseRpc\s*\(/g,
-      targets: (block) => literalTargets(block, /supabaseRpc\s*\(\s*(?:[^,]+,\s*)?["'`]([^"'`]+)["'`]/g, "<dynamic-rpc>"),
+      code: "HELPER_RPC_CALL",
+      surface: "rpc",
+      regex: /\bsupabaseRpc\s*\(/g,
+      targetRegex: /supabaseRpc\s*\(\s*(?:[^,]+,\s*)?["'`]([^"'`]+)["'`]/g,
+      fallback: "<dynamic-rpc>",
       operation: () => "unknown"
     },
     {
-      ruleCode: "HELPER_INSERT_CALL",
-      providerSurface: "rest",
-      pattern: /\bsupabaseInsert\s*\(/g,
-      targets: (block) => literalTargets(block, /supabaseInsert\s*\(\s*["'`]([^"'`]+)["'`]/g, "<dynamic-table>"),
+      code: "HELPER_INSERT_CALL",
+      surface: "rest",
+      regex: /\bsupabaseInsert\s*\(/g,
+      targetRegex: /supabaseInsert\s*\(\s*["'`]([^"'`]+)["'`]/g,
+      fallback: "<dynamic-table>",
       operation: () => "mutation"
     },
     {
-      ruleCode: "HELPER_PATCH_CALL",
-      providerSurface: "rest",
-      pattern: /\bsupabasePatch\s*\(/g,
-      targets: (block) => literalTargets(block, /supabasePatch\s*\(\s*["'`]([^"'`]+)["'`]/g, "<dynamic-table>"),
+      code: "HELPER_PATCH_CALL",
+      surface: "rest",
+      regex: /\bsupabasePatch\s*\(/g,
+      targetRegex: /supabasePatch\s*\(\s*["'`]([^"'`]+)["'`]/g,
+      fallback: "<dynamic-table>",
       operation: () => "mutation"
     },
     {
-      ruleCode: "HELPER_DELETE_CALL",
-      providerSurface: "rest",
-      pattern: /\bsupabaseDelete\s*\(/g,
-      targets: (block) => literalTargets(block, /supabaseDelete\s*\(\s*["'`]([^"'`]+)["'`]/g, "<dynamic-table>"),
+      code: "HELPER_DELETE_CALL",
+      surface: "rest",
+      regex: /\bsupabaseDelete\s*\(/g,
+      targetRegex: /supabaseDelete\s*\(\s*["'`]([^"'`]+)["'`]/g,
+      fallback: "<dynamic-table>",
       operation: () => "mutation"
     }
   ];
 
   for (const rule of helperRules) {
-    for (const match of content.matchAll(rule.pattern)) {
-      const owner = owningFunction(ranges, match.index);
-      const block = owner.text || content;
-      for (const target of rule.targets(block)) {
-        emit({
-          matchIndex: match.index,
-          functionName: owner.name,
-          ruleCode: rule.ruleCode,
-          operation: rule.operation(block),
-          providerSurface: rule.providerSurface,
-          target,
-          evidence: match[0]
-        });
+    for (const match of content.matchAll(rule.regex)) {
+      const owner = ownerAt(ranges, match.index, content);
+      for (const target of targetsFrom(owner.text, rule.targetRegex, rule.fallback)) {
+        emit({ index: match.index, functionName: owner.name, ruleCode: rule.code, operation: rule.operation(owner.text), providerSurface: rule.surface, target, evidence: match[0] });
       }
     }
   }
 
-  const directHttpRules = [
-    {
-      ruleCode: "REST_HTTP_CALL",
-      providerSurface: "rest",
-      pattern: /\/rest\/v1\//g,
-      targets: (block) => literalTargets(block, /\/rest\/v1\/([^?"'`\s)]+)/g, "<dynamic-rest-path>")
-    },
-    {
-      ruleCode: "EDGE_HTTP_CALL",
-      providerSurface: "edge-function",
-      pattern: /\/functions\/v1\//g,
-      targets: (block) => literalTargets(block, /\/functions\/v1\/([^?"'`\s)]+)/g, "<dynamic-edge-function>")
-    }
-  ];
-
-  for (const rule of directHttpRules) {
-    for (const match of content.matchAll(rule.pattern)) {
-      const owner = owningFunction(ranges, match.index);
-      const block = owner.text || content;
-      for (const target of rule.targets(block)) {
-        emit({
-          matchIndex: match.index,
-          functionName: owner.name,
-          ruleCode: rule.ruleCode,
-          operation: detectOperation(block, "read"),
-          providerSurface: rule.providerSurface,
-          target,
-          evidence: match[0]
-        });
+  for (const rule of [
+    { code: "REST_HTTP_CALL", surface: "rest", regex: /\/rest\/v1\//g, targetRegex: /\/rest\/v1\/([^?"'`\s)]+)/g, fallback: "<dynamic-rest-path>" },
+    { code: "EDGE_HTTP_CALL", surface: "edge-function", regex: /\/functions\/v1\//g, targetRegex: /\/functions\/v1\/([^?"'`\s)]+)/g, fallback: "<dynamic-edge-function>" }
+  ]) {
+    for (const match of content.matchAll(rule.regex)) {
+      const owner = ownerAt(ranges, match.index, content);
+      for (const target of targetsFrom(owner.text, rule.targetRegex, rule.fallback)) {
+        emit({ index: match.index, functionName: owner.name, ruleCode: rule.code, operation: operationFrom(owner.text, "read"), providerSurface: rule.surface, target, evidence: match[0] });
       }
     }
   }
 
-  const sdkMutationPattern = /\.(insert|update|upsert|delete)\s*\(/g;
-  for (const match of content.matchAll(sdkMutationPattern)) {
-    const owner = owningFunction(ranges, match.index);
-    const block = owner.text || content;
-    const tables = literalTargets(block, /\.from\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g, "<dynamic-sdk-table>");
-    for (const table of tables) {
-      emit({
-        matchIndex: match.index,
-        functionName: owner.name,
-        ruleCode: `SDK_${match[1].toUpperCase()}`,
-        operation: "mutation",
-        providerSurface: "sdk",
-        target: table,
-        evidence: match[0]
-      });
-    }
+  const sdkMutation = /\bsupabase(?:Client)?\.from\s*\(\s*["'`]([^"'`]+)["'`]\s*\)[\s\S]{0,500}?\.(insert|update|upsert|delete)\s*\(/g;
+  for (const match of content.matchAll(sdkMutation)) {
+    const owner = ownerAt(ranges, match.index, content);
+    emit({ index: match.index, functionName: owner.name, ruleCode: `SDK_${match[2].toUpperCase()}`, operation: "mutation", providerSurface: "sdk", target: match[1], evidence: match[0] });
   }
 
-  const sdkReadPattern = /\.from\s*\(/g;
-  for (const match of content.matchAll(sdkReadPattern)) {
-    const owner = owningFunction(ranges, match.index);
-    const block = owner.text || content;
-    if (/\.(insert|update|upsert|delete)\s*\(/.test(block)) continue;
-    const tables = literalTargets(block, /\.from\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g, "<dynamic-sdk-table>");
-    for (const table of tables) {
-      emit({
-        matchIndex: match.index,
-        functionName: owner.name,
-        ruleCode: "SDK_FROM_READ",
-        operation: "read",
-        providerSurface: "sdk",
-        target: table,
-        evidence: match[0]
-      });
-    }
+  const sdkFrom = /\bsupabase(?:Client)?\.from\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g;
+  for (const match of content.matchAll(sdkFrom)) {
+    const owner = ownerAt(ranges, match.index, content);
+    const tail = content.slice(match.index, Math.min(content.length, match.index + 500));
+    if (/\.(insert|update|upsert|delete)\s*\(/.test(tail)) continue;
+    emit({ index: match.index, functionName: owner.name, ruleCode: "SDK_FROM_READ", operation: "read", providerSurface: "sdk", target: match[1], evidence: match[0] });
   }
 
-  const sdkRpcPattern = /\.rpc\s*\(\s*["'`]([^"'`]+)["'`]/g;
-  for (const match of content.matchAll(sdkRpcPattern)) {
-    const owner = owningFunction(ranges, match.index);
-    emit({
-      matchIndex: match.index,
-      functionName: owner.name,
-      ruleCode: "SDK_RPC_CALL",
-      operation: "unknown",
-      providerSurface: "rpc",
-      target: match[1],
-      evidence: match[0]
-    });
+  for (const match of content.matchAll(/\bsupabase(?:Client)?\.rpc\s*\(\s*["'`]([^"'`]+)["'`]/g)) {
+    const owner = ownerAt(ranges, match.index, content);
+    emit({ index: match.index, functionName: owner.name, ruleCode: "SDK_RPC_CALL", operation: "unknown", providerSurface: "rpc", target: match[1], evidence: match[0] });
   }
 
-  for (const match of content.matchAll(/\.storage\.from\s*\(|\bstorage\.from\s*\(/g)) {
-    const owner = owningFunction(ranges, match.index);
-    emit({
-      matchIndex: match.index,
-      functionName: owner.name,
-      ruleCode: "STORAGE_FROM",
-      operation: "unknown",
-      providerSurface: "storage",
-      target: "<storage-bucket>",
-      evidence: match[0]
-    });
+  for (const match of content.matchAll(/\bsupabase(?:Client)?\.storage\.from\s*\(\s*["'`]([^"'`]+)["'`]/g)) {
+    const owner = ownerAt(ranges, match.index, content);
+    emit({ index: match.index, functionName: owner.name, ruleCode: "STORAGE_FROM", operation: "unknown", providerSurface: "storage", target: match[1], evidence: match[0] });
   }
 
-  for (const match of content.matchAll(/\.functions\.invoke\s*\(|\bfunctions\.invoke\s*\(/g)) {
-    const owner = owningFunction(ranges, match.index);
-    emit({
-      matchIndex: match.index,
-      functionName: owner.name,
-      ruleCode: "FUNCTIONS_INVOKE",
-      operation: "unknown",
-      providerSurface: "edge-function",
-      target: "<dynamic-edge-function>",
-      evidence: match[0]
-    });
+  for (const match of content.matchAll(/\bsupabase(?:Client)?\.functions\.invoke\s*\(\s*["'`]([^"'`]+)["'`]/g)) {
+    const owner = ownerAt(ranges, match.index, content);
+    emit({ index: match.index, functionName: owner.name, ruleCode: "FUNCTIONS_INVOKE", operation: "unknown", providerSurface: "edge-function", target: match[1], evidence: match[0] });
   }
 
   return findings;
@@ -396,11 +285,6 @@ async function filesBelow(root, relativePath) {
   return files;
 }
 
-function shouldExcludeFile(relativePath) {
-  if (SELF_EXCLUDED_FILES.has(relativePath)) return true;
-  return SELF_EXCLUDED_PREFIXES.some((prefix) => relativePath.startsWith(prefix));
-}
-
 function validateBaseline(entries) {
   const errors = [];
   const seen = new Set();
@@ -418,30 +302,27 @@ function validateBaseline(entries) {
   return errors;
 }
 
-function applyBaseline(findings, baselineEntries) {
-  const baselineByFingerprint = new Map(baselineEntries.map((entry) => [entry.fingerprint, entry]));
+function applyBaseline(findings, entries) {
+  const byFingerprint = new Map(entries.map((entry) => [entry.fingerprint, entry]));
   return findings.map((finding) => {
-    const baseline = baselineByFingerprint.get(finding.fingerprint);
-    if (!baseline) return finding;
+    const entry = byFingerprint.get(finding.fingerprint);
+    if (!entry) return finding;
     return {
       ...finding,
-      classification: baseline.classification,
-      operation: baseline.operation,
-      reason: baseline.reason,
-      replacementTarget: baseline.replacementTarget || null,
-      owner: baseline.owner,
-      replacementPhase: baseline.replacementPhase
+      classification: entry.classification,
+      operation: entry.operation,
+      owner: entry.owner,
+      reason: entry.reason,
+      replacementPhase: entry.replacementPhase,
+      replacementTarget: entry.replacementTarget || null
     };
   });
 }
 
-function validationErrors(findings, baselineEntries, baselineErrors) {
+function validateFindings(findings, entries, baselineErrors) {
   const errors = [...baselineErrors];
-  const findingByFingerprint = new Map(findings.map((finding) => [finding.fingerprint, finding]));
-
-  for (const entry of baselineEntries) {
-    if (!findingByFingerprint.has(entry.fingerprint)) errors.push(`stale_baseline:${entry.fingerprint}`);
-  }
+  const live = new Set(findings.map((finding) => finding.fingerprint));
+  for (const entry of entries) if (!live.has(entry.fingerprint)) errors.push(`stale_baseline:${entry.fingerprint}`);
 
   for (const finding of findings) {
     if (finding.operation === "mutation" && finding.consumer === "browser") {
@@ -450,39 +331,19 @@ function validationErrors(findings, baselineEntries, baselineErrors) {
       errors.push(`browser_direct_mutation:${finding.fingerprint}`);
     }
     if (finding.classification === "unclassified") errors.push(`unclassified_finding:${finding.fingerprint}`);
-    if (finding.operation === "mutation" && /READ/i.test(finding.ruleCode)) {
-      errors.push(`mutation_mislabeled_read:${finding.fingerprint}`);
-    }
-    if (
-      finding.operation === "mutation" &&
-      finding.usesServiceRole &&
-      !["backend", "edge", "script", "admin", "ci"].includes(finding.consumer)
-    ) {
+    if (finding.operation === "mutation" && /READ/i.test(finding.ruleCode)) errors.push(`mutation_mislabeled_read:${finding.fingerprint}`);
+    if (finding.operation === "mutation" && finding.usesServiceRole && !["backend", "edge", "script", "admin", "ci"].includes(finding.consumer)) {
       errors.push(`service_role_wrong_consumer:${finding.fingerprint}`);
     }
-    if (
-      finding.operation === "mutation" &&
-      finding.consumer === "edge" &&
-      finding.classification !== "known-legacy-debt"
-    ) {
+    if (finding.operation === "mutation" && finding.consumer === "edge" && finding.classification !== "known-legacy-debt") {
       errors.push(`public_edge_mutation_not_legacy_debt:${finding.fingerprint}`);
     }
   }
-
   return [...new Set(errors)].sort();
 }
 
 function summarize(findings) {
-  const summary = {
-    total: findings.length,
-    approved: 0,
-    legacyDebt: 0,
-    forbidden: 0,
-    unclassified: 0,
-    read: 0,
-    mutation: 0,
-    unknownOperation: 0
-  };
+  const summary = { total: findings.length, approved: 0, legacyDebt: 0, forbidden: 0, unclassified: 0, read: 0, mutation: 0, unknownOperation: 0 };
   for (const finding of findings) {
     if (finding.classification === "approved-boundary") summary.approved += 1;
     if (finding.classification === "known-legacy-debt") summary.legacyDebt += 1;
@@ -496,9 +357,8 @@ function summarize(findings) {
 }
 
 function textReport(result) {
-  const status = result.errors.length === 0 ? "direct_db_mutation_audit_passed" : "direct_db_mutation_audit_failed";
   const lines = [
-    status,
+    result.errors.length ? "direct_db_mutation_audit_failed" : "direct_db_mutation_audit_passed",
     `files=${result.files.length}`,
     `findings=${result.summary.total}`,
     `approved=${result.summary.approved}`,
@@ -509,12 +369,10 @@ function textReport(result) {
     `mutation=${result.summary.mutation}`,
     `unknown_operation=${result.summary.unknownOperation}`
   ];
-
   if (result.errors.length) {
     lines.push("", "errors:");
     for (const error of result.errors) lines.push(`- ${error}`);
   }
-
   if (result.findings.length) {
     lines.push("", "findings:");
     for (const finding of result.findings) {
@@ -539,7 +397,7 @@ export async function scanRepository({
   const files = [];
   for (const scanRoot of scanRoots) files.push(...await filesBelow(root, scanRoot));
   const uniqueFiles = [...new Set(files.map(normalizePath))]
-    .filter((file) => !shouldExcludeFile(file))
+    .filter((file) => !EXCLUDED_FILES.has(file))
     .sort();
 
   const rawFindings = [];
@@ -550,10 +408,9 @@ export async function scanRepository({
   rawFindings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.ruleCode.localeCompare(b.ruleCode));
 
   const baselineDocument = JSON.parse(await readFile(path.join(root, baselinePath), "utf8"));
-  const baselineEntries = Array.isArray(baselineDocument.entries) ? baselineDocument.entries : [];
-  const baselineErrors = validateBaseline(baselineEntries);
-  const findings = applyBaseline(rawFindings, baselineEntries);
-  const errors = validationErrors(findings, baselineEntries, baselineErrors);
+  const entries = Array.isArray(baselineDocument.entries) ? baselineDocument.entries : [];
+  const findings = applyBaseline(rawFindings, entries);
+  const errors = validateFindings(findings, entries, validateBaseline(entries));
   const result = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -572,11 +429,17 @@ export async function scanRepository({
 }
 
 async function main() {
-  let result;
   try {
-    result = await scanRepository();
+    const result = await scanRepository();
+    const report = textReport(result);
+    if (result.errors.length) {
+      console.error(report.trimEnd());
+      process.exitCode = 1;
+    } else {
+      console.log(report.trimEnd());
+    }
   } catch (error) {
-    const failure = {
+    const result = {
       schemaVersion: 1,
       generatedAt: new Date().toISOString(),
       scanRoots: DEFAULT_SCAN_ROOTS,
@@ -585,19 +448,10 @@ async function main() {
       errors: [`scanner_error:${error?.message || String(error)}`],
       findings: []
     };
-    await writeFile("direct-db-mutation-findings.txt", textReport(failure), "utf8").catch(() => {});
-    await writeFile("direct-db-mutation-findings.json", `${JSON.stringify(failure, null, 2)}\n`, "utf8").catch(() => {});
-    console.error(textReport(failure).trimEnd());
+    await writeFile("direct-db-mutation-findings.txt", textReport(result), "utf8").catch(() => {});
+    await writeFile("direct-db-mutation-findings.json", `${JSON.stringify(result, null, 2)}\n`, "utf8").catch(() => {});
+    console.error(textReport(result).trimEnd());
     process.exitCode = 1;
-    return;
-  }
-
-  const report = textReport(result);
-  if (result.errors.length) {
-    console.error(report.trimEnd());
-    process.exitCode = 1;
-  } else {
-    console.log(report.trimEnd());
   }
 }
 
