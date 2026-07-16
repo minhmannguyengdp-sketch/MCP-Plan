@@ -57,6 +57,17 @@
         "ea3fdd0cec40084d8ba06c1f",
         "204c2501e1755878fd26bf36"
       ]
+    },
+    {
+      "phase": "A5.4.4",
+      "completedAt": "2026-07-16",
+      "owner": "field-check-aggregate",
+      "reason": "Field-check updates now require an existing result and use the typed service-role-only RPC with row locking, status normalization and Foundation context. The unreachable field-check create fallback and duplicate broken market-report route were removed, and direct table mutation privileges were revoked from browser roles.",
+      "fingerprints": [
+        "474001fbfa0d1de1ed003364",
+        "f70d562b03f15f08cae868e8",
+        "ffb1c503e59aa8fcf8f0344f"
+      ]
     }
   ]
 }
