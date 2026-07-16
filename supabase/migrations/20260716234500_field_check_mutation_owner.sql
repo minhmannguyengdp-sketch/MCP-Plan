@@ -91,9 +91,7 @@ begin
 end;
 $function$;
 
-revoke all on function public.mcp_update_field_check_result(text, text, text, text, text, text, jsonb, jsonb) from public;
-revoke all on function public.mcp_update_field_check_result(text, text, text, text, text, text, jsonb, jsonb) from anon;
-revoke all on function public.mcp_update_field_check_result(text, text, text, text, text, text, jsonb, jsonb) from authenticated;
+revoke execute on function public.mcp_update_field_check_result(text, text, text, text, text, text, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.mcp_update_field_check_result(text, text, text, text, text, text, jsonb, jsonb) to service_role;
 
 drop policy if exists "anon insert test customer results" on public.test_customer_results;
