@@ -33,25 +33,20 @@ async function occurrences(token) {
   return matches;
 }
 
-test("A5.4.2 inventories every Next session-report snapshot writer/caller", async () => {
+test("A5.4.2 leaves no Next session-report snapshot writer or caller", async () => {
   const matches = await occurrences("saveMcpSessionReportSnapshot");
   console.log(JSON.stringify({ event: "a5_4_2_session_report_callers", matches }, null, 2));
-
-  const files = matches.map((item) => item.file).sort();
-  assert.deepEqual(files, [
-    "src/lib/mcp/session-report-snapshot.ts",
-    "src/lib/mcp/session-report.ts"
-  ]);
-
-  for (const match of matches) {
-    assert.ok(
-      match.lines.every((item) => item.text.startsWith("export async function saveMcpSessionReportSnapshot")),
-      `unexpected caller remains in ${match.file}`
-    );
-  }
+  assert.deepEqual(matches, []);
 });
 
-test("public session-report POST already proxies to the backend owner", async () => {
+test("session report read model contains no direct service-role mutation", async () => {
+  const source = await readFile(path.join(root, "src/lib/mcp/session-report.ts"), "utf8");
+  assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(source, /\/rest\/v1\/mcp_session_reports/);
+  assert.doesNotMatch(source, /method:\s*"POST"/);
+});
+
+test("public session-report POST proxies to the backend owner", async () => {
   const route = await readFile(path.join(root, "src/app/api/mcp-session-report/route.ts"), "utf8");
   assert.match(route, /proxyBackendRequest\(request, "\/api\/mcp-session-report", "POST"\)/);
   assert.doesNotMatch(route, /saveMcpSessionReportSnapshot/);
