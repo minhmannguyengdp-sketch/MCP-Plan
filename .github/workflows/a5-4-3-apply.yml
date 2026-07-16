@@ -1,0 +1,45 @@
+name: Apply A5.4.3 source transformation
+
+on:
+  push:
+    branches:
+      - a5-4-3-report-settings-owner
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: contains(github.event.head_commit.message, 'run A5.4.3 source transformer')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a5-4-3-report-settings-owner
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply exact source transformation
+        run: node scripts/apply-a5-4-3.mjs
+      - name: Verify backend
+        run: npm --prefix apps/backend run verify
+      - name: Verify caller retirement
+        run: node --test test/a5-4-3-report-settings-caller-audit.test.mjs test/direct-db-retirement-subphase.test.mjs
+      - name: Verify direct mutation debt
+        run: |
+          node --input-type=module <<'NODE'
+          import { auditDirectDbMutationPolicy } from "./scripts/audit-direct-db-mutation-policy.mjs";
+          const result = await auditDirectDbMutationPolicy({ writeReports: false });
+          console.log(JSON.stringify({ summary: result.summary, retirements: result.retirements, errors: result.errors }, null, 2));
+          if (result.errors.length) process.exit(1);
+          if (result.summary.legacyDebt !== 3) process.exit(2);
+          NODE
+      - name: Commit clean implementation
+        run: |
+          rm -f scripts/apply-a5-4-3.mjs .github/workflows/a5-4-3-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement A5.4.3 report settings owner"
+          git push origin HEAD:a5-4-3-report-settings-owner
