@@ -14,8 +14,8 @@ test("migration defines one locked service-role field-check update RPC", () => {
   assert.match(sql, /field_check_result_not_found/i);
   assert.match(sql, /field_check_session_customer_mismatch/i);
   assert.match(sql, /grant execute on function public\.mcp_update_field_check_result[\s\S]+to service_role;/i);
-  assert.match(sql, /revoke all on function public\.mcp_update_field_check_result[\s\S]+from anon;/i);
-  assert.match(sql, /revoke all on function public\.mcp_update_field_check_result[\s\S]+from authenticated;/i);
+  assert.match(sql, /revoke execute on function public\.mcp_update_field_check_result[\s\S]+from public, anon, authenticated;/i);
+  assert.doesNotMatch(sql, /revoke all on function public\.mcp_update_field_check_result/i);
 });
 
 test("migration preserves raw payload and stores Foundation context", () => {
