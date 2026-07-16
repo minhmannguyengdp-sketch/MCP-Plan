@@ -2,13 +2,11 @@
 
 > Đây là file handoff bắt buộc cho chat mới.  
 > Cập nhật gần nhất: **2026-07-16**  
-> Phase hiện tại: **A5.4 — retire direct database mutation owners**
+> Phase hiện tại: **A5.4.3 — Report Settings mutation ownership**
 
 ## Trạng thái hiện tại
 
 ### A5.4.2 — Session report write ownership
-
-Trạng thái:
 
 ```text
 SOURCE:          VERIFIED
@@ -19,7 +17,7 @@ VERCEL PROD:     PENDING — account build-rate-limit
 FULL RELEASE:    PENDING
 ```
 
-Chi tiết evidence:
+Evidence:
 
 ```text
 docs/npp-plan/A5_4_2_SESSION_REPORT_OWNER.md
@@ -49,48 +47,110 @@ health canonical:         PASS
 new backend error log:    0 bytes
 ```
 
-## Release gates còn lại của A5.4.2
+Release gates còn lại của A5.4.2:
 
-1. Chạy và ghi nhận authenticated production mutation smoke qua hai route:
+1. Authenticated production mutation smoke qua:
 
 ```text
 POST /api/mcp-session-report
 POST /api/mcp-session-report/ai-result
 ```
 
-Smoke phải dùng dữ liệu an toàn, restore giá trị cũ hoặc dọn sạch record test. Không ghi token/secret vào evidence.
-
-2. Xác nhận Vercel production đã deploy commit hiện tại sau khi hết `build-rate-limit`.
+2. Xác nhận Vercel production đã deploy current main sau khi hết `build-rate-limit`.
 
 Không ghi A5.4.2 là `FULLY RELEASED` trước khi hai gate trên được ghi nhận.
 
-## Công việc tiếp theo
+## A5.4.3 — Report Settings mutation ownership
 
-### A5.4.3 — Report Settings mutation ownership
-
-Bắt đầu bằng **audit only**, chưa sửa code ngay.
-
-Audit phải xác định:
-
-1. toàn bộ caller ghi Report Settings trực tiếp từ frontend hoặc legacy backend;
-2. file, function, route, table, RPC và loại mutation;
-3. caller live, caller chết và duplicate owner;
-4. route Foundation Gateway hiện đã intercept;
-5. chính xác 4 legacy fingerprints cần retire;
-6. boundary backend/RPC đúng logic;
-7. kế hoạch test, migration, rollout và rollback.
-
-Mục tiêu implementation sau audit:
+### Audit
 
 ```text
-direct mutation debt: 7 -> 3
+AUDIT:            COMPLETE
+IMPLEMENTATION:   NOT STARTED
+CODE CHANGE:      NONE
+MIGRATION:        NONE
+SCANNER BASELINE: 7
+TARGET:           7 -> 3
 ```
 
-Sau A5.4.3:
+Evidence audit:
+
+```text
+docs/npp-plan/A5_4_3_REPORT_SETTINGS_AUDIT.md
+```
+
+Audit đã xác nhận đúng 4 mutation live:
+
+```text
+POST  /api/mcp-report-setting-groups  create group
+PATCH /api/mcp-report-setting-groups  update/toggle group
+POST  /api/mcp-report-settings        create item
+PATCH /api/mcp-report-settings        update/toggle item
+```
+
+Caller live:
+
+```text
+src/app/mcp-setting/groups/page.tsx
+src/features/mcp-settings/McpReportSettingsPage.tsx
+```
+
+Ownership hiện tại:
+
+```text
+group writes -> Foundation transitional handler -> direct PostgREST
+item writes  -> Foundation Gateway passthrough -> legacy backend -> direct PostgREST
+```
+
+Bốn fingerprints phải retire:
+
+```text
+6ae585a158e2fd800062fb45  Foundation POST  mcp_setting_groups
+500b241ecd80ff8d74047e27  Foundation PATCH mcp_setting_groups
+ea3fdd0cec40084d8ba06c1f  legacy POST      mcp_setting_items
+204c2501e1755878fd26bf36  legacy PATCH     mcp_setting_items
+```
+
+Production DB audit:
+
+```text
+mcp_setting_groups: 7 rows
+mcp_setting_items:  52 rows
+group_type/status:  market_report / active
+orphan or blank-key rows: 0
+UNIQUE group_key: present
+UNIQUE (group_id,item_key): present
+RLS: enabled
+anon/authenticated: SELECT only
+setting mutation RPC: none
+```
+
+### Bước tiếp theo chính xác
+
+Implement A5.4.3 trên branch/PR riêng, không sửa chắp vá transport handler.
+
+Bắt buộc:
+
+1. Tạo Foundation application owner `report-setting-mutations.js`.
+2. Gateway intercept đủ 4 route group/item.
+3. Tạo 4 typed service-role-only RPC create/update group/item.
+4. Dùng deterministic normalized key, không dùng `Date.now()` fallback.
+5. Validate/lock group hoặc item, map not-found và duplicate thành canonical `404/409`.
+6. Merge `raw_payload` và lưu requestId/actor/installation/NPP context.
+7. Xóa direct group PostgREST khỏi transitional handler.
+8. Xóa legacy item mutation owner và routes sau khi Foundation tests pass.
+9. Thêm migration/use-case/Gateway/caller regression/permission tests.
+10. Retire đúng 4 fingerprints; scanner debt phải `7 -> 3`.
+11. Apply production migration, smoke có cleanup, deploy VPS và ghi evidence.
+12. Cập nhật lại file này cùng evidence trước khi tuyên bố hoàn tất.
+
+Không dùng generic direct-table settings endpoint. Không mở persisted idempotency/audit của A5.5 trong slice này.
+
+## Sau A5.4.3
 
 ```text
 A5.4.4  field-check + market-report writes: 3 -> 0
-A5.5    persisted idempotency + audit
+A5.5    persisted idempotency + append-only audit
 ```
 
 **Chưa bắt đầu Order Core.**
