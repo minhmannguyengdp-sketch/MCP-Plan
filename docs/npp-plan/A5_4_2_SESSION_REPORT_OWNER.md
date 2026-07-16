@@ -1,6 +1,6 @@
 # A5.4.2 — Session report write ownership
 
-> Trạng thái source: IMPLEMENTED / CI AND PRODUCTION VERIFICATION PENDING  
+> Trạng thái source/DB: VERIFIED / BACKEND DEPLOY PENDING  
 > Ngày: 2026-07-16  
 > PR: #22
 
@@ -85,25 +85,30 @@ ea324aaa3d01a7941bf3aa3f  Next duplicate snapshot writer
 6a660d7d414afe70cd88cc4d  legacy direct AI-result patch
 ```
 
-Expected direct REST mutation debt after this slice:
+Verified direct REST mutation debt after this slice:
 
 ```text
 10 -> 7
 ```
 
-## 6. Verification gates
+## 6. Verification evidence
 
 ```text
-[ ] Foundation CI pass
-[ ] direct mutation scanner reports legacyDebt=7
-[ ] TypeScript/build pass
-[ ] migration applies to production
-[ ] service_role can execute AI RPC
-[ ] anon/authenticated cannot execute AI RPC
-[ ] rollback-only AI update smoke pass
+[x] Foundation CI pass — run 29499585390
+[x] direct mutation scanner reports legacyDebt=7
+[x] backend foundation tests pass
+[x] TypeScript typecheck pass
+[x] frontend production build pass
+[x] migration save_session_report_ai_result applied to production
+[x] service_role can execute AI RPC
+[x] anon/authenticated cannot execute AI RPC
+[x] sequential two-call transaction smoke pass
+[x] smoke data restored; marker rows = 0
 [ ] backend pullmcp + PM2 health pass
-[ ] production API smoke pass
+[ ] production API smoke through deployed Gateway
 [ ] Vercel production deployment ready
 ```
 
-Do not mark A5.4.2 DEPLOYED/VERIFIED until every gate above is recorded.
+The Vercel PR preview was not a code failure; it was rejected by the account build-rate limit. Production deployment remains a release gate after merge.
+
+Do not mark A5.4.2 DEPLOYED/VERIFIED until the remaining deployment gates are recorded.
