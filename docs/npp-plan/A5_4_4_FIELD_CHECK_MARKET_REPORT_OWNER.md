@@ -1,8 +1,9 @@
 # A5.4.4 — Field-check + market-report write ownership
 
 > Cập nhật: **2026-07-16**  
-> Trạng thái: **SOURCE / CI / SUPABASE VERIFIED — MERGE & VPS PENDING**  
+> Trạng thái: **MERGED / SUPABASE VERIFIED — VPS PENDING**  
 > PR: **#24**  
+> Merge SHA: **7eed7a69ff7efd386971b7a820561b0cb1660848**  
 > Audit đầu vào: `docs/npp-plan/A5_4_4_FIELD_CHECK_MARKET_REPORT_AUDIT.md`
 
 ## 1. Kết quả triển khai
@@ -114,12 +115,12 @@ Approved boundary fingerprint:
 
 ## 5. Tests and CI
 
-Final CI trước evidence commit:
+Final Foundation CI:
 
 ```text
 workflow: Foundation F0.2
-run:      29518627223
-number:   177
+run:      29518939926
+number:   179
 result:   SUCCESS
 ```
 
@@ -142,12 +143,12 @@ Next production build
 Smoke dùng một result thật trong PostgreSQL subtransaction và chủ động rollback.
 
 ```text
-RPC update:                 PASS
-status mapping:             PASS
-raw_payload preserved:      PASS
-Foundation context:         PASS
-session-customer validation:PASS
-rollback byte-equal:        true
+RPC update:                  PASS
+status mapping:              PASS
+raw_payload preserved:       PASS
+Foundation context:          PASS
+session-customer validation: PASS
+rollback byte-equal:         true
 ```
 
 Không có fixture hoặc thay đổi dữ liệu còn lại sau smoke.
@@ -159,23 +160,23 @@ AUDIT:         COMPLETE
 SOURCE:        VERIFIED
 CI:            VERIFIED
 SUPABASE:      APPLIED + VERIFIED
-PR #24:        OPEN — READY TO MERGE
-MAIN:          PENDING MERGE
-LOCAL:         PENDING PULL AFTER MERGE
-VPS:           PENDING PULL/DEPLOY AFTER MERGE
+PR #24:        MERGED
+MERGE SHA:     7eed7a69ff7efd386971b7a820561b0cb1660848
+MAIN:          UPDATED
+LOCAL:         PENDING PULL
+VPS:           PENDING PULL/DEPLOY
 GATEWAY SMOKE: PENDING AFTER VPS DEPLOY
 FULL RELEASE:  PENDING
 ```
 
 ## 8. Bước tiếp theo bắt buộc
 
-1. Chạy final CI sau commit evidence.
-2. Merge PR #24 khi CI xanh.
-3. Local pull `main` và chạy production build.
-4. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
-5. Kiểm tra PM2, logs, health, cổng 3001/3102; không đụng Milktea 3002.
-6. Chạy authenticated Gateway smoke `/api/field-checks/result` trên row thật với restore/rollback.
-7. Cập nhật merge SHA, VPS evidence và trạng thái VERIFIED trong file này cùng `CURRENT_PROGRESS.md`.
-8. Chỉ sau đó mới bắt đầu A5.5 persisted idempotency + append-only audit.
+1. Local pull `main` và chạy production build.
+2. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
+3. Kiểm tra PM2, backend logs và health `127.0.0.1:3001`.
+4. Kiểm tra listeners 3001/3102; không đụng Milktea 3002.
+5. Chạy authenticated Gateway smoke `/api/field-checks/result` trên row thật với restore/rollback.
+6. Cập nhật file này và `CURRENT_PROGRESS.md` bằng VPS evidence và trạng thái VERIFIED.
+7. Chỉ sau đó mới bắt đầu A5.5 persisted idempotency + append-only audit.
 
 Chưa bắt đầu Order Core.
