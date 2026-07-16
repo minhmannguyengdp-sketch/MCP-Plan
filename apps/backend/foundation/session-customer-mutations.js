@@ -31,6 +31,18 @@ function optionalBoolean(body, camelKey, snakeKey) {
   badRequest(`invalid_${snakeKey}`);
 }
 
+function optionalNumber(body, camelKey, snakeKey) {
+  const hasCamel = hasOwn(body, camelKey);
+  const hasSnake = hasOwn(body, snakeKey);
+  if (!hasCamel && !hasSnake) return null;
+
+  const value = hasCamel ? body[camelKey] : body[snakeKey];
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) badRequest(`invalid_${snakeKey}`);
+  return parsed;
+}
+
 function foundationContext(context) {
   return {
     requestId: context.requestId,
@@ -145,9 +157,16 @@ export async function addSessionCustomer(
 ) {
   const sessionId = text(body.sessionId || body.session_id);
   const customerName = text(body.customerName || body.customer_name || body.accountName || body.account_name);
+  const geoLat = optionalNumber(body, "geoLat", "geo_lat");
+  const geoLng = optionalNumber(body, "geoLng", "geo_lng");
+  const geoAccuracy = optionalNumber(body, "geoAccuracy", "geo_accuracy");
 
   if (!sessionId) badRequest("session_id_required");
   if (!customerName) badRequest("customer_name_required");
+  if ((geoLat === null) !== (geoLng === null)) badRequest("geo_coordinates_incomplete");
+  if (geoLat !== null && (geoLat < -90 || geoLat > 90)) badRequest("invalid_geo_lat");
+  if (geoLng !== null && (geoLng < -180 || geoLng > 180)) badRequest("invalid_geo_lng");
+  if (geoAccuracy !== null && geoAccuracy < 0) badRequest("invalid_geo_accuracy");
 
   try {
     return await supabaseRpc(
@@ -162,7 +181,12 @@ export async function addSessionCustomer(
         p_area: text(body.area),
         p_address: text(body.address),
         p_note: text(body.note),
-        p_context: foundationContext(context)
+        p_context: foundationContext(context),
+        p_geo_lat: geoLat,
+        p_geo_lng: geoLng,
+        p_geo_accuracy: geoAccuracy,
+        p_geo_source: text(body.geoSource || body.geo_source),
+        p_google_maps_url: text(body.googleMapsUrl || body.google_maps_url)
       },
       { fetchImpl }
     );
