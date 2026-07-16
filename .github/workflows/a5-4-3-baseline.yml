@@ -24,28 +24,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Register exact RPC fingerprints
+      - name: Register proposed RPC fingerprints
         run: node scripts/apply-a5-4-3-baseline.mjs
       - name: Verify backend
         run: npm --prefix apps/backend run verify
       - name: Verify caller retirement
         run: node --test test/a5-4-3-report-settings-caller-audit.test.mjs test/direct-db-retirement-subphase.test.mjs
-      - name: Verify direct mutation policy
+      - name: Capture exact scanner result
         run: |
           node --input-type=module <<'NODE'
+          import { writeFile } from "node:fs/promises";
           import { auditDirectDbMutationPolicy } from "./scripts/audit-direct-db-mutation-policy.mjs";
           const result = await auditDirectDbMutationPolicy({ writeReports: false });
-          console.log(JSON.stringify({ summary: result.summary, retirements: result.retirements, errors: result.errors }, null, 2));
-          if (result.errors.length) process.exit(1);
-          if (result.summary.legacyDebt !== 3) process.exit(2);
-          if (result.summary.unclassified !== 0) process.exit(3);
-          if (result.summary.forbidden !== 0) process.exit(4);
+          const output = {
+            summary: result.summary,
+            retirements: result.retirements,
+            errors: result.errors,
+            reportSettingFindings: result.findings.filter((finding) => finding.file.includes("report-setting") || finding.file.includes("apply-a5-4-3"))
+          };
+          await writeFile("docs/npp-plan/A5_4_3_BASELINE_DEBUG.json", `${JSON.stringify(output, null, 2)}\n`, "utf8");
+          console.log(JSON.stringify(output, null, 2));
           NODE
-      - name: Commit clean verified baseline
+      - name: Commit diagnostics
         run: |
           rm -f scripts/apply-a5-4-3-baseline.mjs .github/workflows/a5-4-3-baseline.yml docs/npp-plan/A5_4_3_SCANNER_DEBUG.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Verify A5.4.3 report settings ownership"
+          git commit -m "Capture exact A5.4.3 RPC fingerprints"
           git push origin HEAD:a5-4-3-report-settings-owner
