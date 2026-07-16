@@ -1,0 +1,105 @@
+{
+  "summary": {
+    "total": 57,
+    "approved": 50,
+    "legacyDebt": 3,
+    "forbidden": 0,
+    "unclassified": 4,
+    "read": 5,
+    "mutation": 33,
+    "unknownOperation": 19
+  },
+  "retirements": {
+    "completedPhases": [
+      "A5.2",
+      "A5.3",
+      "A5.4.2",
+      "A5.4.3"
+    ],
+    "fingerprintCount": 24
+  },
+  "errors": [
+    "stale_baseline:205cbf1bcddd7e63364066d4",
+    "stale_baseline:9c1f2871e3e5eb7d0f3aaeb2",
+    "stale_baseline:bbedf7572ccc5d25b28b1a72",
+    "stale_baseline:dc5c912dccbed63ffa58105d",
+    "unclassified_finding:42f107e812c4d5f1fe2f03bd",
+    "unclassified_finding:4c0146fb1e14e248550b9b3c",
+    "unclassified_finding:9acbf8cf4c96acf9fee6cffd",
+    "unclassified_finding:b3265b8ea1b8e3cca238c545"
+  ],
+  "reportSettingFindings": [
+    {
+      "fingerprint": "4c0146fb1e14e248550b9b3c",
+      "file": "apps/backend/foundation/report-setting-mutations.js",
+      "line": 106,
+      "functionName": "<file>",
+      "consumer": "backend",
+      "operation": "unknown",
+      "providerSurface": "rpc",
+      "classification": "unclassified",
+      "ruleCode": "HELPER_RPC_CALL",
+      "target": "mcp_create_report_setting_group",
+      "reason": "No audited baseline entry matches this finding.",
+      "replacementTarget": null,
+      "owner": null,
+      "replacementPhase": null,
+      "usesServiceRole": false,
+      "evidence": "supabaseRpc("
+    },
+    {
+      "fingerprint": "42f107e812c4d5f1fe2f03bd",
+      "file": "apps/backend/foundation/report-setting-mutations.js",
+      "line": 106,
+      "functionName": "<file>",
+      "consumer": "backend",
+      "operation": "unknown",
+      "providerSurface": "rpc",
+      "classification": "unclassified",
+      "ruleCode": "HELPER_RPC_CALL",
+      "target": "mcp_update_report_setting_group",
+      "reason": "No audited baseline entry matches this finding.",
+      "replacementTarget": null,
+      "owner": null,
+      "replacementPhase": null,
+      "usesServiceRole": false,
+      "evidence": "supabaseRpc("
+    },
+    {
+      "fingerprint": "9acbf8cf4c96acf9fee6cffd",
+      "file": "apps/backend/foundation/report-setting-mutations.js",
+      "line": 106,
+      "functionName": "<file>",
+      "consumer": "backend",
+      "operation": "unknown",
+      "providerSurface": "rpc",
+      "classification": "unclassified",
+      "ruleCode": "HELPER_RPC_CALL",
+      "target": "mcp_create_report_setting_item",
+      "reason": "No audited baseline entry matches this finding.",
+      "replacementTarget": null,
+      "owner": null,
+      "replacementPhase": null,
+      "usesServiceRole": false,
+      "evidence": "supabaseRpc("
+    },
+    {
+      "fingerprint": "b3265b8ea1b8e3cca238c545",
+      "file": "apps/backend/foundation/report-setting-mutations.js",
+      "line": 106,
+      "functionName": "<file>",
+      "consumer": "backend",
+      "operation": "unknown",
+      "providerSurface": "rpc",
+      "classification": "unclassified",
+      "ruleCode": "HELPER_RPC_CALL",
+      "target": "mcp_update_report_setting_item",
+      "reason": "No audited baseline entry matches this finding.",
+      "replacementTarget": null,
+      "owner": null,
+      "replacementPhase": null,
+      "usesServiceRole": false,
+      "evidence": "supabaseRpc("
+    }
+  ]
+}
