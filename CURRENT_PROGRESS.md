@@ -38,16 +38,17 @@ Release gates còn lại: authenticated production mutation smoke cho snapshot/A
 ### Trạng thái
 
 ```text
-AUDIT:        COMPLETE
-SOURCE:       VERIFIED
-CI:           VERIFIED
-SUPABASE:     APPLIED + VERIFIED
-PR:           #23 — READY TO MERGE
-MAIN:         PENDING MERGE
-LOCAL:        PENDING PULL AFTER MERGE
-VPS:          PENDING PULL/DEPLOY AFTER MERGE
-GATEWAY SMOKE:PENDING AFTER VPS DEPLOY
-FULL RELEASE: PENDING
+AUDIT:         COMPLETE
+SOURCE:        VERIFIED
+CI:            VERIFIED
+SUPABASE:      APPLIED + VERIFIED
+PR:            #23 — MERGED
+MERGE SHA:     a7a26cafd03e37695407b4b73ed6485f5c5215bb
+MAIN:          UPDATED
+LOCAL:         PENDING PULL
+VPS:           PENDING PULL/DEPLOY
+GATEWAY SMOKE: PENDING AFTER VPS DEPLOY
+FULL RELEASE:  PENDING
 ```
 
 Evidence:
@@ -59,7 +60,7 @@ docs/npp-plan/A5_4_3_REPORT_SETTINGS_OWNER.md
 
 ### Implementation
 
-Foundation hiện là owner duy nhất của bốn write route:
+Foundation là owner duy nhất của bốn write route:
 
 ```text
 POST  /api/mcp-report-setting-groups
@@ -89,7 +90,8 @@ Direct group PostgREST đã bị xóa khỏi transitional handler. Legacy item c
 
 ```text
 PR:                   #23
-Foundation CI run:    29510594019
+final CI run:         29511603749
+CI run number:        160
 CI result:            SUCCESS
 mutation debt:        7 -> 3
 unclassified:         0
@@ -139,14 +141,14 @@ ea3fdd0cec40084d8ba06c1f
 204c2501e1755878fd26bf36
 ```
 
-### Việc phải làm ngay sau merge
+### Việc phải làm ngay
 
 1. Local pull `main`.
-2. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
+2. VPS chạy `pullmcp` ngay vì backend runtime đã thay đổi.
 3. Kiểm tra PM2, logs, Gateway `3001`, legacy internal `3102` và health.
 4. Không đụng `milktea-backend` port `3002`.
 5. Chạy authenticated Gateway smoke đủ bốn Report Settings write route với cleanup.
-6. Cập nhật merge SHA, VPS evidence và trạng thái VERIFIED vào file này cùng evidence A5.4.3.
+6. Cập nhật VPS evidence và trạng thái VERIFIED vào file này cùng evidence A5.4.3.
 7. Chỉ sau khi gate trên đạt mới bắt đầu A5.4.4.
 
 ## 3. Sau A5.4.3
