@@ -48,71 +48,84 @@ A5.4.3 đã đóng, không sửa thêm.
 
 ```text
 AUDIT:          COMPLETE
-IMPLEMENTATION: NOT STARTED
-CODE CHANGE:    NONE
-MIGRATION:      NONE
-SCANNER DEBT:   3
-TARGET:         3 -> 0
+SOURCE:         VERIFIED
+CI:             VERIFIED
+SUPABASE:       APPLIED + VERIFIED
+PR:             #24 — READY TO MERGE
+MAIN:           PENDING MERGE
+LOCAL:          PENDING PULL AFTER MERGE
+VPS:            PENDING PULL/DEPLOY AFTER MERGE
+GATEWAY SMOKE:  PENDING AFTER VPS DEPLOY
+FULL RELEASE:   PENDING
+SCANNER DEBT:   3 -> 0
+UNCLASSIFIED:   0
+FORBIDDEN:      0
 ```
 
 Evidence:
 
 - `docs/npp-plan/A5_4_4_FIELD_CHECK_MARKET_REPORT_AUDIT.md`
+- `docs/npp-plan/A5_4_4_FIELD_CHECK_MARKET_REPORT_OWNER.md`
 
-Ba fingerprints còn lại:
-
-```text
-474001fbfa0d1de1ed003364  field-check direct PATCH
-f70d562b03f15f08cae868e8  field-check direct POST
-ffb1c503e59aa8fcf8f0344f  market-report direct POST
-```
-
-### Kết luận audit
-
-1. Field-check PATCH là caller live qua `MarketChecksClientPage` và `/api/field-checks/result`.
-2. Field-check POST/create là fallback sai logic; valid session test luôn có `resultId`. Production: 4/4 `test_id` match result, missing 0.
-3. Route `/api/mcp-market-reports` là duplicate dead/broken path. Active UI dùng `/api/backend/mcp-day/session-customer/report` -> `mcp_create_report_from_session_customer`.
-4. Production có 0 row source `mcp_market_report_api`, nhưng có 3 row source canonical RPC.
-5. Route market cũ còn thiếu `id` bắt buộc khi insert `market_reports`.
-6. Field-check đang ghi status UI `normal/opportunity/risk` vào DB vốn dùng `pending/ok/retry/follow/interested/bad/sample`; phải sửa mapping cùng phase.
-7. Field-check direct PATCH có thể trả 200 + null khi row không tồn tại và đang overwrite toàn bộ `raw_payload`.
-8. `test_customer_results` và `market_reports` vẫn có anon INSERT/UPDATE permissive policies; phải drop mutation policies sau cutover.
-
-### Ownership đích
+### Ownership đã triển khai
 
 ```text
 Field-check UI
 -> authenticated Foundation Gateway
--> field-check application owner
+-> apps/backend/foundation/field-check-mutations.js
 -> mcp_update_field_check_result service-role-only RPC
 -> locked test_customer_results row
 ```
 
-Chỉ tạo một update RPC; không tạo create RPC field-check mới.
+- `resultId` bắt buộc; không còn fallback create field-check.
+- Status UI được map về vocabulary DB chuẩn.
+- RPC merge `raw_payload` và Foundation context, không overwrite mù.
+- Duplicate route `/api/mcp-market-reports` đã xóa.
+- Market report chuẩn vẫn dùng `/api/backend/mcp-day/session-customer/report` -> `mcp_create_report_from_session_customer`.
+- Browser roles không còn INSERT/UPDATE/TRUNCATE trên `test_customer_results` và `market_reports`.
+- Mutation policies trên hai bảng bằng 0; SELECT policies vẫn giữ.
 
-Market report giữ owner chuẩn hiện tại:
+### CI và production DB
 
 ```text
-/api/backend/mcp-day/session-customer/report
--> mcp_create_report_from_session_customer
+Final CI trước evidence: 29518627223
+CI run number:           177
+CI result:               SUCCESS
+
+Production migrations:
+20260716171112  field_check_mutation_owner
+20260716171124  close_field_check_public_writes
+
+RPC service_role EXECUTE: true
+RPC anon/auth EXECUTE:    false
+browser mutation grants:  0
+mutation policies:         0
 ```
 
-Xóa duplicate `/api/mcp-market-reports`.
+Production smoke trong subtransaction rollback:
 
-### Bước implementation tiếp theo
+```text
+RPC update:                  PASS
+status mapping:              PASS
+raw_payload preserved:       PASS
+Foundation context:          PASS
+session-customer validation: PASS
+rollback byte-equal:         true
+```
 
-1. Tạo branch/PR riêng.
-2. Tạo `field-check-mutations.js`.
-3. Tạo RPC update service-role-only, lock row, 404 đúng, merge `raw_payload` + Foundation context.
-4. Require `resultId`; xóa fallback POST create.
-5. Sửa status read/write mapping về domain DB chuẩn.
-6. Xóa dead market route + handler.
-7. Drop anon INSERT/UPDATE policies cho hai bảng; giữ SELECT nếu còn cần.
-8. Thêm migration/use-case/Gateway/caller/dead-route/RLS tests.
-9. Retire đúng 3 fingerprints; scanner `3 -> 0`, unclassified 0, forbidden 0.
-10. Apply migration, production smoke có restore/cleanup, deploy VPS và cập nhật evidence.
+### Bước tiếp theo chính xác
 
-Không cần pull local/VPS cho hai commit audit tài liệu. Chưa bắt đầu Order Core. Sau A5.4.4 mới tới A5.5 persisted idempotency + append-only audit.
+1. Final CI sau commit evidence phải xanh.
+2. Merge PR #24.
+3. Local pull `main` và chạy `npm run build`.
+4. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
+5. Kiểm tra PM2, logs, health, Gateway 3001 và legacy internal 3102.
+6. Không đụng `milktea-backend` port 3002.
+7. Chạy authenticated Gateway smoke `/api/field-checks/result` có restore/rollback.
+8. Cập nhật merge SHA, VPS evidence và trạng thái FULL RELEASE VERIFIED.
+9. Sau đó bắt đầu A5.5 persisted idempotency + append-only audit.
+
+**Chưa bắt đầu Order Core.**
 
 ## Quy tắc tiến độ bắt buộc
 
