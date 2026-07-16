@@ -1,23 +1,23 @@
 # A5.4.3 — Report Settings mutation ownership
 
 > Cập nhật: **2026-07-16**  
-> Trạng thái: **MERGED / SUPABASE VERIFIED — VPS PENDING**  
+> Trạng thái: **FULL RELEASE VERIFIED**  
 > PR: **#23**  
 > Merge SHA: **a7a26cafd03e37695407b4b73ed6485f5c5215bb**  
 > Audit đầu vào: `docs/npp-plan/A5_4_3_REPORT_SETTINGS_AUDIT.md`
 
-## 1. Kết quả triển khai
+## Kết quả triển khai
 
-A5.4.3 đã gom bốn mutation Report Settings về một application owner tại Foundation:
+Foundation là owner duy nhất của bốn write route:
 
 ```text
-POST  /api/mcp-report-setting-groups  -> create group
-PATCH /api/mcp-report-setting-groups  -> update/toggle group
-POST  /api/mcp-report-settings        -> create item
-PATCH /api/mcp-report-settings        -> update/toggle item
+POST  /api/mcp-report-setting-groups
+PATCH /api/mcp-report-setting-groups
+POST  /api/mcp-report-settings
+PATCH /api/mcp-report-settings
 ```
 
-Luồng đích:
+Luồng production:
 
 ```text
 Browser
@@ -28,38 +28,15 @@ Browser
 -> PostgreSQL
 ```
 
-GET `/api/mcp-report-settings` vẫn giữ read contract cũ trong legacy runtime; slice này chỉ thay mutation owner.
+Application owner: `apps/backend/foundation/report-setting-mutations.js`
 
-## 2. Source changes
+Direct PostgREST group writes đã bị xóa khỏi `transitional-api.js`. Legacy item create/update owner và routes đã bị xóa khỏi `apps/backend/server.js`. GET read contract vẫn giữ nguyên.
 
-Application owner:
+## Database contract
 
-```text
-apps/backend/foundation/report-setting-mutations.js
-```
+Migration source: `supabase/migrations/20260716213000_report_setting_mutations.sql`
 
-Use cases:
-
-```text
-createReportSettingGroup
-updateReportSettingGroup
-createReportSettingItem
-updateReportSettingItem
-```
-
-Foundation intercept đủ bốn write route. Direct PostgREST group writes đã bị xóa khỏi `transitional-api.js`. Legacy item create/update functions và hai write routes đã bị xóa khỏi `apps/backend/server.js`.
-
-Không còn timestamp fallback cho key. Group/item key được chuẩn hóa deterministic từ payload. Validation gồm title/label, key, status, group type, sort order và metadata.
-
-## 3. Database contract
-
-Migration source:
-
-```text
-supabase/migrations/20260716213000_report_setting_mutations.sql
-```
-
-Production migration record:
+Production migration:
 
 ```text
 version: 20260716152911
@@ -75,30 +52,9 @@ mcp_create_report_setting_item
 mcp_update_report_setting_item
 ```
 
-Mỗi RPC:
+Tất cả RPC dùng `SECURITY DEFINER`, `search_path=public`, chỉ `service_role` có EXECUTE; `anon` và `authenticated` không có EXECUTE. Update lock row, validate patch whitelist, chuẩn hóa duplicate/not-found và lưu Foundation context trong `raw_payload`.
 
-- dùng `SECURITY DEFINER` và `search_path=public`;
-- chỉ cho `service_role` EXECUTE;
-- `anon` và `authenticated` không có EXECUTE;
-- lock group/item liên quan khi create/update;
-- dùng unique constraints hiện có;
-- fail khi row không tồn tại;
-- merge `raw_payload` và lưu Foundation context;
-- chuẩn hóa duplicate/not-found thành business error ổn định.
-
-Production permission verification:
-
-```text
-function                                service_role  anon   authenticated
-mcp_create_report_setting_group         true          false  false
-mcp_update_report_setting_group         true          false  false
-mcp_create_report_setting_item          true          false  false
-mcp_update_report_setting_item          true          false  false
-```
-
-## 4. Scanner retirement
-
-Retired fingerprints:
+## Scanner retirement
 
 ```text
 6ae585a158e2fd800062fb45  direct group insert
@@ -110,89 +66,85 @@ ea3fdd0cec40084d8ba06c1f  legacy item insert
 Result:
 
 ```text
-direct REST mutation debt: 7 -> 3
-unclassified:              0
-forbidden:                 0
+direct mutation debt: 7 -> 3
+unclassified:         0
+forbidden:            0
 ```
 
-Ba findings còn lại thuộc A5.4.4:
+## Tests and CI
 
 ```text
-474001fbfa0d1de1ed003364  field-check update
-f70d562b03f15f08cae868e8  field-check create
-ffb1c503e59aa8fcf8f0344f  market-report create
+Final Foundation CI: 29511603749
+run number:          160
+result:              SUCCESS
+local Next build:    PASS
+backend VPS tests:   60/60 PASS
 ```
 
-## 5. Tests and CI
+Đã pass migration contract/permission/locking/context tests, bốn Gateway interception tests, caller retirement regression tests, scanner, production hygiene, TypeScript typecheck và Next production build.
 
-Final Foundation CI trước merge:
-
-```text
-run:        29511603749
-run number: 160
-result:     SUCCESS
-```
-
-Gates đã pass:
+## Supabase production smoke
 
 ```text
-runtime hardcode audit
-scanner + retirement policy
-production hygiene
-backend Foundation build/tests
-migration source/permission/locking/context tests
-four Gateway interception tests
-caller retirement regression tests
-TypeScript typecheck
-Next production build
-```
-
-## 6. Production DB smoke
-
-Production smoke đã chạy đủ:
-
-```text
-create group: PASS
-update group: PASS
-create item:  PASS
-update item:  PASS
-Foundation context persisted: PASS
-optional field clear: PASS
-```
-
-Cleanup trong cùng SQL statement không thấy row vừa được function tạo do statement snapshot. Record smoke sau đó được tìm chính xác và xóa bằng statement riêng.
-
-Cleanup verification cuối:
-
-```text
-smoke group count: 0
-smoke item count:  0
+create group:                PASS
+update group:                PASS
+create item:                 PASS
+update item:                 PASS
+Foundation context persisted:PASS
+optional field clear:        PASS
+cleanup final:               group 0 / item 0
 ```
 
 Không còn fixture smoke trong production.
 
-## 7. Release state
+## VPS deployment verification
 
 ```text
-SOURCE:       VERIFIED
-CI:           VERIFIED
-SUPABASE:     APPLIED + VERIFIED
-PR #23:       MERGED
-MERGE SHA:    a7a26cafd03e37695407b4b73ed6485f5c5215bb
-MAIN:         UPDATED
-LOCAL:        PENDING PULL
-VPS:          PENDING PULL/DEPLOY
-GATEWAY SMOKE:PENDING AFTER VPS DEPLOY
-FULL RELEASE: PENDING
+pullmcp:                 PASS
+F0.2_VPS_SMOKE:          PASS
+mcp-plan-backend:        online
+PM2 restarts:            0
+health:                  200 + requestId
+without token:           401
+with token:              200 + requestId
+forbidden origin:        403
+Gateway listener:        127.0.0.1:3001
+legacy internal listener:127.0.0.1:3102
+milktea-backend:         port 3002, PID/process riêng
+runtime backup:          /var/www/mcp-plan-backend.backup.20260716-161255
 ```
 
-## 8. Bước tiếp theo bắt buộc
+Không có lỗi mới trong `mcp-plan-backend-error.log`. Các dòng shutdown cũ là lịch sử restart/deploy.
 
-1. Local chạy `git pull origin main` ngay.
-2. VPS chạy `pullmcp` ngay vì backend runtime đã thay đổi.
-3. Kiểm tra PM2, backend logs và health `127.0.0.1:3001`.
-4. Chạy authenticated Gateway smoke qua bốn write route với fixture có cleanup.
-5. Cập nhật file này và `CURRENT_PROGRESS.md` bằng VPS evidence và trạng thái VERIFIED.
-6. Chỉ sau đó mới bắt đầu A5.4.4.
+## Authenticated Gateway mutation smoke
 
-Không đụng `milktea-backend` port `3002`.
+```text
+group create:             PASS
+group update:             PASS
+item create:              PASS
+item update:              PASS
+canonical envelope:       PASS
+requestId/receivedAt/data:PASS
+actor context:            PASS
+installation context:     PASS
+optional category clear:  PASS
+cleanup final:            groups 0 / items 0
+```
+
+## Release state
+
+```text
+SOURCE:        VERIFIED
+CI:            VERIFIED
+SUPABASE:      APPLIED + VERIFIED
+PR #23:        MERGED
+MAIN:          UPDATED
+LOCAL BUILD:   PASS
+VPS:           DEPLOYED + VERIFIED
+GATEWAY SMOKE: VERIFIED
+FULL RELEASE:  VERIFIED
+```
+
+## Bước tiếp theo
+
+A5.4.3 đã đóng. Bắt đầu **A5.4.4 — field-check + market-report writes** bằng audit trước, chưa sửa code. Mục tiêu retire ba findings còn lại và đưa direct mutation debt `3 -> 0`. Sau A5.4.4 mới làm A5.5 persisted idempotency + append-only audit. Chưa bắt đầu Order Core.
