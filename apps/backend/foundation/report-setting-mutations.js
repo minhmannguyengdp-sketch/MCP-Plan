@@ -100,7 +100,8 @@ function normalizeMutationError(error) {
   return error;
 }
 
-export async function createReportSettingGroup(body, context, config, { fetchImpl = fetch } = {}) {
+export async function createReportSettingGroup(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const title = requiredText(body.title, "title_required", 200);
   try {
     return await supabaseRpc(config, "mcp_create_report_setting_group", {
@@ -118,7 +119,8 @@ export async function createReportSettingGroup(body, context, config, { fetchImp
   }
 }
 
-export async function updateReportSettingGroup(body, context, config, { fetchImpl = fetch } = {}) {
+export async function updateReportSettingGroup(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const groupId = requiredText(body.groupId ?? body.group_id, "group_id_required", 200);
   const patch = {};
   if (hasOwn(body, "key")) patch.group_key = settingKey(body.key, "invalid_group_key");
@@ -139,7 +141,8 @@ export async function updateReportSettingGroup(body, context, config, { fetchImp
   }
 }
 
-export async function createReportSettingItem(body, context, config, { fetchImpl = fetch } = {}) {
+export async function createReportSettingItem(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const groupId = requiredText(body.groupId ?? body.group_id, "group_id_required", 200);
   const label = requiredText(body.label, "label_required", 200);
   const value = nullableText(body.value, "invalid_value", 500) || label;
@@ -162,7 +165,8 @@ export async function createReportSettingItem(body, context, config, { fetchImpl
   }
 }
 
-export async function updateReportSettingItem(body, context, config, { fetchImpl = fetch } = {}) {
+export async function updateReportSettingItem(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const itemId = requiredText(body.itemId ?? body.item_id, "item_id_required", 200);
   const patch = {};
   if (hasOwn(body, "key")) patch.item_key = settingKey(body.key, "invalid_item_key");
