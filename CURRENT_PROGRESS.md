@@ -51,10 +51,11 @@ AUDIT:          COMPLETE
 SOURCE:         VERIFIED
 CI:             VERIFIED
 SUPABASE:       APPLIED + VERIFIED
-PR:             #24 — READY TO MERGE
-MAIN:           PENDING MERGE
-LOCAL:          PENDING PULL AFTER MERGE
-VPS:            PENDING PULL/DEPLOY AFTER MERGE
+PR:             #24 — MERGED
+MERGE SHA:      7eed7a69ff7efd386971b7a820561b0cb1660848
+MAIN:           UPDATED
+LOCAL:          PENDING PULL
+VPS:            PENDING PULL/DEPLOY
 GATEWAY SMOKE:  PENDING AFTER VPS DEPLOY
 FULL RELEASE:   PENDING
 SCANNER DEBT:   3 -> 0
@@ -88,9 +89,9 @@ Field-check UI
 ### CI và production DB
 
 ```text
-Final CI trước evidence: 29518627223
-CI run number:           177
-CI result:               SUCCESS
+Final CI run:             29518939926
+CI run number:            179
+CI result:                SUCCESS
 
 Production migrations:
 20260716171112  field_check_mutation_owner
@@ -115,15 +116,13 @@ rollback byte-equal:         true
 
 ### Bước tiếp theo chính xác
 
-1. Final CI sau commit evidence phải xanh.
-2. Merge PR #24.
-3. Local pull `main` và chạy `npm run build`.
-4. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
-5. Kiểm tra PM2, logs, health, Gateway 3001 và legacy internal 3102.
-6. Không đụng `milktea-backend` port 3002.
-7. Chạy authenticated Gateway smoke `/api/field-checks/result` có restore/rollback.
-8. Cập nhật merge SHA, VPS evidence và trạng thái FULL RELEASE VERIFIED.
-9. Sau đó bắt đầu A5.5 persisted idempotency + append-only audit.
+1. Local pull `main` và chạy `npm run build`.
+2. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
+3. Kiểm tra PM2, logs, health, Gateway 3001 và legacy internal 3102.
+4. Không đụng `milktea-backend` port 3002.
+5. Chạy authenticated Gateway smoke `/api/field-checks/result` có restore/rollback.
+6. Cập nhật VPS evidence và trạng thái FULL RELEASE VERIFIED.
+7. Sau đó bắt đầu A5.5 persisted idempotency + append-only audit.
 
 **Chưa bắt đầu Order Core.**
 
