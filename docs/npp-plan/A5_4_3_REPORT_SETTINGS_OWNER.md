@@ -1,8 +1,9 @@
 # A5.4.3 — Report Settings mutation ownership
 
 > Cập nhật: **2026-07-16**  
-> Trạng thái: **SOURCE / CI / SUPABASE VERIFIED — MERGE & VPS PENDING**  
+> Trạng thái: **MERGED / SUPABASE VERIFIED — VPS PENDING**  
 > PR: **#23**  
+> Merge SHA: **a7a26cafd03e37695407b4b73ed6485f5c5215bb**  
 > Audit đầu vào: `docs/npp-plan/A5_4_3_REPORT_SETTINGS_AUDIT.md`
 
 ## 1. Kết quả triển khai
@@ -31,7 +32,7 @@ GET `/api/mcp-report-settings` vẫn giữ read contract cũ trong legacy runtim
 
 ## 2. Source changes
 
-Application owner mới:
+Application owner:
 
 ```text
 apps/backend/foundation/report-setting-mutations.js
@@ -46,7 +47,7 @@ createReportSettingItem
 updateReportSettingItem
 ```
 
-Foundation đã intercept đủ bốn write route. Direct PostgREST group writes đã bị xóa khỏi `transitional-api.js`. Legacy item create/update functions và hai write routes đã bị xóa khỏi `apps/backend/server.js`.
+Foundation intercept đủ bốn write route. Direct PostgREST group writes đã bị xóa khỏi `transitional-api.js`. Legacy item create/update functions và hai write routes đã bị xóa khỏi `apps/backend/server.js`.
 
 Không còn timestamp fallback cho key. Group/item key được chuẩn hóa deterministic từ payload. Validation gồm title/label, key, status, group type, sort order và metadata.
 
@@ -124,11 +125,11 @@ ffb1c503e59aa8fcf8f0344f  market-report create
 
 ## 5. Tests and CI
 
-Foundation CI:
+Final Foundation CI trước merge:
 
 ```text
-run:        29510594019
-run number: 158
+run:        29511603749
+run number: 160
 result:     SUCCESS
 ```
 
@@ -159,7 +160,7 @@ Foundation context persisted: PASS
 optional field clear: PASS
 ```
 
-Cleanup đầu tiên trong cùng SQL statement trả `0` do statement snapshot không thấy row được function vừa tạo. Không bỏ qua kết quả này: record smoke sau đó được tìm chính xác và xóa bằng statement riêng.
+Cleanup trong cùng SQL statement không thấy row vừa được function tạo do statement snapshot. Record smoke sau đó được tìm chính xác và xóa bằng statement riêng.
 
 Cleanup verification cuối:
 
@@ -176,22 +177,22 @@ Không còn fixture smoke trong production.
 SOURCE:       VERIFIED
 CI:           VERIFIED
 SUPABASE:     APPLIED + VERIFIED
-PR #23:       OPEN — READY TO MERGE
-MAIN:         PENDING MERGE
-LOCAL:        PENDING PULL AFTER MERGE
-VPS:          PENDING PULL/DEPLOY AFTER MERGE
-VERCEL PROD:  pending normal production deployment state
+PR #23:       MERGED
+MERGE SHA:    a7a26cafd03e37695407b4b73ed6485f5c5215bb
+MAIN:         UPDATED
+LOCAL:        PENDING PULL
+VPS:          PENDING PULL/DEPLOY
+GATEWAY SMOKE:PENDING AFTER VPS DEPLOY
 FULL RELEASE: PENDING
 ```
 
 ## 8. Bước tiếp theo bắt buộc
 
-1. Merge PR #23 sau khi final CI vẫn xanh.
-2. Local chạy `git pull origin main` ngay sau merge.
-3. VPS chạy `pullmcp` ngay sau merge.
-4. Kiểm tra PM2, backend logs và health `127.0.0.1:3001`.
-5. Chạy authenticated Gateway smoke qua bốn write route với fixture có cleanup.
-6. Cập nhật file này và `CURRENT_PROGRESS.md` bằng merge SHA, VPS evidence và trạng thái VERIFIED.
-7. Chỉ sau đó mới bắt đầu A5.4.4.
+1. Local chạy `git pull origin main` ngay.
+2. VPS chạy `pullmcp` ngay vì backend runtime đã thay đổi.
+3. Kiểm tra PM2, backend logs và health `127.0.0.1:3001`.
+4. Chạy authenticated Gateway smoke qua bốn write route với fixture có cleanup.
+5. Cập nhật file này và `CURRENT_PROGRESS.md` bằng VPS evidence và trạng thái VERIFIED.
+6. Chỉ sau đó mới bắt đầu A5.4.4.
 
 Không đụng `milktea-backend` port `3002`.
