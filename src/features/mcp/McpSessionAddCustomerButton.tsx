@@ -12,6 +12,12 @@ type AddCustomerDraft = {
   note: string;
 };
 
+type CapturedLocation = {
+  lat: number;
+  lng: number;
+  accuracy: number;
+};
+
 const EMPTY_DRAFT: AddCustomerDraft = {
   customerName: "",
   phone: "",
@@ -30,6 +36,13 @@ function responseError(payload: unknown) {
   return body.error?.message || body.error?.code || body.detail || "Không thêm được khách";
 }
 
+function geolocationErrorMessage(error: GeolocationPositionError) {
+  if (error.code === 1) return "Điện thoại chưa cấp quyền vị trí cho phần mềm";
+  if (error.code === 2) return "Thiết bị chưa xác định được vị trí";
+  if (error.code === 3) return "Lấy vị trí quá lâu, vui lòng thử lại";
+  return "Không lấy được vị trí hiện tại";
+}
+
 export function McpSessionAddCustomerButton({
   sessionId,
   routeName
@@ -40,6 +53,8 @@ export function McpSessionAddCustomerButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AddCustomerDraft>(EMPTY_DRAFT);
+  const [location, setLocation] = useState<CapturedLocation | null>(null);
+  const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
 
@@ -48,9 +63,38 @@ export function McpSessionAddCustomerButton({
   }
 
   function close() {
-    if (saving) return;
+    if (saving || locating) return;
     setOpen(false);
     setMessage(null);
+  }
+
+  function captureLocation() {
+    setMessage(null);
+    if (!navigator.geolocation) {
+      setMessage("Thiết bị hoặc trình duyệt không hỗ trợ định vị");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+        setLocating(false);
+      },
+      (error) => {
+        setMessage(geolocationErrorMessage(error));
+        setLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -77,13 +121,18 @@ export function McpSessionAddCustomerButton({
               phone: draft.phone.trim() || undefined,
               area: draft.area.trim() || undefined,
               address: draft.address.trim() || undefined,
-              note: draft.note.trim() || undefined
+              note: draft.note.trim() || undefined,
+              geoLat: location?.lat,
+              geoLng: location?.lng,
+              geoAccuracy: location?.accuracy,
+              geoSource: location ? "browser" : undefined
             })
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(responseError(payload));
 
           setDraft(EMPTY_DRAFT);
+          setLocation(null);
           setOpen(false);
           router.refresh();
         } catch (error) {
@@ -115,10 +164,10 @@ export function McpSessionAddCustomerButton({
         description={`${routeName} · khách được lưu vào tuyến gốc và phiên hiện tại`}
         footer={(
           <div className="sheet-action-grid">
-            <button className="button primary" type="submit" form="mcp-add-session-customer-form" disabled={saving}>
+            <button className="button primary" type="submit" form="mcp-add-session-customer-form" disabled={saving || locating}>
               {saving ? "Đang thêm..." : "Thêm khách"}
             </button>
-            <button className="button" type="button" onClick={close} disabled={saving}>Đóng</button>
+            <button className="button" type="button" onClick={close} disabled={saving || locating}>Đóng</button>
           </div>
         )}
       >
@@ -163,6 +212,19 @@ export function McpSessionAddCustomerButton({
               disabled={saving}
             />
           </label>
+          <section className={location ? "mcp-add-customer-location captured" : "mcp-add-customer-location"} aria-live="polite">
+            <div>
+              <strong>Định vị điểm bán</strong>
+              <small>
+                {location
+                  ? `Đã lấy GPS · sai số khoảng ${Math.round(location.accuracy)}m`
+                  : "Đứng tại điểm bán rồi lấy vị trí để sales có thể chỉ đường chính xác."}
+              </small>
+            </div>
+            <button className="button" type="button" onClick={captureLocation} disabled={saving || locating}>
+              {locating ? "Đang lấy vị trí..." : location ? "Lấy lại vị trí" : "⌖ Lấy vị trí hiện tại"}
+            </button>
+          </section>
           <label className="form-field">
             <small>Ghi chú</small>
             <textarea

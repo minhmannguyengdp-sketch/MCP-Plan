@@ -1,5 +1,8 @@
+"use client";
+
 import type { McpDayLine } from "@/features/mcp-day/mcp-day.types";
 import { type McpCustomerAction } from "./mcp-customer-actions";
+import { useMcpCustomerDirections } from "./McpRouteDirectionsContext";
 import styles from "./McpLineCard.module.css";
 
 function sourceLabel(source: McpDayLine["source"]) {
@@ -52,6 +55,8 @@ export function McpLineCard({
   onOpen: (line: McpDayLine) => void;
   onAction: (line: McpDayLine, action: McpCustomerAction) => void;
 }) {
+  const directions = useMcpCustomerDirections(line.routeCustomerId, line.accountName, line.area);
+
   return (
     <article className={`${styles.card} ${statusClass(line.status)}`}>
       <button className={styles.main} type="button" onClick={() => onOpen(line)}>
@@ -64,6 +69,16 @@ export function McpLineCard({
       </button>
       <span className={styles.badge}>{statusLabel(line.status)}</span>
       <div className={styles.actions}>
+        <a
+          className={`${styles.action} ${styles.directions}`}
+          href={directions.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={directions.exact ? `Chỉ đường đến ${line.accountName}` : `Tìm ${line.accountName} trên Google Maps`}
+          title={directions.exact ? "Mở chỉ đường theo GPS đã lưu" : "Khách chưa có GPS chính xác, mở tìm kiếm Google Maps"}
+        >
+          ↗ Chỉ đường
+        </a>
         {actionItems().map((item) => (
           <button className={item.tone === "primary" ? `${styles.action} button primary` : styles.action} type="button" key={item.action} onClick={() => onAction(line, item.action)}>
             {item.label}

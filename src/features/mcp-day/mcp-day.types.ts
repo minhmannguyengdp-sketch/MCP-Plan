@@ -97,6 +97,11 @@ export type McpDayAddCustomerPayload = {
   area?: string;
   address?: string;
   note?: string;
+  geoLat?: number;
+  geoLng?: number;
+  geoAccuracy?: number;
+  geoSource?: string;
+  googleMapsUrl?: string;
 };
 
 export type McpDayFollowupPayload = {
