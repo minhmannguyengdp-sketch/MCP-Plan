@@ -38,11 +38,12 @@
     {
       "phase": "A5.4.2",
       "completedAt": "2026-07-16",
-      "owner": "session-report-next-retirement",
-      "reason": "Both duplicate Next-server session report snapshot writers had no live callers and were removed. Session report writes now enter through the authenticated backend endpoint instead of direct service-role PostgREST upserts on Vercel.",
+      "owner": "session-report-aggregate",
+      "reason": "Both duplicate Next-server snapshot writers and the unreachable legacy direct-table AI-result writer were removed. Snapshot and AI-result writes now enter through the authenticated Foundation Gateway and service-role-only RPCs owned by the backend session-report aggregate.",
       "fingerprints": [
         "ea324aaa3d01a7941bf3aa3f",
-        "1502e64fc75da4598b208f1a"
+        "1502e64fc75da4598b208f1a",
+        "6a660d7d414afe70cd88cc4d"
       ]
     }
   ]
