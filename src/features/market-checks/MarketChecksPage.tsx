@@ -21,8 +21,8 @@ function rawText(row: Row, key: string) {
 
 function status(value: unknown): MarketCheckStatus {
   const normalized = text(value).toLowerCase();
-  if (["risk", "fail", "failed", "bad", "issue", "problem"].includes(normalized)) return "risk";
-  if (["opportunity", "good", "success", "passed", "positive"].includes(normalized)) return "opportunity";
+  if (["ok", "interested", "sample", "opportunity", "good", "success", "passed", "positive"].includes(normalized)) return "opportunity";
+  if (["bad", "retry", "follow", "risk", "fail", "failed", "issue", "problem"].includes(normalized)) return "risk";
   return "normal";
 }
 
