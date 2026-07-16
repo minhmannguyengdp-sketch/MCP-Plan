@@ -25,6 +25,16 @@ function textReport(result) {
   return `${lines.join("\n")}\n`;
 }
 
+function retirementPhaseMatches(replacementPhase, completedPhase) {
+  const baselinePhase = String(replacementPhase || "").trim();
+  const phase = String(completedPhase || "").trim();
+  return Boolean(
+    baselinePhase &&
+    phase &&
+    (phase === baselinePhase || phase.startsWith(`${baselinePhase}.`))
+  );
+}
+
 function validateRetirements(document, baselineEntries, findings) {
   const errors = [];
   const entries = Array.isArray(document.entries) ? document.entries : [];
@@ -65,7 +75,7 @@ function validateRetirements(document, baselineEntries, findings) {
       if (baseline.classification !== "known-legacy-debt") {
         errors.push(`retirement_not_legacy_debt:${fingerprint}`);
       }
-      if (phase && baseline.replacementPhase !== phase) {
+      if (phase && !retirementPhaseMatches(baseline.replacementPhase, phase)) {
         errors.push(`retirement_phase_mismatch:${fingerprint}:${baseline.replacementPhase}:${phase}`);
       }
       if (liveFingerprints.has(fingerprint)) {
