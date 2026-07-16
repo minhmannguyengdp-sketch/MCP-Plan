@@ -30,20 +30,26 @@ jobs:
         run: npm --prefix apps/backend run verify
       - name: Verify caller retirement
         run: node --test test/a5-4-3-report-settings-caller-audit.test.mjs test/direct-db-retirement-subphase.test.mjs
-      - name: Verify direct mutation debt
+      - name: Capture direct mutation diagnostics
         run: |
           node --input-type=module <<'NODE'
+          import { writeFile } from "node:fs/promises";
           import { auditDirectDbMutationPolicy } from "./scripts/audit-direct-db-mutation-policy.mjs";
           const result = await auditDirectDbMutationPolicy({ writeReports: false });
-          console.log(JSON.stringify({ summary: result.summary, retirements: result.retirements, errors: result.errors }, null, 2));
-          if (result.errors.length) process.exit(1);
-          if (result.summary.legacyDebt !== 3) process.exit(2);
+          const output = {
+            summary: result.summary,
+            retirements: result.retirements,
+            errors: result.errors,
+            findings: result.findings
+          };
+          await writeFile("docs/npp-plan/A5_4_3_SCANNER_DEBUG.json", `${JSON.stringify(output, null, 2)}\n`, "utf8");
+          console.log(JSON.stringify(output, null, 2));
           NODE
-      - name: Commit clean implementation
+      - name: Commit transformed source and diagnostics
         run: |
           rm -f scripts/apply-a5-4-3.mjs .github/workflows/a5-4-3-apply.yml docs/npp-plan/A5_4_3_TRIGGER.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Implement A5.4.3 report settings owner"
+          git commit -m "Apply A5.4.3 source transformation for scanner diagnosis"
           git push origin HEAD:a5-4-3-report-settings-owner
