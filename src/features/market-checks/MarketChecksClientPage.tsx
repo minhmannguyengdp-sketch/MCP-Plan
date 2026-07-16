@@ -78,13 +78,13 @@ function InlineTestRow({ check, onSelect }: { check: MarketCheckItem; onSelect: 
         <span>{check.note}</span>
       </div>
       <strong className={getStatusClass(check.status)}>{getStatusLabel(check.status)}</strong>
-      <button className="button primary" type="button" onClick={() => onSelect(check)}>Cập nhật</button>
+      <button className="button primary" type="button" disabled={!check.resultId} onClick={() => onSelect(check)}>{check.resultId ? "Cập nhật" : "Chưa có kết quả"}</button>
     </article>
   );
 }
 
 type SavePayload = {
-  resultId?: string;
+  resultId: string;
   fileId: string;
   customerId: string;
   productId?: string;
@@ -114,6 +114,10 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!check) return;
+    if (!check.resultId) {
+      setError("Chưa có kết quả để cập nhật. Hãy tạo kết quả từ phiên đi tuyến.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -165,7 +169,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
       description={check ? `${check.accountName} · ${check.routeName} · ${check.sessionDate || check.date}` : undefined}
       footer={
         <div className="sheet-action-grid">
-          <button className="button primary" disabled={saving} form="field-check-save-form" type="submit">{saving ? "Đang lưu..." : "Lưu kết quả"}</button>
+          <button className="button primary" disabled={saving || !check?.resultId} form="field-check-save-form" type="submit">{saving ? "Đang lưu..." : "Lưu kết quả"}</button>
           <button className="button" type="button" onClick={onClose}>Đóng</button>
         </div>
       }
