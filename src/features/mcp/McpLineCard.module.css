@@ -97,10 +97,22 @@
   cursor: pointer;
   line-height: 1.05;
   padding: 4px 10px;
+  text-decoration: none;
 }
 
 .action:hover {
   background: #ffffff;
+}
+
+.directions {
+  min-width: 94px;
+  border-color: rgba(37, 99, 235, 0.24);
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.directions:hover {
+  background: #dbeafe;
 }
 
 .pending {
@@ -165,5 +177,9 @@
   .action {
     min-width: 82px;
     padding: 4px 9px;
+  }
+
+  .directions {
+    min-width: 92px;
   }
 }
