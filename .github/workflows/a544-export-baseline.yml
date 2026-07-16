@@ -1,0 +1,20 @@
+name: A5.4.4 Baseline Export
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  export-baseline:
+    if: github.head_ref == 'a5-4-4-field-check-owner'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a544-mutation-baseline
+          path: scripts/direct-db-mutation-baseline.json
+          if-no-files-found: error
