@@ -431,16 +431,6 @@ async function loadMcpReportContextV1(url) {
   });
 }
 
-function mcpSettingSlugV1(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "") || "item_" + Date.now();
-}
-
 function normalizeMcpSettingGroupV1(group, items) {
   return {
     id: group.id,
@@ -482,46 +472,6 @@ async function loadMcpReportSettingsV1(url) {
   const groupIds = new Set(groups.map((group) => group.id));
   const scopedItems = items.filter((item) => groupIds.has(item.group_id));
   return { groups: groups.map((group) => normalizeMcpSettingGroupV1(group, scopedItems)) };
-}
-
-async function createMcpReportSettingV1(body) {
-  const groupId = v1Text(body.groupId || body.group_id);
-  const label = v1Text(body.label);
-  if (!groupId) throw badRequest("group_id_required");
-  if (!label) throw badRequest("label_required");
-  const groups = await supabaseGet("mcp_setting_groups", { select: "id", id: "eq." + groupId, limit: 1 });
-  if (!groups[0]) throw badRequest("setting_group_not_found");
-  const rows = await supabaseInsert("mcp_setting_items", {
-    id: randomId("msi"),
-    group_id: groupId,
-    item_key: v1Text(body.key) || mcpSettingSlugV1(label),
-    label,
-    value: v1Text(body.value) || label,
-    category: v1Text(body.category),
-    brand_name: v1Text(body.brandName || body.brand_name),
-    product_id: v1Text(body.productId || body.product_id),
-    sort_order: Number(body.sortOrder || body.sort_order || 0),
-    status: v1Text(body.status) || "active",
-    raw_payload: v1Object(body.meta)
-  });
-  return rows[0] || null;
-}
-
-async function updateMcpReportSettingV1(body) {
-  const itemId = v1Text(body.itemId || body.item_id);
-  if (!itemId) throw badRequest("item_id_required");
-  const values = { updated_at: new Date().toISOString() };
-  if (body.label !== undefined) values.label = v1Text(body.label);
-  if (body.value !== undefined) values.value = v1Text(body.value);
-  if (body.category !== undefined) values.category = v1Text(body.category);
-  if (body.brandName !== undefined || body.brand_name !== undefined) values.brand_name = v1Text(body.brandName || body.brand_name);
-  if (body.productId !== undefined || body.product_id !== undefined) values.product_id = v1Text(body.productId || body.product_id);
-  if (body.sortOrder !== undefined || body.sort_order !== undefined) values.sort_order = Number(body.sortOrder || body.sort_order || 0);
-  if (body.status !== undefined) values.status = v1Text(body.status) || "active";
-  if (body.meta !== undefined) values.raw_payload = v1Object(body.meta);
-  const rows = await supabasePatch("mcp_setting_items", values, { id: "eq." + itemId });
-  if (!rows[0]) throw badRequest("setting_item_not_found");
-  return rows[0];
 }
 
 async function createMcpRouteV1(body) {
@@ -1629,8 +1579,6 @@ async function handlePatch(req, url) {
   const routeCustomerId = v1PathId(url.pathname, "/api/route-customers/");
   if (routeCustomerId) return wrap(await updateMcpRouteCustomerV1(routeCustomerId, await readJsonBody(req)));
 
-  if (url.pathname === "/api/mcp-report-settings") return wrap(await updateMcpReportSettingV1(await readJsonBody(req)));
-
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
@@ -1653,7 +1601,6 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/route-customers") return wrap(await createMcpRouteCustomerV1(await readJsonBody(req)));
   const routeCustomerArchiveId = v1PathId(url.pathname, "/api/route-customers/", "/archive");
   if (routeCustomerArchiveId) return wrap(await supabaseRpc("mcp_delete_route_customer_hard", { p_route_customer_id: routeCustomerArchiveId }));
-  if (url.pathname === "/api/mcp-report-settings") return wrap(await createMcpReportSettingV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-session-report") return wrap(await createMcpSessionReportSnapshotV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/open-session") return wrap(await openMcpDaySessionV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/status") return wrap(await updateMcpSessionCustomerStatusV1(await readJsonBody(req)));
