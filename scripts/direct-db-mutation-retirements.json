@@ -34,6 +34,16 @@
         "67a000fe12e139d399ec5c38",
         "0a47ea9ec8b031e3b19ff663"
       ]
+    },
+    {
+      "phase": "A5.4.2",
+      "completedAt": "2026-07-16",
+      "owner": "session-report-next-retirement",
+      "reason": "Both duplicate Next-server session report snapshot writers had no live callers and were removed. Session report writes now enter through the authenticated backend endpoint instead of direct service-role PostgREST upserts on Vercel.",
+      "fingerprints": [
+        "ea324aaa3d01a7941bf3aa3f",
+        "1502e64fc75da4598b208f1a"
+      ]
     }
   ]
 }
