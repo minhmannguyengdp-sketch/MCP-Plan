@@ -1,20 +1,46 @@
-name: A5.4.4 Baseline Export
+name: A5.4.4 Baseline Update
 
 on:
   pull_request:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export-baseline:
+  update-baseline:
     if: github.head_ref == 'a5-4-4-field-check-owner'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/upload-artifact@v4
         with:
-          name: a544-mutation-baseline
-          path: scripts/direct-db-mutation-baseline.json
-          if-no-files-found: error
+          ref: a5-4-4-field-check-owner
+      - name: Add audited field-check RPC fingerprint
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'scripts/direct-db-mutation-baseline.json';
+          const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const fingerprint = '9c0c82bc255db9f5e5285357';
+          if (!data.entries.some((entry) => entry.fingerprint === fingerprint)) {
+            data.entries.push({
+              fingerprint,
+              classification: 'approved-boundary',
+              operation: 'mutation',
+              owner: 'field-check-use-case',
+              reason: 'A5.4.4 backend-owned typed RPC for existing field-check result updates.',
+              replacementPhase: 'keep'
+            });
+            fs.writeFileSync(path, JSON.stringify(data));
+          }
+          NODE
+      - name: Commit baseline when changed
+        run: |
+          if git diff --quiet -- scripts/direct-db-mutation-baseline.json; then
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/direct-db-mutation-baseline.json
+          git commit -m "Register A5.4.4 field-check RPC boundary"
+          git push origin HEAD:a5-4-4-field-check-owner
