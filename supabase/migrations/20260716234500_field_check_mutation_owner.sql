@@ -93,11 +93,3 @@ $function$;
 
 revoke execute on function public.mcp_update_field_check_result(text, text, text, text, text, text, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.mcp_update_field_check_result(text, text, text, text, text, text, jsonb, jsonb) to service_role;
-
-drop policy if exists "anon insert test customer results" on public.test_customer_results;
-drop policy if exists "anon update test customer results" on public.test_customer_results;
-drop policy if exists "anon insert market reports" on public.market_reports;
-drop policy if exists "anon update market reports" on public.market_reports;
-
-revoke insert, update, delete, truncate, references, trigger on table public.test_customer_results from anon, authenticated;
-revoke insert, update, delete, truncate, references, trigger on table public.market_reports from anon, authenticated;
