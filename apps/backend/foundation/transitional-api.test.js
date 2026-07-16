@@ -167,11 +167,11 @@ test("unrecognized provider failures remain infrastructure errors", async () => 
   );
 });
 
-test("field check writes use VPS service role and persist foundation context", async () => {
+test("field check writes use the typed RPC with mapped status and Foundation context", async () => {
   const calls = [];
   const fetchImpl = async (url, init) => {
     calls.push({ url: String(url), init });
-    return new Response(JSON.stringify([{ id: "result-1", product_name: "Sản phẩm A" }]), {
+    return new Response(JSON.stringify({ id: "result-1", product_name: "Sản phẩm A", status: "interested" }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
@@ -179,8 +179,10 @@ test("field check writes use VPS service role and persist foundation context", a
 
   const result = await handleTransitionalApi(
     request("POST", {
+      resultId: "result-1",
       fileId: "file-1",
       customerId: "customer-1",
+      sessionCustomerId: "session-customer-1",
       productName: "Sản phẩm A",
       status: "opportunity"
     }),
@@ -193,12 +195,28 @@ test("field check writes use VPS service role and persist foundation context", a
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.id, "result-1");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].init.headers.apikey, "server-only-key");
-  assert.equal(calls[0].init.headers.Authorization, "Bearer server-only-key");
-  const body = JSON.parse(calls[0].init.body);
-  assert.equal(body.raw_payload.foundation_context.requestId, "request_12345678");
-  assert.equal(body.raw_payload.foundation_context.installationId, "installation-a");
-  assert.equal(body.raw_payload.foundation_context.actorId, "service:npp-a:mcp-v1");
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_update_field_check_result$/);
+  const args = JSON.parse(calls[0].init.body);
+  assert.equal(args.p_result_id, "result-1");
+  assert.equal(args.p_status, "interested");
+  assert.equal(args.p_context.requestId, "request_12345678");
+  assert.equal(args.p_context.installationId, "installation-a");
+  assert.equal(args.p_context.actorId, "service:npp-a:mcp-v1");
+});
+
+test("field check requires an existing result id before provider access", async () => {
+  let providerCalled = false;
+  await assert.rejects(
+    handleTransitionalApi(
+      request("POST", { productName: "Sản phẩm A", status: "normal" }),
+      new URL("http://local/api/field-checks/result"),
+      context,
+      config,
+      { fetchImpl: async () => { providerCalled = true; } }
+    ),
+    (error) => error.message === "result_id_required" && error.statusCode === 400
+  );
+  assert.equal(providerCalled, false);
 });
 
 test("product search runs the canonical RPC behind the boundary", async () => {
