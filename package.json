@@ -10,7 +10,7 @@
     "audit:copy": "node scripts/audit-user-facing-copy.mjs",
     "audit:runtime-config": "node scripts/audit-runtime-hardcodes.mjs",
     "audit:direct-db-mutation": "node scripts/audit-direct-db-mutation-policy.mjs",
-    "test:direct-db-mutation": "node --test test/audit-direct-db-mutations.test.mjs",
+    "test:direct-db-mutation": "node --test test/audit-direct-db-mutations.test.mjs test/direct-db-retirement-subphase.test.mjs",
     "test:edge-retirement": "node --test test/a5-3-edge-retirement.test.mjs test/a5-3-no-legacy-edge-caller.test.mjs",
     "test:direct-rest-retirement": "node --test test/a5-4-1-dead-session-mutations.test.mjs test/a5-4-2-session-report-caller-audit.test.mjs",
     "test:production-hygiene": "node --test test/production-hygiene.test.mjs test/production-hygiene-no-fixture-leak.test.mjs",
@@ -30,7 +30,7 @@
   "devDependencies": {
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.0",
+    "@types/react-dom": "^18.0.0",
     "typescript": "^5.6.2"
   }
 }
