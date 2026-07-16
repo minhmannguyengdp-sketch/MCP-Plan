@@ -100,26 +100,22 @@ function normalizeMutationError(error) {
   return error;
 }
 
-async function callMutation(config, name, args, fetchImpl) {
+export async function createReportSettingGroup(body, context, config, { fetchImpl = fetch } = {}) {
+  const title = requiredText(body.title, "title_required", 200);
   try {
-    return await supabaseRpc(config, name, args, { fetchImpl });
+    return await supabaseRpc(config, "mcp_create_report_setting_group", {
+      p_group_key: settingKey(body.key ?? title, "invalid_group_key"),
+      p_title: title,
+      p_group_type: groupType(body.groupType ?? body.group_type),
+      p_description: nullableText(body.description, "invalid_description", 2000),
+      p_sort_order: sortOrder(body.sortOrder ?? body.sort_order),
+      p_status: settingStatus(body.status),
+      p_meta: metadata(body.meta),
+      p_context: foundationContext(context)
+    }, { fetchImpl });
   } catch (error) {
     throw normalizeMutationError(error);
   }
-}
-
-export async function createReportSettingGroup(body, context, config, { fetchImpl = fetch } = {}) {
-  const title = requiredText(body.title, "title_required", 200);
-  return callMutation(config, "mcp_create_report_setting_group", {
-    p_group_key: settingKey(body.key ?? title, "invalid_group_key"),
-    p_title: title,
-    p_group_type: groupType(body.groupType ?? body.group_type),
-    p_description: nullableText(body.description, "invalid_description", 2000),
-    p_sort_order: sortOrder(body.sortOrder ?? body.sort_order),
-    p_status: settingStatus(body.status),
-    p_meta: metadata(body.meta),
-    p_context: foundationContext(context)
-  }, fetchImpl);
 }
 
 export async function updateReportSettingGroup(body, context, config, { fetchImpl = fetch } = {}) {
@@ -132,30 +128,38 @@ export async function updateReportSettingGroup(body, context, config, { fetchImp
   if (hasOwn(body, "status")) patch.status = settingStatus(body.status);
   if (hasOwn(body, "meta")) patch.meta = metadata(body.meta);
   if (Object.keys(patch).length === 0) badRequest("report_setting_patch_required");
-  return callMutation(config, "mcp_update_report_setting_group", {
-    p_group_id: groupId,
-    p_patch: patch,
-    p_context: foundationContext(context)
-  }, fetchImpl);
+  try {
+    return await supabaseRpc(config, "mcp_update_report_setting_group", {
+      p_group_id: groupId,
+      p_patch: patch,
+      p_context: foundationContext(context)
+    }, { fetchImpl });
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
 }
 
 export async function createReportSettingItem(body, context, config, { fetchImpl = fetch } = {}) {
   const groupId = requiredText(body.groupId ?? body.group_id, "group_id_required", 200);
   const label = requiredText(body.label, "label_required", 200);
   const value = nullableText(body.value, "invalid_value", 500) || label;
-  return callMutation(config, "mcp_create_report_setting_item", {
-    p_group_id: groupId,
-    p_item_key: settingKey(body.key ?? label, "invalid_item_key"),
-    p_label: label,
-    p_value: value,
-    p_category: nullableText(body.category, "invalid_category", 500),
-    p_brand_name: nullableText(body.brandName ?? body.brand_name, "invalid_brand_name", 500),
-    p_product_id: nullableText(body.productId ?? body.product_id, "invalid_product_id", 200),
-    p_sort_order: sortOrder(body.sortOrder ?? body.sort_order),
-    p_status: settingStatus(body.status),
-    p_meta: metadata(body.meta),
-    p_context: foundationContext(context)
-  }, fetchImpl);
+  try {
+    return await supabaseRpc(config, "mcp_create_report_setting_item", {
+      p_group_id: groupId,
+      p_item_key: settingKey(body.key ?? label, "invalid_item_key"),
+      p_label: label,
+      p_value: value,
+      p_category: nullableText(body.category, "invalid_category", 500),
+      p_brand_name: nullableText(body.brandName ?? body.brand_name, "invalid_brand_name", 500),
+      p_product_id: nullableText(body.productId ?? body.product_id, "invalid_product_id", 200),
+      p_sort_order: sortOrder(body.sortOrder ?? body.sort_order),
+      p_status: settingStatus(body.status),
+      p_meta: metadata(body.meta),
+      p_context: foundationContext(context)
+    }, { fetchImpl });
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
 }
 
 export async function updateReportSettingItem(body, context, config, { fetchImpl = fetch } = {}) {
@@ -171,9 +175,13 @@ export async function updateReportSettingItem(body, context, config, { fetchImpl
   if (hasOwn(body, "status")) patch.status = settingStatus(body.status);
   if (hasOwn(body, "meta")) patch.meta = metadata(body.meta);
   if (Object.keys(patch).length === 0) badRequest("report_setting_patch_required");
-  return callMutation(config, "mcp_update_report_setting_item", {
-    p_item_id: itemId,
-    p_patch: patch,
-    p_context: foundationContext(context)
-  }, fetchImpl);
+  try {
+    return await supabaseRpc(config, "mcp_update_report_setting_item", {
+      p_item_id: itemId,
+      p_patch: patch,
+      p_context: foundationContext(context)
+    }, { fetchImpl });
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
 }
