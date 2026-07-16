@@ -34,6 +34,17 @@
         "67a000fe12e139d399ec5c38",
         "0a47ea9ec8b031e3b19ff663"
       ]
+    },
+    {
+      "phase": "A5.4.2",
+      "completedAt": "2026-07-16",
+      "owner": "session-report-aggregate",
+      "reason": "Both duplicate Next-server snapshot writers and the unreachable legacy direct-table AI-result writer were removed. Snapshot and AI-result writes now enter through the authenticated Foundation Gateway and service-role-only RPCs owned by the backend session-report aggregate.",
+      "fingerprints": [
+        "ea324aaa3d01a7941bf3aa3f",
+        "1502e64fc75da4598b208f1a",
+        "6a660d7d414afe70cd88cc4d"
+      ]
     }
   ]
 }

@@ -4,6 +4,10 @@ import {
   addSessionCustomer,
   recordSessionCustomerResult
 } from "./session-customer-mutations.js";
+import {
+  createSessionReportSnapshot,
+  saveSessionReportAiResult
+} from "./session-report-mutations.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -100,6 +104,18 @@ async function saveSessionCustomerResult(req, context, config, fetchImpl) {
 async function saveAddedSessionCustomer(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await addSessionCustomer(body, context, config, { fetchImpl });
+  return response({ data });
+}
+
+async function saveSessionReportSnapshot(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await createSessionReportSnapshot(body, context, config, { fetchImpl });
+  return response({ data });
+}
+
+async function saveSessionReportAi(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await saveSessionReportAiResult(body, context, config, { fetchImpl });
   return response({ data });
 }
 
@@ -319,6 +335,12 @@ export async function handleTransitionalApi(
   }
   if (method === "POST" && pathname === "/api/mcp-day/session-customer/add") {
     return saveAddedSessionCustomer(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-session-report") {
+    return saveSessionReportSnapshot(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-session-report/ai-result") {
+    return saveSessionReportAi(req, context, config, fetchImpl);
   }
   if (method === "POST" && pathname === "/api/field-checks/result") {
     return saveFieldCheckResult(req, context, config, fetchImpl);

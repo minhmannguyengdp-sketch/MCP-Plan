@@ -21,13 +21,6 @@ export type SessionReportSummary = {
   };
 };
 
-function cfg() {
-  const url = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/+$/, "");
-  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "").trim();
-  if (!url || !key) throw new Error("missing_supabase_config");
-  return { url, key };
-}
-
 function text(value: unknown) { return String(value ?? "").trim(); }
 function num(value: unknown) { const parsed = Number(value || 0); return Number.isFinite(parsed) ? parsed : 0; }
 function uniq(values: string[]) { return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))); }
@@ -195,16 +188,6 @@ export async function buildMcpSessionReportSummary(input: { sessionId?: string; 
       skipped: customers.filter((item) => text(item.visit_status) === "skipped").map((item) => ({ id: text(item.id), customerName: text(item.customer_name), reason: text(item.status_reason) || text(item.note) }))
     }
   };
-}
-
-export async function saveMcpSessionReportSnapshot(sessionId: string, source = "close_session") {
-  const summary = await buildMcpSessionReportSummary({ sessionId });
-  const env = cfg();
-  const body = { session_id: summary.session.id, route_id: summary.session.routeId || null, route_name: summary.session.routeName || null, session_date: summary.session.sessionDate || null, sales: summary.session.sales || null, status: "snapshot", snapshot_source: source, kpis: summary.kpis, overview: summary.sections.overview, sections: summary.sections, summary_text: summaryText(summary), raw_payload: { summary }, snapshot_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  const response = await fetch(`${env.url}/rest/v1/mcp_session_reports?on_conflict=session_id&select=*`, { method: "POST", cache: "no-store", headers: { apikey: env.key, Authorization: `Bearer ${env.key}`, Accept: "application/json", "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(body) });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || payload.error || `session_report_snapshot_${response.status}`);
-  return Array.isArray(payload) ? payload[0] : payload;
 }
 
 export function sessionReportSummaryText(summary: SessionReportSummary) { return summaryText(summary); }

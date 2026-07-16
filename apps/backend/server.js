@@ -431,31 +431,6 @@ async function loadMcpReportContextV1(url) {
   });
 }
 
-async function persistMcpSessionAiResultV1(body) {
-  const sessionId = v1Text(body.sessionId || body.session_id);
-  if (!sessionId) throw badRequest("session_id_required");
-
-  const aiResult = v1Object(body.aiResult || body.ai_result);
-  const analyzedAt = v1Text(body.analyzedAt || body.ai_analyzed_at) || new Date().toISOString();
-  const rows = await supabasePatch(
-    "mcp_session_reports",
-    {
-      ai_result: aiResult,
-      ai_analyzed_at: analyzedAt,
-      updated_at: analyzedAt
-    },
-    { session_id: `eq.${sessionId}` }
-  );
-
-  if (!Array.isArray(rows) || rows.length !== 1) {
-    const error = new Error("session_report_snapshot_not_found_for_ai_result");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return { row: rows[0], analyzedAt };
-}
-
 function mcpSettingSlugV1(value) {
   return String(value || "")
     .normalize("NFD")
@@ -1680,7 +1655,6 @@ async function handlePost(req, url) {
   if (routeCustomerArchiveId) return wrap(await supabaseRpc("mcp_delete_route_customer_hard", { p_route_customer_id: routeCustomerArchiveId }));
   if (url.pathname === "/api/mcp-report-settings") return wrap(await createMcpReportSettingV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-session-report") return wrap(await createMcpSessionReportSnapshotV1(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-session-report/ai-result") return wrap(await persistMcpSessionAiResultV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/open-session") return wrap(await openMcpDaySessionV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/status") return wrap(await updateMcpSessionCustomerStatusV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/order") return wrap(await createMcpSessionCustomerOrderV1(await readJsonBody(req)));
