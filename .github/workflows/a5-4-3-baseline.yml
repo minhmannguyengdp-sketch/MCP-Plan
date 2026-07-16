@@ -1,0 +1,51 @@
+name: Register A5.4.3 RPC baseline
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    if: github.head_ref == 'a5-4-3-report-settings-owner'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a5-4-3-report-settings-owner
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Register exact RPC fingerprints
+        run: node scripts/apply-a5-4-3-baseline.mjs
+      - name: Verify backend
+        run: npm --prefix apps/backend run verify
+      - name: Verify caller retirement
+        run: node --test test/a5-4-3-report-settings-caller-audit.test.mjs test/direct-db-retirement-subphase.test.mjs
+      - name: Verify direct mutation policy
+        run: |
+          node --input-type=module <<'NODE'
+          import { auditDirectDbMutationPolicy } from "./scripts/audit-direct-db-mutation-policy.mjs";
+          const result = await auditDirectDbMutationPolicy({ writeReports: false });
+          console.log(JSON.stringify({ summary: result.summary, retirements: result.retirements, errors: result.errors }, null, 2));
+          if (result.errors.length) process.exit(1);
+          if (result.summary.legacyDebt !== 3) process.exit(2);
+          if (result.summary.unclassified !== 0) process.exit(3);
+          if (result.summary.forbidden !== 0) process.exit(4);
+          NODE
+      - name: Commit clean verified baseline
+        run: |
+          rm -f scripts/apply-a5-4-3-baseline.mjs .github/workflows/a5-4-3-baseline.yml docs/npp-plan/A5_4_3_SCANNER_DEBUG.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Verify A5.4.3 report settings ownership"
+          git push origin HEAD:a5-4-3-report-settings-owner
