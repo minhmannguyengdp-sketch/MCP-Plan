@@ -1,16 +1,20 @@
 name: Apply A5.4.3 source transformation
 
 on:
-  push:
+  pull_request:
     branches:
-      - a5-4-3-report-settings-owner
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: contains(github.event.head_commit.message, 'run A5.4.3 source transformer')
+    if: github.head_ref == 'a5-4-3-report-settings-owner'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
