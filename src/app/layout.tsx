@@ -18,6 +18,7 @@ import "./mcp-report-branch.css";
 import "./mcp-sessions-compact.css";
 import "./mcp-sessions-color.css";
 import "./mcp-compact-ui.css";
+import "./mcp-session-add-customer.css";
 import "./mcp-order-main-final.css";
 import "./mcp-scroll-restore.css";
 import "./export-menu-fix.css";
