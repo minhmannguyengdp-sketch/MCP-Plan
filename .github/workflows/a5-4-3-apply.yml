@@ -37,7 +37,7 @@ jobs:
           NODE
       - name: Commit clean implementation
         run: |
-          rm -f scripts/apply-a5-4-3.mjs .github/workflows/a5-4-3-apply.yml
+          rm -f scripts/apply-a5-4-3.mjs .github/workflows/a5-4-3-apply.yml docs/npp-plan/.a5-4-3-trigger
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
