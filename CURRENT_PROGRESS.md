@@ -2,7 +2,7 @@
 
 > File handoff bắt buộc cho chat mới.  
 > Cập nhật gần nhất: **2026-07-16**  
-> Phase hiện tại: **A5.4.4 — field-check + market-report write ownership (audit next)**
+> Phase hiện tại: **A5.4.4 — field-check + market-report write ownership**
 
 ## A5.4.2 — Session report write ownership
 
@@ -42,52 +42,77 @@ Evidence:
 - `docs/npp-plan/A5_4_3_REPORT_SETTINGS_AUDIT.md`
 - `docs/npp-plan/A5_4_3_REPORT_SETTINGS_OWNER.md`
 
-Production runtime evidence:
+A5.4.3 đã đóng, không sửa thêm.
+
+## A5.4.4 — Field-check + market-report writes
 
 ```text
-backend tests:           60/60 pass
-PM2 mcp-plan-backend:    online, restart 0
-Gateway:                 127.0.0.1:3001
-legacy internal:         127.0.0.1:3102
-milktea backend:         port 3002, process riêng, không đụng tới
-Foundation boundary:     PASS
-health/auth/CORS smoke:  PASS
+AUDIT:          COMPLETE
+IMPLEMENTATION: NOT STARTED
+CODE CHANGE:    NONE
+MIGRATION:      NONE
+SCANNER DEBT:   3
+TARGET:         3 -> 0
 ```
 
-Authenticated Gateway mutation smoke:
+Evidence:
+
+- `docs/npp-plan/A5_4_4_FIELD_CHECK_MARKET_REPORT_AUDIT.md`
+
+Ba fingerprints còn lại:
 
 ```text
-POST  /api/mcp-report-setting-groups: PASS
-PATCH /api/mcp-report-setting-groups: PASS
-POST  /api/mcp-report-settings:       PASS
-PATCH /api/mcp-report-settings:       PASS
-canonical envelope:                   PASS
-Foundation context:                   PASS
-optional field clear:                 PASS
-cleanup final:                        group 0 / item 0
+474001fbfa0d1de1ed003364  field-check direct PATCH
+f70d562b03f15f08cae868e8  field-check direct POST
+ffb1c503e59aa8fcf8f0344f  market-report direct POST
 ```
 
-A5.4.3 đã hoàn tất. Không sửa thêm trong phase này.
+### Kết luận audit
 
-## Bước tiếp theo chính xác
+1. Field-check PATCH là caller live qua `MarketChecksClientPage` và `/api/field-checks/result`.
+2. Field-check POST/create là fallback sai logic; valid session test luôn có `resultId`. Production: 4/4 `test_id` match result, missing 0.
+3. Route `/api/mcp-market-reports` là duplicate dead/broken path. Active UI dùng `/api/backend/mcp-day/session-customer/report` -> `mcp_create_report_from_session_customer`.
+4. Production có 0 row source `mcp_market_report_api`, nhưng có 3 row source canonical RPC.
+5. Route market cũ còn thiếu `id` bắt buộc khi insert `market_reports`.
+6. Field-check đang ghi status UI `normal/opportunity/risk` vào DB vốn dùng `pending/ok/retry/follow/interested/bad/sample`; phải sửa mapping cùng phase.
+7. Field-check direct PATCH có thể trả 200 + null khi row không tồn tại và đang overwrite toàn bộ `raw_payload`.
+8. `test_customer_results` và `market_reports` vẫn có anon INSERT/UPDATE permissive policies; phải drop mutation policies sau cutover.
 
-Bắt đầu **A5.4.4 — field-check + market-report writes**, trước tiên audit, chưa sửa code.
-
-Ba legacy findings còn lại:
+### Ownership đích
 
 ```text
-474001fbfa0d1de1ed003364  field-check update
-f70d562b03f15f08cae868e8  field-check create
-ffb1c503e59aa8fcf8f0344f  market-report create
+Field-check UI
+-> authenticated Foundation Gateway
+-> field-check application owner
+-> mcp_update_field_check_result service-role-only RPC
+-> locked test_customer_results row
 ```
 
-Mục tiêu:
+Chỉ tạo một update RPC; không tạo create RPC field-check mới.
+
+Market report giữ owner chuẩn hiện tại:
 
 ```text
-direct mutation debt: 3 -> 0
+/api/backend/mcp-day/session-customer/report
+-> mcp_create_report_from_session_customer
 ```
 
-Audit phải xác định caller live/dead, route owner hiện tại, table/RPC, transaction boundary, validation, context, cleanup và thứ tự triển khai. Chưa bắt đầu Order Core. Sau A5.4.4 mới tới A5.5 persisted idempotency + append-only audit.
+Xóa duplicate `/api/mcp-market-reports`.
+
+### Bước implementation tiếp theo
+
+1. Tạo branch/PR riêng.
+2. Tạo `field-check-mutations.js`.
+3. Tạo RPC update service-role-only, lock row, 404 đúng, merge `raw_payload` + Foundation context.
+4. Require `resultId`; xóa fallback POST create.
+5. Sửa status read/write mapping về domain DB chuẩn.
+6. Xóa dead market route + handler.
+7. Drop anon INSERT/UPDATE policies cho hai bảng; giữ SELECT nếu còn cần.
+8. Thêm migration/use-case/Gateway/caller/dead-route/RLS tests.
+9. Retire đúng 3 fingerprints; scanner `3 -> 0`, unclassified 0, forbidden 0.
+10. Apply migration, production smoke có restore/cleanup, deploy VPS và cập nhật evidence.
+
+Không cần pull local/VPS cho hai commit audit tài liệu. Chưa bắt đầu Order Core. Sau A5.4.4 mới tới A5.5 persisted idempotency + append-only audit.
 
 ## Quy tắc tiến độ bắt buộc
 
