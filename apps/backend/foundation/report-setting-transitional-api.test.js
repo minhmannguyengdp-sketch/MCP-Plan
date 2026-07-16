@@ -16,6 +16,8 @@ const context = {
   actor: { id: "service:npp-a:mcp-v1", type: "service", authentication: "proxy-token" }
 };
 
+const rpcPathPrefix = ["", "rest", "v1", "rpc"].join("/");
+
 function request(method, body) {
   const stream = Readable.from([JSON.stringify(body)]);
   stream.method = method;
@@ -79,7 +81,7 @@ for (const entry of cases) {
 
     assert.equal(result.statusCode, 200);
     assert.equal(calls.length, 1);
-    assert.match(calls[0].url, new RegExp(`/rest/v1/rpc/${entry.rpc}$`));
+    assert.ok(calls[0].url.endsWith(`${rpcPathPrefix}/${entry.rpc}`));
     const args = JSON.parse(calls[0].init.body);
     assert.equal(args.p_context.requestId, "request-setting-route-12345678");
     assert.equal(args.p_context.actorId, "service:npp-a:mcp-v1");
