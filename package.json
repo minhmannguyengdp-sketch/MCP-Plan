@@ -12,7 +12,7 @@
     "audit:direct-db-mutation": "node scripts/audit-direct-db-mutation-policy.mjs",
     "test:direct-db-mutation": "node --test test/audit-direct-db-mutations.test.mjs test/direct-db-retirement-subphase.test.mjs",
     "test:edge-retirement": "node --test test/a5-3-edge-retirement.test.mjs test/a5-3-no-legacy-edge-caller.test.mjs",
-    "test:direct-rest-retirement": "node --test test/a5-4-1-dead-session-mutations.test.mjs test/a5-4-2-session-report-caller-audit.test.mjs",
+    "test:direct-rest-retirement": "node --test test/a5-4-1-dead-session-mutations.test.mjs test/a5-4-2-session-report-caller-audit.test.mjs test/a5-4-3-report-settings-caller-audit.test.mjs",
     "test:production-hygiene": "node --test test/production-hygiene.test.mjs test/production-hygiene-no-fixture-leak.test.mjs",
     "test:pullmcp-deployer": "node --test test/pullmcp-deployer.test.mjs",
     "test:backend-api-auth": "node --test test/api-client-backend-auth.test.mjs test/production-tab-data-contract.test.mjs",

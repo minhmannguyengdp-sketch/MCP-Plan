@@ -8,6 +8,12 @@ import {
   createSessionReportSnapshot,
   saveSessionReportAiResult
 } from "./session-report-mutations.js";
+import {
+  createReportSettingGroup,
+  createReportSettingItem,
+  updateReportSettingGroup,
+  updateReportSettingItem
+} from "./report-setting-mutations.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -73,16 +79,6 @@ function safeStatus(value) {
   return ["normal", "opportunity", "risk"].includes(normalized)
     ? normalized
     : "normal";
-}
-
-function slug(value) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "") || `group_${Date.now()}`;
 }
 
 function today() {
@@ -214,56 +210,25 @@ async function saveMarketReport(req, context, config, fetchImpl) {
 
 async function createSettingGroup(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const title = String(body.title || "").trim();
-  if (!title) badRequest("title_required");
-  const meta = body.meta && typeof body.meta === "object" ? body.meta : {};
-  const payload = {
-    group_key: String(body.key || slug(title)).trim(),
-    title,
-    group_type: String(body.groupType || "market_report"),
-    description: String(body.description || "").trim() || null,
-    sort_order: Number(body.sortOrder || 0),
-    status: String(body.status || "active"),
-    raw_payload: {
-      ...meta,
-      foundation_context: foundationMetadata(context)
-    }
-  };
-  const data = await supabaseRest(config, "mcp_setting_groups", {
-    method: "POST",
-    body: payload,
-    prefer: "return=representation",
-    fetchImpl
-  });
+  const data = await createReportSettingGroup(body, context, config, { fetchImpl });
   return response({ data });
 }
 
 async function updateSettingGroup(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const groupId = String(body.groupId || "").trim();
-  if (!groupId) badRequest("group_id_required");
-  const payload = { updated_at: new Date().toISOString() };
-  if (body.title !== undefined) payload.title = String(body.title || "").trim();
-  if (body.description !== undefined) payload.description = String(body.description || "").trim() || null;
-  if (body.sortOrder !== undefined) payload.sort_order = Number(body.sortOrder || 0);
-  if (body.status !== undefined) payload.status = String(body.status || "active");
-  if (body.meta !== undefined) {
-    const meta = body.meta && typeof body.meta === "object" ? body.meta : {};
-    payload.raw_payload = {
-      ...meta,
-      foundation_context: foundationMetadata(context)
-    };
-  }
-  const data = await supabaseRest(
-    config,
-    `mcp_setting_groups?id=eq.${encodeURIComponent(groupId)}`,
-    {
-      method: "PATCH",
-      body: payload,
-      prefer: "return=representation",
-      fetchImpl
-    }
-  );
+  const data = await updateReportSettingGroup(body, context, config, { fetchImpl });
+  return response({ data });
+}
+
+async function createSettingItem(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await createReportSettingItem(body, context, config, { fetchImpl });
+  return response({ data });
+}
+
+async function updateSettingItem(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await updateReportSettingItem(body, context, config, { fetchImpl });
   return response({ data });
 }
 
@@ -353,6 +318,12 @@ export async function handleTransitionalApi(
   }
   if (method === "PATCH" && pathname === "/api/mcp-report-setting-groups") {
     return updateSettingGroup(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-report-settings") {
+    return createSettingItem(req, context, config, fetchImpl);
+  }
+  if (method === "PATCH" && pathname === "/api/mcp-report-settings") {
+    return updateSettingItem(req, context, config, fetchImpl);
   }
   if (method === "GET" && pathname === "/api/mcp-report-templates") {
     return loadReportTemplates(config, fetchImpl);

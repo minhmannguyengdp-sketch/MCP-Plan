@@ -45,6 +45,18 @@
         "1502e64fc75da4598b208f1a",
         "6a660d7d414afe70cd88cc4d"
       ]
+    },
+    {
+      "phase": "A5.4.3",
+      "completedAt": "2026-07-16",
+      "owner": "report-settings-aggregate",
+      "reason": "Report setting group and item writes now enter through the authenticated Foundation Gateway and four service-role-only RPCs. Direct PostgREST writes were removed from the transitional transport and legacy backend while the existing read contract remains unchanged.",
+      "fingerprints": [
+        "6ae585a158e2fd800062fb45",
+        "500b241ecd80ff8d74047e27",
+        "ea3fdd0cec40084d8ba06c1f",
+        "204c2501e1755878fd26bf36"
+      ]
     }
   ]
 }
