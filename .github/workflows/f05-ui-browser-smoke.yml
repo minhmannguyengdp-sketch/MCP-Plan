@@ -72,5 +72,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: f05-ui-browser-smoke-evidence
-          path: test-results/f05-ui-smoke
+          path: |
+            test-results/f05-ui-smoke
+            .next/static/css
           if-no-files-found: error
