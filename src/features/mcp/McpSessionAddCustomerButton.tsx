@@ -2,6 +2,7 @@
 
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 
 type AddCustomerDraft = {
@@ -108,26 +109,30 @@ export function McpSessionAddCustomerButton({
       void (async () => {
         try {
           setMessage(null);
-          const response = await fetch("/api/backend/mcp-day/session-customer/add", {
-            method: "POST",
-            cache: "no-store",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json"
+          const response = await idempotentMutationFetch(
+            "/api/backend/mcp-day/session-customer/add",
+            {
+              method: "POST",
+              cache: "no-store",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                sessionId,
+                customerName: draft.customerName.trim(),
+                phone: draft.phone.trim() || undefined,
+                area: draft.area.trim() || undefined,
+                address: draft.address.trim() || undefined,
+                note: draft.note.trim() || undefined,
+                geoLat: location?.lat,
+                geoLng: location?.lng,
+                geoAccuracy: location?.accuracy,
+                geoSource: location ? "browser" : undefined
+              })
             },
-            body: JSON.stringify({
-              sessionId,
-              customerName: draft.customerName.trim(),
-              phone: draft.phone.trim() || undefined,
-              area: draft.area.trim() || undefined,
-              address: draft.address.trim() || undefined,
-              note: draft.note.trim() || undefined,
-              geoLat: location?.lat,
-              geoLng: location?.lng,
-              geoAccuracy: location?.accuracy,
-              geoSource: location ? "browser" : undefined
-            })
-          });
+            { operation: "session-customer.add" }
+          );
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(responseError(payload));
 

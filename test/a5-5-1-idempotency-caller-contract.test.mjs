@@ -19,8 +19,9 @@ test("mutation helper creates one key and reuses it across network retries", asy
   );
 });
 
-test("session-customer result and add are onboarded while legacy follow-up is not retried", async () => {
+test("session-customer result and add callers use stable idempotency while legacy follow-up is not retried", async () => {
   const apiClient = await source("src/lib/api/api-client.ts");
+  const addCustomerButton = await source("src/features/mcp/McpSessionAddCustomerButton.tsx");
 
   assert.match(
     apiClient,
@@ -29,6 +30,15 @@ test("session-customer result and add are onboarded while legacy follow-up is no
   assert.match(
     apiClient,
     /addMcpDayCustomer\(payload\)[\s\S]*?postIdempotentJson[\s\S]*?session-customer\.add/
+  );
+  assert.match(
+    addCustomerButton,
+    /idempotentMutationFetch\([\s\S]*?\/api\/backend\/mcp-day\/session-customer\/add[\s\S]*?operation: "session-customer\.add"/
+  );
+  assert.doesNotMatch(
+    addCustomerButton,
+    /fetch\("\/api\/backend\/mcp-day\/session-customer\/add"/,
+    "session add-customer UI must not bypass the idempotent mutation helper"
   );
   assert.match(
     apiClient,
