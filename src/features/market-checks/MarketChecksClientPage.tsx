@@ -172,7 +172,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
       description={check ? `${check.accountName} · ${check.routeName} · ${check.sessionDate || check.date}` : undefined}
       footer={
         <div className="sheet-action-grid">
-          <button className="button primary" disabled={saving} form="field-check-save-form" type="submit">{saving ? "Đang lưu..." : "Lưu kết quả"}</button>
+          <button className="button primary" disabled={saving || !check?.resultId} form="field-check-save-form" type="submit">{saving ? "Đang lưu..." : "Lưu kết quả"}</button>
           <button className="button" type="button" onClick={onClose}>Đóng</button>
         </div>
       }
@@ -187,6 +187,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
             <div className="metric-row"><span>Ngày</span><strong>{check.sessionDate || check.date || "-"}</strong></div>
           </div>
           <label className="sheet-note-card"><h3>Ghi chú kết quả</h3><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Nhập nhận xét, tồn kho, phản hồi điểm bán và việc cần xử lý..." /></label>
+          {!check.resultId ? <p className={styles.errorText}>Chưa có kết quả để cập nhật</p> : null}
           {error ? <p className={styles.errorText}>{error}</p> : null}
         </form>
       ) : null}
