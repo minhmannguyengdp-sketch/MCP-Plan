@@ -10,6 +10,7 @@ type BottomSheetProps = {
   children: ReactNode;
   footer?: ReactNode;
   onClose?: () => void;
+  variant?: "default" | "compact";
 };
 
 const backdropStyle: CSSProperties = {
@@ -25,7 +26,7 @@ const backdropStyle: CSSProperties = {
   touchAction: "auto"
 };
 
-const sheetStyle: CSSProperties = {
+const defaultSheetStyle: CSSProperties = {
   width: "min(760px, 100%)",
   maxHeight: "min(88dvh, 760px)",
   display: "flex",
@@ -38,6 +39,14 @@ const sheetStyle: CSSProperties = {
   boxShadow: "0 -24px 70px rgba(16, 24, 40, 0.28)",
   overscrollBehavior: "contain",
   touchAction: "pan-y"
+};
+
+const compactSheetStyle: CSSProperties = {
+  ...defaultSheetStyle,
+  width: "min(920px, 100%)",
+  maxHeight: "min(92dvh, 860px)",
+  borderRadius: "16px 16px 12px 12px",
+  boxShadow: "0 -18px 52px rgba(16, 24, 40, 0.22)"
 };
 
 const handleStyle: CSSProperties = {
@@ -60,6 +69,11 @@ const headerStyle: CSSProperties = {
   borderBottom: "1px solid var(--line)"
 };
 
+const compactHeaderStyle: CSSProperties = {
+  ...headerStyle,
+  padding: "10px 14px 9px"
+};
+
 const bodyStyle: CSSProperties = {
   flex: "1 1 auto",
   minHeight: 0,
@@ -70,6 +84,11 @@ const bodyStyle: CSSProperties = {
   touchAction: "pan-y"
 };
 
+const compactBodyStyle: CSSProperties = {
+  ...bodyStyle,
+  padding: "10px 14px 12px"
+};
+
 const footerStyle: CSSProperties = {
   flex: "0 0 auto",
   padding: "14px 20px calc(14px + env(safe-area-inset-bottom))",
@@ -77,12 +96,18 @@ const footerStyle: CSSProperties = {
   background: "var(--panel)"
 };
 
-export function BottomSheet({ title, description, open = false, children, footer, onClose }: BottomSheetProps) {
+const compactFooterStyle: CSSProperties = {
+  ...footerStyle,
+  padding: "9px 14px calc(9px + env(safe-area-inset-bottom))"
+};
+
+export function BottomSheet({ title, description, open = false, children, footer, onClose, variant = "default" }: BottomSheetProps) {
   const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
   const sheetRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const compact = variant === "compact";
 
   useEffect(() => {
     setMounted(true);
@@ -158,16 +183,17 @@ export function BottomSheet({ title, description, open = false, children, footer
     <div className="sheet-backdrop" role="presentation" onClick={handleBackdropClick} style={backdropStyle}>
       <section
         ref={sheetRef}
-        className="bottom-sheet"
+        className={compact ? "bottom-sheet bottom-sheet-compact" : "bottom-sheet"}
+        data-variant={variant}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        style={sheetStyle}
+        style={compact ? compactSheetStyle : defaultSheetStyle}
       >
         <div className="sheet-handle" style={handleStyle} />
-        <header className="sheet-header" style={headerStyle}>
+        <header className="sheet-header" style={compact ? compactHeaderStyle : headerStyle}>
           <div>
             <h2 id={titleId}>{title}</h2>
             {description ? <p id={descriptionId}>{description}</p> : null}
@@ -176,8 +202,8 @@ export function BottomSheet({ title, description, open = false, children, footer
             ×
           </button>
         </header>
-        <div className="sheet-body" style={bodyStyle}>{children}</div>
-        {footer ? <footer className="sheet-footer" style={footerStyle}>{footer}</footer> : null}
+        <div className="sheet-body" style={compact ? compactBodyStyle : bodyStyle}>{children}</div>
+        {footer ? <footer className="sheet-footer" style={compact ? compactFooterStyle : footerStyle}>{footer}</footer> : null}
       </section>
     </div>,
     document.body
