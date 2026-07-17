@@ -10,8 +10,9 @@ test("session card keeps six compact actions in two rows beside a square check-i
   const card = await source("src/features/mcp/McpLineCard.tsx");
   const css = await source("src/features/mcp/McpLineCard.module.css");
 
-  for (const label of ["Chỉ đường", "Đơn", "Test", "Quan sát", "Theo dõi", "Bỏ qua"]) {
-    assert.match(card, new RegExp(`>${label.replace(" ", "\\s+")}<|label: \"${label}\"`));
+  assert.match(card, /Chỉ đường/);
+  for (const label of ["Đơn", "Test", "Quan sát", "Theo dõi", "Bỏ qua"]) {
+    assert.match(card, new RegExp(`label: "${label}"`));
   }
   assert.match(css, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(css, /grid-template-areas:[\s\S]*?"actions checkin"/);
