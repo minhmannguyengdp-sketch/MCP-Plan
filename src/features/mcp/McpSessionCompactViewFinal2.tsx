@@ -158,10 +158,11 @@ function currentSalesPosition() {
 }
 
 function geolocationMessage(error: unknown) {
-  if (error instanceof GeolocationPositionError) {
-    if (error.code === error.PERMISSION_DENIED) return "Chưa được cấp quyền định vị. Hãy bật quyền vị trí rồi bấm check-in lại.";
-    if (error.code === error.POSITION_UNAVAILABLE) return "Thiết bị chưa lấy được vị trí hiện tại. Hãy đứng nơi thoáng và thử lại.";
-    if (error.code === error.TIMEOUT) return "Lấy vị trí quá thời gian. Hãy thử lại tại điểm bán.";
+  const geolocationError = error as Partial<GeolocationPositionError>;
+  if (typeof geolocationError?.code === "number") {
+    if (geolocationError.code === 1) return "Chưa được cấp quyền định vị. Hãy bật quyền vị trí rồi bấm check-in lại.";
+    if (geolocationError.code === 2) return "Thiết bị chưa lấy được vị trí hiện tại. Hãy đứng nơi thoáng và thử lại.";
+    if (geolocationError.code === 3) return "Lấy vị trí quá thời gian. Hãy thử lại tại điểm bán.";
   }
   return error instanceof Error ? error.message : "Không lấy được vị trí hiện tại.";
 }
@@ -201,7 +202,7 @@ function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; o
   if (!line) return null;
   return (
     <BottomSheet variant="compact" open={Boolean(line)} onClose={onClose} title={line.accountName} description={`${line.area} · ${sourceLabel(line.source)}`} footer={<div className={popupStyles.customerFooter}><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Tạo đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Thử sản phẩm</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Quan sát</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Theo dõi</button><button className="button" type="button" onClick={() => onAction(line, "skip")}>Bỏ qua</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
-      <div className="visit-sheet-content"><div className="visit-focus-card"><span>Trạng thái</span><strong>{statusLabel(line.status)}</strong><small>{line.note || "Chưa ghi kết quả chi tiết"}</small></div></div>
+      <div className={`visit-sheet-content ${popupStyles.content}`}><div className="visit-focus-card"><span>Trạng thái</span><strong>{statusLabel(line.status)}</strong><small>{line.note || "Chưa ghi kết quả chi tiết"}</small></div></div>
     </BottomSheet>
   );
 }
