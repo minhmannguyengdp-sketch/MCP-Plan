@@ -42,25 +42,51 @@ function lastRequest(state, path) {
 }
 
 async function selectRoute(page, routeName) {
-  const card = page.locator("article.operational-list-card").filter({ hasText: routeName });
-  await card.waitFor({ state: "visible" });
+  const heading = page.getByRole("heading", { name: routeName, exact: true });
+  await heading.waitFor({ state: "visible" });
+  const card = heading.locator("xpath=ancestor::article");
   await card.getByRole("button", { name: "Chọn tuyến", exact: true }).click();
+  await page.getByText(`Đã chọn: ${routeName}`, { exact: true }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Thêm điểm bán vào tuyến", exact: true }).waitFor({ state: "visible" });
 }
 
 async function openCustomerDraft(page, customerName) {
   await page.getByRole("button", { name: "Thêm điểm bán vào tuyến", exact: true }).click();
-  await page.getByRole("heading", { name: "Thêm điểm bán vào tuyến", exact: true }).waitFor({ state: "visible" });
-  await page.getByPlaceholder("Nhập tên điểm bán").fill(customerName);
-  await page.getByLabel("Số điện thoại").fill("0901234567");
-  await page.getByLabel("Vĩ độ").fill("10.762622");
-  await page.getByLabel("Kinh độ").fill("106.660172");
-  await page.getByLabel("Độ chính xác GPS, mét").fill("9");
-  await page.getByLabel("Ghi chú").fill("F05 browser smoke");
+  const dialog = page.getByRole("dialog", { name: "Thêm điểm bán vào tuyến", exact: true });
+  await dialog.waitFor({ state: "visible" });
+  await dialog.getByPlaceholder("Nhập tên điểm bán").fill(customerName);
+  await dialog.getByLabel("Số điện thoại").fill("0901234567");
+  await dialog.getByLabel("Vĩ độ").fill("10.762622");
+  await dialog.getByLabel("Kinh độ").fill("106.660172");
+  await dialog.getByLabel("Độ chính xác GPS, mét").fill("9");
+  await dialog.getByLabel("Ghi chú").fill("F05 browser smoke");
+  return dialog;
 }
 
-async function submitInitialCustomerDraft(page) {
-  await page.getByRole("button", { name: "Thêm điểm bán", exact: true }).click();
+async function submitInitialCustomerDraft(page, dialog) {
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === "GET" && url.pathname === "/api/backend/mcp-settings/session-status";
+  });
+  await dialog.getByRole("button", { name: "Thêm điểm bán", exact: true }).click();
+  const response = await responsePromise;
+  const payload = await response.json();
+  assert.equal(response.status(), 200, `session preflight failed: ${JSON.stringify(payload)}`);
+  return { url: response.url(), payload };
+}
+
+function assertSessionPreflight(trace, routeId, expectedActiveCount) {
+  const url = new URL(trace.url);
+  assert.equal(url.searchParams.get("routeId"), routeId, "preflight must use the selected route ID");
+  const sessions = Array.isArray(trace.payload?.data?.sessions) ? trace.payload.data.sessions : [];
+  assert.equal(sessions.filter((session) => session.status === "active").length, expectedActiveCount, `unexpected preflight payload: ${JSON.stringify(trace.payload)}`);
+}
+
+async function activeChoiceDialog(page) {
+  const dialog = page.getByRole("dialog", { name: "Thêm điểm bán vào phiên hiện tại?", exact: true });
+  await dialog.waitFor({ state: "visible" });
+  await dialog.getByText("Tuyến này đang có phiên hoạt động. Thêm khách vào phiên hiện tại luôn?", { exact: true }).waitFor({ state: "visible" });
+  return dialog;
 }
 
 async function screenshot(page, name) {
@@ -72,10 +98,11 @@ async function routeWithoutActiveSession(browser) {
   const page = await browser.newPage();
   await page.goto(`${appBase}/routes`, { waitUntil: "networkidle" });
   await selectRoute(page, "UI Smoke No Active");
-  await openCustomerDraft(page, "UI Route Only No Session");
-  await submitInitialCustomerDraft(page);
+  const draft = await openCustomerDraft(page, "UI Route Only No Session");
+  const preflight = await submitInitialCustomerDraft(page, draft);
+  assertSessionPreflight(preflight, "route-no-active", 0);
   await page.getByText("Đã thêm điểm bán vào tuyến, áp dụng từ phiên sau.", { exact: true }).waitFor({ state: "visible" });
-  assert.equal(await page.getByText("Tuyến này đang có phiên hoạt động. Thêm khách vào phiên hiện tại luôn?", { exact: true }).count(), 0);
+  assert.equal(await page.getByRole("dialog", { name: "Thêm điểm bán vào phiên hiện tại?", exact: true }).count(), 0);
 
   const request = lastRequest(await mockState(), "/api/route-customers");
   assert.equal(request.payload.routeId, "route-no-active");
@@ -92,13 +119,13 @@ async function routeWithActiveSessionInclude(browser) {
   const page = await browser.newPage();
   await page.goto(`${appBase}/routes`, { waitUntil: "networkidle" });
   await selectRoute(page, "UI Smoke Active");
-  await openCustomerDraft(page, "UI Include Active Session");
-  await submitInitialCustomerDraft(page);
+  const draft = await openCustomerDraft(page, "UI Include Active Session");
+  const preflight = await submitInitialCustomerDraft(page, draft);
+  assertSessionPreflight(preflight, "route-active", 1);
 
-  const prompt = page.getByText("Tuyến này đang có phiên hoạt động. Thêm khách vào phiên hiện tại luôn?", { exact: true });
-  await prompt.waitFor({ state: "visible" });
-  const primary = page.getByRole("button", { name: "Thêm vào tuyến và phiên", exact: true });
-  const secondary = page.getByRole("button", { name: "Chỉ thêm vào tuyến", exact: true });
+  const dialog = await activeChoiceDialog(page);
+  const primary = dialog.getByRole("button", { name: "Thêm vào tuyến và phiên", exact: true });
+  const secondary = dialog.getByRole("button", { name: "Chỉ thêm vào tuyến", exact: true });
   assert.match(String(await primary.getAttribute("class")), /primary/, "include-active choice must be primary/default");
   await screenshot(page, "02-active-session-prompt");
   await primary.click();
@@ -122,10 +149,11 @@ async function routeWithActiveSessionRouteOnly(browser) {
   const page = await browser.newPage();
   await page.goto(`${appBase}/routes`, { waitUntil: "networkidle" });
   await selectRoute(page, "UI Smoke Active");
-  await openCustomerDraft(page, "UI Active Route Only");
-  await submitInitialCustomerDraft(page);
-  await page.getByText("Tuyến này đang có phiên hoạt động. Thêm khách vào phiên hiện tại luôn?", { exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Chỉ thêm vào tuyến", exact: true }).click();
+  const draft = await openCustomerDraft(page, "UI Active Route Only");
+  const preflight = await submitInitialCustomerDraft(page, draft);
+  assertSessionPreflight(preflight, "route-active", 1);
+  const dialog = await activeChoiceDialog(page);
+  await dialog.getByRole("button", { name: "Chỉ thêm vào tuyến", exact: true }).click();
   await page.getByText("Đã thêm điểm bán vào tuyến, áp dụng từ phiên sau.", { exact: true }).waitFor({ state: "visible" });
 
   const state = await mockState();
@@ -145,10 +173,11 @@ async function reusedCustomerCopy(browser) {
   await selectRoute(page, "UI Smoke Active");
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    await openCustomerDraft(page, "UI Duplicate Customer");
-    await submitInitialCustomerDraft(page);
-    await page.getByText("Tuyến này đang có phiên hoạt động. Thêm khách vào phiên hiện tại luôn?", { exact: true }).waitFor({ state: "visible" });
-    await page.getByRole("button", { name: "Thêm vào tuyến và phiên", exact: true }).click();
+    const draft = await openCustomerDraft(page, "UI Duplicate Customer");
+    const preflight = await submitInitialCustomerDraft(page, draft);
+    assertSessionPreflight(preflight, "route-active", 1);
+    const dialog = await activeChoiceDialog(page);
+    await dialog.getByRole("button", { name: "Thêm vào tuyến và phiên", exact: true }).click();
     if (attempt === 0) {
       await page.getByText("Đã thêm điểm bán vào tuyến và phiên hiện tại.", { exact: true }).waitFor({ state: "visible" });
     } else {
@@ -172,10 +201,12 @@ async function sessionAddCustomer(browser) {
   const page = await browser.newPage();
   await page.goto(`${appBase}/visits?routeId=route-active&date=2099-12-30`, { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Thêm khách vào phiên và tuyến", exact: true }).click();
-  await page.getByPlaceholder("Tên cửa hàng / điểm bán").fill("UI Session Add Customer");
-  await page.getByPlaceholder("Số điện thoại").fill("0907654321");
-  await page.locator('button[form="mcp-add-session-customer-form"]').click();
-  await page.getByRole("heading", { name: "Thêm khách", exact: true }).waitFor({ state: "hidden" });
+  const dialog = page.getByRole("dialog", { name: "Thêm khách", exact: true });
+  await dialog.waitFor({ state: "visible" });
+  await dialog.getByPlaceholder("Tên cửa hàng / điểm bán").fill("UI Session Add Customer");
+  await dialog.getByPlaceholder("Số điện thoại").fill("0907654321");
+  await dialog.locator('button[form="mcp-add-session-customer-form"]').click();
+  await dialog.waitFor({ state: "hidden" });
 
   const state = await mockState();
   const request = lastRequest(state, "/api/mcp-day/session-customer/add");
@@ -240,6 +271,14 @@ try {
 } catch (error) {
   results.F05_UI_BROWSER_SMOKE = "FAIL";
   results.error = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack || ""}` : String(error);
+  let index = 0;
+  for (const context of browser.contexts()) {
+    for (const page of context.pages()) {
+      index += 1;
+      await page.screenshot({ path: `${resultsDir}/failure-${index}.png`, fullPage: true }).catch(() => {});
+      await writeFile(`${resultsDir}/failure-${index}.html`, await page.content()).catch(() => {});
+    }
+  }
   throw error;
 } finally {
   await browser.close();
