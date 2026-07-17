@@ -3,7 +3,7 @@
 > Cập nhật: **2026-07-17**  
 > Trạng thái source: **MERGED + VERIFIED**  
 > Trạng thái production DB: **APPLIED + VERIFIED**  
-> Vercel production: **DEPLOYMENT PENDING FROM MAIN**  
+> Vercel production: **BLOCKED — ACCOUNT BUILD-RATE-LIMIT**  
 > Runtime VPS/Gateway: **PENDING**
 
 ## 1. Phạm vi
@@ -190,14 +190,34 @@ both records:               completed / HTTP 200
 
 Business row was restored to its exact pre-smoke `raw_payload`, `updated_at` and null check-in fields. Release idempotency/audit rows remain as immutable evidence.
 
-## 5. Remaining runtime gates
+## 5. Vercel blocker
+
+GitHub combined status for both the merge SHA and the later `main` documentation commit returned:
+
+```text
+context: Vercel
+state:   failure
+reason:  build-rate-limit
+```
+
+Verified affected SHAs:
+
+```text
+6c1a3b8e9d74489abb4d3a1409faeb812543a105
+6667b8734046b1da4c693d33ae94088ad6c5d2e2
+```
+
+Không retry deploy liên tục. Khi quota/build window cho phép, deploy production từ `main`, xác nhận deployment chứa merge SHA hoặc commit `main` mới hơn và smoke `/` + `/mcp` HTTP 200.
+
+## 6. Remaining runtime gates
 
 Before declaring this UI release fully deployed:
 
-1. verify Vercel production uses merge SHA or a newer `main` documentation commit and root returns HTTP 200;
-2. SSH VPS and run `pullmcp`;
-3. verify `F0.2_VPS_SMOKE=PASS`;
-4. run authenticated Gateway check-in/replay/conflict/undo smoke;
-5. update `CURRENT_PROGRESS.md` and this evidence file.
+1. clear/wait out Vercel build-rate-limit and deploy current `main`;
+2. verify Vercel root and `/mcp` return HTTP 200;
+3. SSH VPS and run `pullmcp`;
+4. verify `F0.2_VPS_SMOKE=PASS`;
+5. run authenticated Gateway check-in/replay/conflict/undo smoke;
+6. update `CURRENT_PROGRESS.md` and this evidence file.
 
 Do not infer VPS is current until actual `pullmcp` output exists. Do not touch `milktea-backend` port 3002.
