@@ -147,11 +147,41 @@ async function fetchJson<T>(
   return result(payload as T, "api");
 }
 
+async function parseMutationResponse<T>(response: Response, path: string): Promise<ApiResult<T>> {
+  const payload = (await response.json().catch(() => ({}))) as T | { data: T; receivedAt?: string; error?: { message?: string } | string; detail?: string };
+  if (!response.ok) {
+    const errorPayload = payload as { error?: { message?: string } | string; detail?: string };
+    const message = typeof errorPayload.error === "string" ? errorPayload.error : errorPayload.error?.message;
+    throw new Error(message || `API ${path} failed with ${response.status}`);
+  }
+  if (payload && typeof payload === "object" && "data" in payload) {
+    const wrapped = payload as { data: T; receivedAt?: string };
+    return { data: wrapped.data, source: "api", receivedAt: wrapped.receivedAt ?? new Date().toISOString() };
+  }
+  return result(payload as T, "api");
+}
+
 async function postJson<T>(
   baseUrl: string,
   path: string,
   backendApiToken: string | null,
   body: unknown
+): Promise<ApiResult<T>> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: backendHeaders(backendApiToken, true),
+    body: JSON.stringify(body)
+  });
+  return parseMutationResponse<T>(response, path);
+}
+
+async function postIdempotentJson<T>(
+  baseUrl: string,
+  path: string,
+  backendApiToken: string | null,
+  body: unknown,
+  operation: string
 ): Promise<ApiResult<T>> {
   const response = await idempotentMutationFetch(
     `${baseUrl}${path}`,
@@ -160,18 +190,9 @@ async function postJson<T>(
       headers: backendHeaders(backendApiToken, true),
       body: JSON.stringify(body)
     },
-    { operation: `api-client${path}` }
+    { operation }
   );
-  const payload = (await response.json().catch(() => ({}))) as T | { data: T; receivedAt?: string; error?: string; detail?: string };
-  if (!response.ok) {
-    const errorPayload = payload as { error?: string; detail?: string };
-    throw new Error(errorPayload.error || `API ${path} failed with ${response.status}`);
-  }
-  if (payload && typeof payload === "object" && "data" in payload) {
-    const wrapped = payload as { data: T; receivedAt?: string };
-    return { data: wrapped.data, source: "api", receivedAt: wrapped.receivedAt ?? new Date().toISOString() };
-  }
-  return result(payload as T, "api");
+  return parseMutationResponse<T>(response, path);
 }
 
 function normalizeSessionStatus(value?: string) {
@@ -259,8 +280,8 @@ function createHttpApiClient(baseUrl: string, backendApiToken: string | null): M
       if (hasRouteContext(query)) return getMcpDayDataWithSessionStatus(baseUrl, backendApiToken, query);
       return withMockFallback(() => getMcpDayDataWithSessionStatus(baseUrl, backendApiToken, query), () => mockApiClient.getMcpDayData(query));
     },
-    createMcpDayResult(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", backendApiToken, payload); },
-    addMcpDayCustomer(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", backendApiToken, payload); },
+    createMcpDayResult(payload) { return postIdempotentJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", backendApiToken, payload, "session-customer.result.record"); },
+    addMcpDayCustomer(payload) { return postIdempotentJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", backendApiToken, payload, "session-customer.add"); },
     createMcpDayFollowup(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", backendApiToken, payload); },
     listMarketChecks(query) { return withMockFallback(() => fetchJson<MarketCheckDto[]>(baseUrl, "/api/market-checks", backendApiToken, query), () => mockApiClient.listMarketChecks(query)); },
     getMarketChecksData(query) { return withMockFallback(() => fetchJson<MarketChecksData>(baseUrl, "/api/market-checks/data", backendApiToken, query), () => mockApiClient.getMarketChecksData(query)); },

@@ -95,8 +95,29 @@ function friendlyError(error: unknown, fallback: string) {
   return userFacingError(error, fallback);
 }
 
+async function parseApiResponse(response: Response) {
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message || payload.error || payload.message || "Không xử lý được phiên");
+  }
+
+  return payload;
+}
+
 async function callApi(path: string, init: RequestInit) {
-  const method = String(init.method || "POST").toUpperCase();
+  const response = await fetch(path, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    ...init
+  });
+  return parseApiResponse(response);
+}
+
+async function callIdempotentApi(path: string, init: RequestInit, operation: string) {
   const response = await idempotentMutationFetch(
     path,
     {
@@ -104,19 +125,11 @@ async function callApi(path: string, init: RequestInit) {
         Accept: "application/json",
         "Content-Type": "application/json"
       },
-      ...init,
-      method
+      ...init
     },
-    { operation: `mcp-session-manager.${method.toLowerCase()}` }
+    { operation }
   );
-
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.error || payload.message || "Không xử lý được phiên");
-  }
-
-  return payload;
+  return parseApiResponse(response);
 }
 
 function SessionExportMenu({ session }: { session: SessionRow }) {
@@ -258,13 +271,17 @@ export function McpSessionsManagerSafe({
       try {
         setMessage(null);
         setRebuildingId(session.id);
-        await callApi("/api/mcp-session-report", {
-          method: "POST",
-          body: JSON.stringify({
-            sessionId: session.id,
-            source: "manual_rebuild_from_sessions_page"
-          })
-        });
+        await callIdempotentApi(
+          "/api/mcp-session-report",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              sessionId: session.id,
+              source: "manual_rebuild_from_sessions_page"
+            })
+          },
+          "session-report.snapshot.create"
+        );
         setMessage(`Đã tạo lại báo cáo phiên ${session.routeName} · ${session.sessionDate}`);
         router.refresh();
       } catch (error) {
