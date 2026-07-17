@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-17T06:28:43.837Z",
+  "generatedAt": "2026-07-17T06:30:45.730Z",
   "scanRoots": [
     "src",
     "apps/backend",
@@ -62,6 +62,7 @@
     "scripts/direct-db-mutation-retirements.json",
     "scripts/fix-session-checkin-ui.mjs",
     "scripts/patch-open-session.cjs",
+    "scripts/register-session-checkin-boundary.mjs",
     "scripts/smoke-f0-2-boundary.mjs",
     "scripts/smoke-mcp-v1-api.mjs",
     "scripts/validate-runtime-config.mjs",
