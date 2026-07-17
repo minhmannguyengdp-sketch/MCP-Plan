@@ -1,8 +1,9 @@
 # Session UI — Manual sales check-in + compact MCP popups
 
 > Cập nhật: **2026-07-17**  
-> Trạng thái source: **VERIFIED — PR #26 READY TO MERGE**  
+> Trạng thái source: **MERGED + VERIFIED**  
 > Trạng thái production DB: **APPLIED + VERIFIED**  
+> Vercel production: **DEPLOYMENT PENDING FROM MAIN**  
 > Runtime VPS/Gateway: **PENDING**
 
 ## 1. Phạm vi
@@ -36,35 +37,23 @@
   - viền 1px;
   - radius và shadow nhẹ hơn;
   - nút nhỏ hơn;
-  - form/chip dày đặc vừa đủ để tăng vùng thao tác.
+  - form/chip gọn để tăng vùng thao tác.
 
-## 2. Source ownership
-
-Branch:
+## 2. Source / PR / CI
 
 ```text
-ui-session-checkin-modal-density
-```
-
-PR:
-
-```text
-#26 — Session UI: manual sales check-in and compact MCP popups
-```
-
-Final verified head before merge:
-
-```text
-6c759d1a620d6ab75fd33887dac32a304823864a
+PR:             #26 — MERGED
+Final PR head:  6e4b2a223e1b2d0f7d9b118afac6ff1465dff01f
+Merge SHA:      6c1a3b8e9d74489abb4d3a1409faeb812543a105
 ```
 
 Final CI:
 
 ```text
-Workflow:   Foundation F0.2
-Run:        #269
-Run ID:     29561052313
-Conclusion: success
+Workflow:    Foundation F0.2
+Run:         #271
+Run ID:      29561631234
+Conclusion:  success
 ```
 
 PASS:
@@ -201,15 +190,14 @@ both records:               completed / HTTP 200
 
 Business row was restored to its exact pre-smoke `raw_payload`, `updated_at` and null check-in fields. Release idempotency/audit rows remain as immutable evidence.
 
-## 5. Release boundary
+## 5. Remaining runtime gates
 
 Before declaring this UI release fully deployed:
 
-1. merge PR #26;
-2. verify Vercel production uses merge SHA and root returns HTTP 200;
-3. SSH VPS and run `pullmcp`;
-4. verify `F0.2_VPS_SMOKE=PASS`;
-5. run authenticated Gateway check-in/replay/conflict/undo smoke;
-6. update `CURRENT_PROGRESS.md` and this evidence file.
+1. verify Vercel production uses merge SHA or a newer `main` documentation commit and root returns HTTP 200;
+2. SSH VPS and run `pullmcp`;
+3. verify `F0.2_VPS_SMOKE=PASS`;
+4. run authenticated Gateway check-in/replay/conflict/undo smoke;
+5. update `CURRENT_PROGRESS.md` and this evidence file.
 
 Do not infer VPS is current until actual `pullmcp` output exists. Do not touch `milktea-backend` port 3002.
