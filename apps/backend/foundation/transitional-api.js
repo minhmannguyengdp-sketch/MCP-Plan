@@ -2,7 +2,8 @@ import { supabaseRest, supabaseRpc } from "./supabase-adapter.js";
 import { unwrapIdempotentMutationResult } from "./idempotency.js";
 import {
   addSessionCustomer,
-  recordSessionCustomerResult
+  recordSessionCustomerResult,
+  setSessionCustomerCheckin
 } from "./session-customer-mutations.js";
 import {
   createSessionReportSnapshot,
@@ -81,6 +82,12 @@ async function saveSessionCustomerResult(req, context, config, fetchImpl) {
 async function saveAddedSessionCustomer(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await addSessionCustomer(body, context, config, { fetchImpl });
+  return mutationResponse(data);
+}
+
+async function saveSessionCustomerCheckin(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await setSessionCustomerCheckin(body, context, config, { fetchImpl });
   return mutationResponse(data);
 }
 
@@ -194,6 +201,9 @@ export async function handleTransitionalApi(
   }
   if (method === "POST" && pathname === "/api/mcp-day/session-customer/add") {
     return saveAddedSessionCustomer(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/checkin") {
+    return saveSessionCustomerCheckin(req, context, config, fetchImpl);
   }
   if (method === "POST" && pathname === "/api/mcp-session-report") {
     return saveSessionReportSnapshot(req, context, config, fetchImpl);

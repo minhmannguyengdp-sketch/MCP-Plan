@@ -33,6 +33,12 @@ export type McpDayLine = {
   hasReport?: boolean;
   followupCount?: number;
   visitId?: string;
+  checkedIn?: boolean;
+  checkinAt?: string;
+  checkinLat?: number;
+  checkinLng?: number;
+  checkinAccuracy?: number;
+  checkinSource?: string;
 };
 
 export type McpDayResult = {
