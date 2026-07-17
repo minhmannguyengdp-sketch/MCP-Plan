@@ -1,8 +1,0 @@
-direct_db_mutation_policy_failed
-findings=56
-legacy_debt=0
-retired_fingerprints=27
-completed_phases=A5.2,A5.3,A5.4.2,A5.4.3,A5.4.4
-
-errors:
-- unclassified_finding:fdb8534a5fa190e47190a2be
