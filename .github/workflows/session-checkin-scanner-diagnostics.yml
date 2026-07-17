@@ -1,0 +1,30 @@
+name: Session Check-in Scanner Diagnostics
+
+on:
+  push:
+    branches:
+      - ui-session-checkin-modal-density
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Generate direct mutation findings
+        run: npm run audit:direct-db-mutation || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: session-checkin-scanner-findings
+          path: |
+            direct-db-mutation-findings.txt
+            direct-db-mutation-findings.json
+          if-no-files-found: error
