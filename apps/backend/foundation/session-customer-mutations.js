@@ -108,12 +108,8 @@ function resultInputPresent(body, resultType, note, orderId, testId, reportId) {
   );
 }
 
-export async function recordSessionCustomerResult(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function recordSessionCustomerResult(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionCustomerId = text(body.sessionCustomerId || body.session_customer_id || body.id);
   const resultType = text(body.resultType || body.result_type || body.type)?.toLowerCase() || null;
   const note = text(body.note || body.result || body.resultNote || body.result_note);
@@ -152,12 +148,8 @@ export async function recordSessionCustomerResult(
   }
 }
 
-export async function addSessionCustomer(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function addSessionCustomer(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionId = text(body.sessionId || body.session_id);
   const customerName = text(body.customerName || body.customer_name || body.accountName || body.account_name);
   const geoLat = optionalNumber(body, "geoLat", "geo_lat");
