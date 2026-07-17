@@ -38,25 +38,11 @@ jobs:
           if-no-files-found: error
 
       - name: Test direct mutation scanner and retirement policy
-        shell: bash
         run: |
-          set -o pipefail
-          {
-            npm run test:direct-db-mutation
-            npm run test:edge-retirement
-            npm run test:direct-rest-retirement
-            npm run test:idempotency
-          } 2>&1 | tee foundation-contract-test-output.txt
-
-      - name: Upload temporary contract test diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: foundation-contract-test-output
-          path: |
-            foundation-contract-test-output.txt
-            scripts/direct-db-mutation-baseline.json
-          if-no-files-found: error
+          npm run test:direct-db-mutation
+          npm run test:edge-retirement
+          npm run test:direct-rest-retirement
+          npm run test:idempotency
 
       - name: Verify production hygiene contracts
         run: npm run test:production-hygiene
