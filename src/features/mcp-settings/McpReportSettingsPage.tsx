@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { userFacingError } from "@/lib/ui/user-facing-error";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 
 const REPORT_SETTINGS_API = "/api/mcp-report-settings";
 
@@ -39,13 +40,17 @@ type Draft = {
 const emptyDraft: Draft = { label: "", value: "", category: "", brandName: "", sortOrder: "0" };
 
 async function requestJson(path: string, init?: RequestInit) {
-  const response = await fetch(path, {
-    cache: "no-store",
+  const method = String(init?.method || "GET").toUpperCase();
+  const requestInit = {
+    cache: "no-store" as const,
     ...init,
     headers: { Accept: "application/json", "Content-Type": "application/json", ...(init?.headers || {}) }
-  });
+  };
+  const response = method === "POST" || method === "PATCH"
+    ? await idempotentMutationFetch(path, requestInit, { operation: `report-setting-item.${method.toLowerCase()}` })
+    : await fetch(path, requestInit);
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || payload.message || "Không xử lý được cài đặt mẫu");
+  if (!response.ok) throw new Error(payload.error?.message || payload.error || payload.message || "Không xử lý được cài đặt mẫu");
   return payload;
 }
 

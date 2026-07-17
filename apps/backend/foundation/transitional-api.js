@@ -1,4 +1,5 @@
 import { supabaseRest, supabaseRpc } from "./supabase-adapter.js";
+import { unwrapIdempotentMutationResult } from "./idempotency.js";
 import {
   addSessionCustomer,
   recordSessionCustomerResult
@@ -60,6 +61,11 @@ function response(data, statusCode = 200) {
   };
 }
 
+function mutationResponse(value) {
+  const { data, meta } = unwrapIdempotentMutationResult(value);
+  return response(meta ? { data, meta } : { data });
+}
+
 function boundedLimit(value) {
   const parsed = Number(value || 50);
   if (!Number.isFinite(parsed)) return 50;
@@ -69,55 +75,55 @@ function boundedLimit(value) {
 async function saveSessionCustomerResult(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await recordSessionCustomerResult(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function saveAddedSessionCustomer(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await addSessionCustomer(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function saveSessionReportSnapshot(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await createSessionReportSnapshot(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function saveSessionReportAi(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await saveSessionReportAiResult(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function saveFieldCheckResult(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await updateFieldCheckResult(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function createSettingGroup(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await createReportSettingGroup(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function updateSettingGroup(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await updateReportSettingGroup(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function createSettingItem(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await createReportSettingItem(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function updateSettingItem(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await updateReportSettingItem(body, context, config, { fetchImpl });
-  return response({ data });
+  return mutationResponse(data);
 }
 
 async function loadReportTemplates(config, fetchImpl) {

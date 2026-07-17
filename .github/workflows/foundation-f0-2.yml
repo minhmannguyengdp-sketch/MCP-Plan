@@ -42,6 +42,7 @@ jobs:
           npm run test:direct-db-mutation
           npm run test:edge-retirement
           npm run test:direct-rest-retirement
+          npm run test:idempotency
 
       - name: Verify production hygiene contracts
         run: npm run test:production-hygiene

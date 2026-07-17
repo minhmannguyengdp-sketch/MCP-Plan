@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { userFacingError } from "@/lib/ui/user-facing-error";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { ExportMenu, buildExportLink } from "@/features/exports/ExportLinks";
 
@@ -94,6 +95,16 @@ function friendlyError(error: unknown, fallback: string) {
   return userFacingError(error, fallback);
 }
 
+async function parseApiResponse(response: Response) {
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message || payload.error || payload.message || "Không xử lý được phiên");
+  }
+
+  return payload;
+}
+
 async function callApi(path: string, init: RequestInit) {
   const response = await fetch(path, {
     cache: "no-store",
@@ -103,14 +114,22 @@ async function callApi(path: string, init: RequestInit) {
     },
     ...init
   });
+  return parseApiResponse(response);
+}
 
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.error || payload.message || "Không xử lý được phiên");
-  }
-
-  return payload;
+async function callIdempotentApi(path: string, init: RequestInit, operation: string) {
+  const response = await idempotentMutationFetch(
+    path,
+    {
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      ...init
+    },
+    { operation }
+  );
+  return parseApiResponse(response);
 }
 
 function SessionExportMenu({ session }: { session: SessionRow }) {
@@ -252,13 +271,17 @@ export function McpSessionsManagerSafe({
       try {
         setMessage(null);
         setRebuildingId(session.id);
-        await callApi("/api/mcp-session-report", {
-          method: "POST",
-          body: JSON.stringify({
-            sessionId: session.id,
-            source: "manual_rebuild_from_sessions_page"
-          })
-        });
+        await callIdempotentApi(
+          "/api/mcp-session-report",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              sessionId: session.id,
+              source: "manual_rebuild_from_sessions_page"
+            })
+          },
+          "session-report.snapshot.create"
+        );
         setMessage(`Đã tạo lại báo cáo phiên ${session.routeName} · ${session.sessionDate}`);
         router.refresh();
       } catch (error) {

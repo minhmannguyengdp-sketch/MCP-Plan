@@ -48,10 +48,20 @@ test("session report snapshot route is intercepted by Foundation and calls the c
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.id, "report-1");
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_create_session_report_snapshot$/);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_create_session_report_snapshot$/);
   assert.deepEqual(JSON.parse(calls[0].init.body), {
     p_session_id: "session-1",
-    p_source: "close_session"
+    p_source: "close_session",
+    p_context: {
+      requestId: "request-report-route-12345678",
+      idempotencyKey: "report-route-1",
+      receivedAt: "2026-07-16T12:00:00.000Z",
+      installationId: "installation-a",
+      nppCode: "NPP-A",
+      actorId: "service:npp-a:mcp-v1",
+      actorType: "service",
+      actorAuthentication: "proxy-token"
+    }
   });
 });
 
@@ -77,7 +87,7 @@ test("session report AI route is intercepted by Foundation and calls the atomic 
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.row.id, "report-1");
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_save_session_report_ai_result$/);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_save_session_report_ai_result$/);
   const args = JSON.parse(calls[0].init.body);
   assert.equal(args.p_session_id, "session-1");
   assert.deepEqual(args.p_ai_result, { summary: "Phiên ổn" });

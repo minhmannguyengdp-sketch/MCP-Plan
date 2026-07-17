@@ -38,28 +38,28 @@ const cases = [
     method: "POST",
     path: "/api/mcp-report-setting-groups",
     body: { title: "Đối thủ" },
-    rpc: "mcp_create_report_setting_group"
+    rpc: "mcp_idempotent_create_report_setting_group"
   },
   {
     name: "group update",
     method: "PATCH",
     path: "/api/mcp-report-setting-groups",
     body: { groupId: "group-1", status: "inactive" },
-    rpc: "mcp_update_report_setting_group"
+    rpc: "mcp_idempotent_update_report_setting_group"
   },
   {
     name: "item create",
     method: "POST",
     path: "/api/mcp-report-settings",
     body: { groupId: "group-1", label: "Trà sữa" },
-    rpc: "mcp_create_report_setting_item"
+    rpc: "mcp_idempotent_create_report_setting_item"
   },
   {
     name: "item update",
     method: "PATCH",
     path: "/api/mcp-report-settings",
     body: { itemId: "item-1", status: "inactive" },
-    rpc: "mcp_update_report_setting_item"
+    rpc: "mcp_idempotent_update_report_setting_item"
   }
 ];
 

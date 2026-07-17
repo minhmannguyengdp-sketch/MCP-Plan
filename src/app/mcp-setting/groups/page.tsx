@@ -5,15 +5,20 @@ import Link from "next/link";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { userFacingError } from "@/lib/ui/user-facing-error";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 
 type Group = { id: string; key: string; title: string; description: string; status: string; sortOrder: number; items: unknown[] };
 type Draft = { title: string; description: string; sortOrder: string };
 const emptyDraft: Draft = { title: "", description: "", sortOrder: "0" };
 
 async function requestJson(path: string, init?: RequestInit) {
-  const res = await fetch(path, { cache: "no-store", ...init, headers: { Accept: "application/json", "Content-Type": "application/json", ...(init?.headers || {}) } });
+  const method = String(init?.method || "GET").toUpperCase();
+  const requestInit = { cache: "no-store" as const, ...init, headers: { Accept: "application/json", "Content-Type": "application/json", ...(init?.headers || {}) } };
+  const res = method === "POST" || method === "PATCH"
+    ? await idempotentMutationFetch(path, requestInit, { operation: `report-setting-group.${method.toLowerCase()}` })
+    : await fetch(path, requestInit);
   const payload = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(payload.error || "Không xử lý được nhóm mẫu");
+  if (!res.ok) throw new Error(payload.error?.message || payload.error || "Không xử lý được nhóm mẫu");
   return payload;
 }
 

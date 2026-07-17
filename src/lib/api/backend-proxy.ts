@@ -40,6 +40,7 @@ type BackendHeaderOptions = {
   hasBody?: boolean;
   contentType?: string;
   requestId?: string;
+  idempotencyKey?: string;
 };
 
 export function backendApiRequestHeaders(
@@ -66,7 +67,7 @@ export function backendApiRequestHeaders(
   const authorization = request?.headers.get("authorization");
   if (authorization) headers.Authorization = authorization;
 
-  const idempotencyKey = request?.headers.get("idempotency-key");
+  const idempotencyKey = options.idempotencyKey || request?.headers.get("idempotency-key");
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
   return { headers, requestId };

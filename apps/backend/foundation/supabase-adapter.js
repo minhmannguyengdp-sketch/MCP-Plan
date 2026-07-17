@@ -12,6 +12,7 @@ function providerError(response, payload) {
   error.statusCode = 502;
   error.providerStatus = response.status;
   error.providerMessage = payload?.message || payload?.error || null;
+  error.providerDetails = payload?.details || null;
   return error;
 }
 

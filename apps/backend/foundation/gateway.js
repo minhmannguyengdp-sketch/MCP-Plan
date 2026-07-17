@@ -29,13 +29,14 @@ const REQUEST_HEADER_BLOCKLIST = new Set([
   "x-actor-authentication"
 ]);
 
-function json(res, statusCode, payload, requestId, origin = null) {
+function json(res, statusCode, payload, requestId, origin = null, extraHeaders = {}) {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
     "Cache-Control": "no-store",
     "X-Request-Id": requestId,
+    ...extraHeaders,
     ...corsHeaders(origin)
   });
   res.end(body);
@@ -73,8 +74,8 @@ function upstreamHeaders(req, context, config) {
   return headers;
 }
 
-function writeNormalized(res, normalized, requestId, origin) {
-  json(res, normalized.statusCode, normalized.payload, requestId, origin);
+function writeNormalized(res, normalized, requestId, origin, extraHeaders = {}) {
+  json(res, normalized.statusCode, normalized.payload, requestId, origin, extraHeaders);
 }
 
 function proxyToLegacy(req, res, url, context, origin, config) {
@@ -227,11 +228,18 @@ export function createFoundationGateway(config) {
       await proxyToLegacy(req, res, url, context, origin, config);
     } catch (error) {
       const status = Number(error?.statusCode || 500);
+      const retryAfterSeconds = Number(error?.publicDetails?.retryAfterSeconds || 0);
+      const extraHeaders =
+        error?.code === "idempotency_in_progress" && Number.isInteger(retryAfterSeconds) && retryAfterSeconds > 0
+          ? { "Retry-After": String(Math.min(retryAfterSeconds, 300)) }
+          : {};
+
       writeNormalized(
         res,
         canonicalErrorPayload(error, { requestId, receivedAt, status }),
         requestId,
-        origin
+        origin,
+        extraHeaders
       );
     }
   });

@@ -1,3 +1,4 @@
+import { normalizeIdempotencyProviderError } from "./idempotency.js";
 import { supabaseRpc } from "./supabase-adapter.js";
 
 function text(value) {
@@ -62,6 +63,8 @@ function providerBusinessCode(error) {
 }
 
 function normalizeMutationError(error) {
+  if (normalizeIdempotencyProviderError(error)) return error;
+
   const code = providerBusinessCode(error);
   if (!code) return error;
 
@@ -105,12 +108,8 @@ function resultInputPresent(body, resultType, note, orderId, testId, reportId) {
   );
 }
 
-export async function recordSessionCustomerResult(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function recordSessionCustomerResult(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionCustomerId = text(body.sessionCustomerId || body.session_customer_id || body.id);
   const resultType = text(body.resultType || body.result_type || body.type)?.toLowerCase() || null;
   const note = text(body.note || body.result || body.resultNote || body.result_note);
@@ -129,7 +128,7 @@ export async function recordSessionCustomerResult(
   try {
     return await supabaseRpc(
       config,
-      "mcp_record_session_customer_result",
+      "mcp_idempotent_record_session_customer_result",
       {
         p_session_customer_id: sessionCustomerId,
         p_result_type: resultType,
@@ -149,12 +148,8 @@ export async function recordSessionCustomerResult(
   }
 }
 
-export async function addSessionCustomer(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function addSessionCustomer(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionId = text(body.sessionId || body.session_id);
   const customerName = text(body.customerName || body.customer_name || body.accountName || body.account_name);
   const geoLat = optionalNumber(body, "geoLat", "geo_lat");
@@ -171,7 +166,7 @@ export async function addSessionCustomer(
   try {
     return await supabaseRpc(
       config,
-      "mcp_add_session_customer",
+      "mcp_idempotent_add_session_customer",
       {
         p_session_id: sessionId,
         p_customer_name: customerName,

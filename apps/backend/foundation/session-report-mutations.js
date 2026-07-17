@@ -1,3 +1,4 @@
+import { normalizeIdempotencyProviderError } from "./idempotency.js";
 import { supabaseRpc } from "./supabase-adapter.js";
 
 function text(value) {
@@ -35,6 +36,8 @@ function providerBusinessCode(error) {
 }
 
 function normalizeMutationError(error) {
+  if (normalizeIdempotencyProviderError(error)) return error;
+
   const code = providerBusinessCode(error);
   if (!code) return error;
 
@@ -61,22 +64,19 @@ function analyzedAt(value) {
   return parsed.toISOString();
 }
 
-export async function createSessionReportSnapshot(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function createSessionReportSnapshot(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionId = text(body.sessionId || body.session_id);
   if (!sessionId) badRequest("session_id_required");
 
   try {
     return await supabaseRpc(
       config,
-      "mcp_create_session_report_snapshot",
+      "mcp_idempotent_create_session_report_snapshot",
       {
         p_session_id: sessionId,
-        p_source: text(body.source) || "manual_snapshot"
+        p_source: text(body.source) || "manual_snapshot",
+        p_context: foundationContext(context)
       },
       { fetchImpl }
     );
@@ -85,12 +85,8 @@ export async function createSessionReportSnapshot(
   }
 }
 
-export async function saveSessionReportAiResult(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function saveSessionReportAiResult(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionId = text(body.sessionId || body.session_id);
   const aiResult = object(body.aiResult || body.ai_result);
 
@@ -103,7 +99,7 @@ export async function saveSessionReportAiResult(
   try {
     return await supabaseRpc(
       config,
-      "mcp_save_session_report_ai_result",
+      "mcp_idempotent_save_session_report_ai_result",
       {
         p_session_id: sessionId,
         p_ai_result: aiResult,

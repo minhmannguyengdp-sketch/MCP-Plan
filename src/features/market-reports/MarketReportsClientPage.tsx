@@ -9,6 +9,7 @@ import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
 import { userFacingError } from "@/lib/ui/user-facing-error";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import { businessText } from "@/lib/ui/business-text";
 import type {
   MarketReportItem,
@@ -263,12 +264,15 @@ function AiTab({ report }: { report: MarketReportItem }) {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/mcp-session-report/analyze", {
-        method: "POST",
-        cache: "no-store",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: report.sessionId })
-      });
+      const response = await idempotentMutationFetch(
+        "/api/mcp-session-report/analyze",
+        {
+          method: "POST",
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: report.sessionId })
+        },
+        { operation: "session-report.analyze" }
+      );
       const payload = await response.json().catch(() => ({})) as AgentResponse;
       const result = normalizeAgentResult(payload.result);
       if (!response.ok || payload.ok === false) setError(userFacingError(payload.error || result.summary, "Chưa thể phân tích báo cáo. Vui lòng thử lại."));
