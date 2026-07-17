@@ -1,3 +1,4 @@
+import { normalizeIdempotencyProviderError } from "./idempotency.js";
 import { supabaseRpc } from "./supabase-adapter.js";
 
 function text(value) {
@@ -62,6 +63,8 @@ function providerBusinessCode(error) {
 }
 
 function normalizeMutationError(error) {
+  if (normalizeIdempotencyProviderError(error)) return error;
+
   const code = providerBusinessCode(error);
   if (!code) return error;
 
@@ -129,7 +132,7 @@ export async function recordSessionCustomerResult(
   try {
     return await supabaseRpc(
       config,
-      "mcp_record_session_customer_result",
+      "mcp_idempotent_record_session_customer_result",
       {
         p_session_customer_id: sessionCustomerId,
         p_result_type: resultType,
@@ -171,7 +174,7 @@ export async function addSessionCustomer(
   try {
     return await supabaseRpc(
       config,
-      "mcp_add_session_customer",
+      "mcp_idempotent_add_session_customer",
       {
         p_session_id: sessionId,
         p_customer_name: customerName,
