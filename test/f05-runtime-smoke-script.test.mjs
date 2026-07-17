@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const scriptPath = new URL("../scripts/smoke-f05-runtime-closure.mjs", import.meta.url);
+
+async function source() {
+  return readFile(scriptPath, "utf8");
+}
+
+test("F05 runtime smoke script has valid syntax", () => {
+  const result = spawnSync(process.execPath, ["--check", scriptPath.pathname], {
+    encoding: "utf8"
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("F05 runtime smoke closes Gateway idempotency and check-in gates", async () => {
+  const text = await source();
+
+  for (const route of [
+    "/api/mcp-day/session-customer/checkin",
+    "/api/mcp-day/session-customer/result",
+    "/api/mcp-day/open-session",
+    "/api/mcp-day/data"
+  ]) {
+    assert.match(text, new RegExp(route.replaceAll("/", "\\/")));
+  }
+
+  assert.match(text, /"Idempotency-Key": idempotencyKey/);
+  assert.match(text, /"X-Backend-Token": backendToken/);
+  assert.match(text, /"X-Request-Id": requestId/);
+  assert.match(text, /sameJson\(first\.payload\.data, second\.payload\.data\)/);
+  assert.match(text, /mustConflict\("\/api\/mcp-day\/session-customer\/checkin"/);
+  assert.match(text, /mustConflict\("\/api\/mcp-day\/session-customer\/result"/);
+  assert.match(text, /checkedIn: false/);
+  assert.match(text, /checkin_overwrote_outlet_gps/);
+  assert.match(text, /checkin_changed_visit_status/);
+  assert.match(text, /mcp_audit_events/);
+  assert.match(text, /mcp_idempotency_records/);
+  assert.match(text, /cleanupAll\(\)/);
+  assert.match(text, /F05_RUNTIME_CLOSURE_SMOKE: "PASS"/);
+});
+
+test("F05 runtime smoke never prints backend or service-role secrets", async () => {
+  const text = await source();
+
+  assert.doesNotMatch(text, /console\.(?:log|error)\([^\n]*(?:backendToken|serviceRole)/);
+  assert.doesNotMatch(text, /JSON\.stringify\([^)]*(?:backendToken|serviceRole)/);
+});
