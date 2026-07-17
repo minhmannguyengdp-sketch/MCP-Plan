@@ -1,8 +1,8 @@
 # MCP-Plan — Current Progress
 
 > File handoff bắt buộc cho chat mới.  
-> Cập nhật gần nhất: **2026-07-16**  
-> Phase hiện tại: **A5.4.4 — field-check + market-report write ownership**
+> Cập nhật gần nhất: **2026-07-17**  
+> Phase hiện tại: **A5.5 — persisted idempotency + append-only audit (audit next)**
 
 ## A5.4.2 — Session report write ownership
 
@@ -54,10 +54,9 @@ SUPABASE:       APPLIED + VERIFIED
 PR:             #24 — MERGED
 MERGE SHA:      7eed7a69ff7efd386971b7a820561b0cb1660848
 MAIN:           UPDATED
-LOCAL:          PENDING PULL
-VPS:            PENDING PULL/DEPLOY
-GATEWAY SMOKE:  PENDING AFTER VPS DEPLOY
-FULL RELEASE:   PENDING
+VPS:            DEPLOYED + VERIFIED
+GATEWAY SMOKE:  PASS
+FULL RELEASE:   VERIFIED
 SCANNER DEBT:   3 -> 0
 UNCLASSIFIED:   0
 FORBIDDEN:      0
@@ -68,63 +67,55 @@ Evidence:
 - `docs/npp-plan/A5_4_4_FIELD_CHECK_MARKET_REPORT_AUDIT.md`
 - `docs/npp-plan/A5_4_4_FIELD_CHECK_MARKET_REPORT_OWNER.md`
 
-### Ownership đã triển khai
+Production runtime evidence:
 
 ```text
-Field-check UI
--> authenticated Foundation Gateway
--> apps/backend/foundation/field-check-mutations.js
--> mcp_update_field_check_result service-role-only RPC
--> locked test_customer_results row
+pullmcp:                  F0.2_VPS_SMOKE=PASS
+backup:                   /var/www/mcp-plan-backend.backup.20260717-003144
+PM2 mcp-plan-backend:     online, restart 0
+Gateway:                  127.0.0.1:3001
+legacy internal:          127.0.0.1:3102
+milktea-backend:          port 3002, process riêng, không đụng tới
+health:                   HTTP 200 + canonical requestId
 ```
 
-- `resultId` bắt buộc; không còn fallback create field-check.
-- Status UI được map về vocabulary DB chuẩn.
-- RPC merge `raw_payload` và Foundation context, không overwrite mù.
-- Duplicate route `/api/mcp-market-reports` đã xóa.
-- Market report chuẩn vẫn dùng `/api/backend/mcp-day/session-customer/report` -> `mcp_create_report_from_session_customer`.
-- Browser roles không còn INSERT/UPDATE/TRUNCATE trên `test_customer_results` và `market_reports`.
-- Mutation policies trên hai bảng bằng 0; SELECT policies vẫn giữ.
-
-### CI và production DB
+Authenticated Gateway mutation smoke:
 
 ```text
-Final CI run:             29518939926
-CI run number:            179
-CI result:                SUCCESS
-
-Production migrations:
-20260716171112  field_check_mutation_owner
-20260716171124  close_field_check_public_writes
-
-RPC service_role EXECUTE: true
-RPC anon/auth EXECUTE:    false
-browser mutation grants:  0
-mutation policies:         0
+POST /api/field-checks/result: PASS
+canonical envelope:           PASS
+status mapping:               opportunity -> interested
+persisted status:             interested
+Foundation context:           PASS
+restore rollbackEqual:        true
+fixture remaining:            false
 ```
 
-Production smoke trong subtransaction rollback:
+Local pull/build mới không có output trong chat cuối nên không ghi nhận giả; đây không phải release blocker vì merge-context CI production build, Supabase production, VPS runtime và authenticated mutation smoke đều verified.
+
+A5.4.4 đã đóng. Không sửa thêm trong phase này.
+
+## A5.5 — Persisted idempotency + append-only audit
 
 ```text
-RPC update:                  PASS
-status mapping:              PASS
-raw_payload preserved:       PASS
-Foundation context:          PASS
-session-customer validation: PASS
-rollback byte-equal:         true
+AUDIT:          NOT STARTED
+IMPLEMENTATION: NOT STARTED
+CODE CHANGE:    NONE
+MIGRATION:      NONE
 ```
 
-### Bước tiếp theo chính xác
+### Audit tiếp theo bắt buộc
 
-1. Local pull `main` và chạy `npm run build`.
-2. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
-3. Kiểm tra PM2, logs, health, Gateway 3001 và legacy internal 3102.
-4. Không đụng `milktea-backend` port 3002.
-5. Chạy authenticated Gateway smoke `/api/field-checks/result` có restore/rollback.
-6. Cập nhật VPS evidence và trạng thái FULL RELEASE VERIFIED.
-7. Sau đó bắt đầu A5.5 persisted idempotency + append-only audit.
-
-**Chưa bắt đầu Order Core.**
+1. Tìm toàn bộ nơi đọc/truyền `Idempotency-Key`, `idempotencyKey`, `requestId` và `receivedAt`.
+2. Xác định request lặp hiện replay response, trả conflict hay chỉ dựa vào uniqueness/upsert.
+3. Liệt kê tất cả mutation owner/RPC đã nhận Foundation context nhưng chưa có persisted idempotency record.
+4. Audit bảng, trigger, function và log hiện có liên quan đến audit/event/history.
+5. Phân biệt audit append-only thật với metadata mutable trong `raw_payload`.
+6. Đề xuất transaction boundary gồm payload hash, response snapshot, trạng thái processing/completed/failed, lease/retry và conflict semantics.
+7. Xác định retention, cleanup, index, RLS/grants, service-role boundary và dữ liệu nhạy cảm cần redact.
+8. Chỉ audit trước; chưa sửa code, chưa migration, chưa PR implementation.
+9. Xuất evidence `docs/npp-plan/A5_5_IDEMPOTENCY_AUDIT.md` và cập nhật file này.
+10. **Chưa bắt đầu Order Core.**
 
 ## Quy tắc tiến độ bắt buộc
 
