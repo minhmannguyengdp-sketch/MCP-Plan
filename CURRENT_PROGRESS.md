@@ -3,18 +3,17 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật gần nhất: **2026-07-17**  
 > Công việc hiện tại: **Session UI + manual sales check-in**  
-> Trạng thái: **SOURCE/CI/DB VERIFIED — PR #26 READY TO MERGE — VPS/GATEWAY PENDING**
+> Trạng thái: **MERGED + CI/DB VERIFIED — VERCEL DEPLOY PENDING — VPS/GATEWAY PENDING**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Merge PR #26 sau final docs CI.
-2. Xác nhận Vercel production READY đúng merge SHA và root HTTP 200.
-3. SSH VPS, chạy pullmcp.
-4. Xác nhận F0.2_VPS_SMOKE=PASS.
-5. Chạy authenticated Gateway check-in/replay/conflict/undo smoke.
-6. Cập nhật CURRENT_PROGRESS.md và SESSION_UI_CHECKIN_RELEASE.md.
-7. Sau đó mới quay lại gate VPS/Gateway còn thiếu của A5.5.1.
+1. Xác nhận Vercel production READY đúng main SHA và root HTTP 200.
+2. SSH VPS, chạy pullmcp.
+3. Xác nhận F0.2_VPS_SMOKE=PASS.
+4. Chạy authenticated Gateway check-in/replay/conflict/undo smoke.
+5. Cập nhật CURRENT_PROGRESS.md và SESSION_UI_CHECKIN_RELEASE.md.
+6. Sau đó quay lại gate VPS/Gateway còn thiếu của A5.5.1.
 
 KHÔNG bắt đầu A5.5.2.
 KHÔNG bắt đầu Order Core.
@@ -37,11 +36,12 @@ pullmcp
 
 ```text
 SOURCE:                    VERIFIED
-CI:                        PASS — Foundation F0.2 #269
-CI RUN ID:                 29561052313
+CI:                        PASS — Foundation F0.2 #271
+CI RUN ID:                 29561631234
 SCANNER:                   debt 0 / unclassified 0 / forbidden 0
-PR:                        #26 — READY TO MERGE
-PR HEAD:                   6c759d1a620d6ab75fd33887dac32a304823864a
+PR:                        #26 — MERGED
+PR FINAL HEAD:             6e4b2a223e1b2d0f7d9b118afac6ff1465dff01f
+MERGE SHA:                 6c1a3b8e9d74489abb4d3a1409faeb812543a105
 SUPABASE:                  APPLIED + VERIFIED
 DB CHECK-IN SMOKE:         PASS
 DB REPLAY:                 PASS
@@ -50,7 +50,7 @@ DB SECOND-CLICK UNDO:      PASS
 BUSINESS RESTORE:          rollbackEqual=true
 OUTLET GPS UNCHANGED:      true
 VISIT STATUS UNCHANGED:    true
-VERCEL PROD:               PENDING MERGE
+VERCEL PROD:               PENDING DEPLOYMENT FROM MAIN
 VPS/GATEWAY:               PENDING
 ```
 
@@ -192,18 +192,6 @@ Migrations:
 20260717052340  foundation_idempotent_mutations
 ```
 
-Core objects:
-
-```text
-mcp_idempotency_records
-mcp_audit_events
-mcp_idempotency_request_hash
-mcp_idempotency_begin
-mcp_idempotency_complete
-mcp_append_audit_event
-9 typed mcp_idempotent_* wrappers
-```
-
 A5.5.1 chỉ chuyển `FULL RELEASE VERIFIED` sau `pullmcp` và authenticated Gateway replay/conflict/restore/audit smoke.
 
 ## 4. VPS runtime
@@ -260,7 +248,7 @@ project id: prj_jbe4PGuBPwVZa71UNfra6wssc3gJ
 domain:     https://mcp-plan.vercel.app
 ```
 
-Sau merge PR #26 phải xác nhận deployment production có đúng merge SHA và root trả HTTP 200.
+Deployment production mới phải chứa merge SHA `6c1a3b8e9d74489abb4d3a1409faeb812543a105` hoặc commit tiến độ mới hơn trên `main`, và root phải trả HTTP 200.
 
 ## 7. Các phase trước
 
@@ -272,7 +260,7 @@ A5.5.1 PR #25: code/DB/Vercel verified, VPS/Gateway pending
 
 ## 8. Local workstation sync
 
-Sau khi merge/progress lên `main`:
+Sau khi progress cuối lên `main`:
 
 ```powershell
 cd "F:\1_A_Disk_D\Tool\mcp-plan"
