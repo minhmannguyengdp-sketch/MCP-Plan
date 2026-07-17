@@ -1,0 +1,5 @@
+direct_db_mutation_policy_passed
+findings=56
+legacy_debt=0
+retired_fingerprints=27
+completed_phases=A5.2,A5.3,A5.4.2,A5.4.3,A5.4.4

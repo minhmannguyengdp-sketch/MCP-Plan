@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-17T06:30:45.730Z",
+  "generatedAt": "2026-07-17T06:35:28.584Z",
   "scanRoots": [
     "src",
     "apps/backend",
@@ -13,8 +13,6 @@
   "files": [
     ".github/workflows/foundation-f0-2.yml",
     ".github/workflows/run-user-facing-copy-cleanup.yml",
-    ".github/workflows/session-checkin-scanner-diagnostics.yml",
-    ".github/workflows/session-checkin-ui-transform.yml",
     "agent-backend/agent.py",
     "agent-backend/deploy-cloud-run.ps1",
     "agent-backend/main.py",
@@ -55,14 +53,11 @@
     "apps/backend/foundation/transitional-api.test.js",
     "apps/backend/package.json",
     "apps/backend/server.js",
-    "scripts/apply-session-checkin-ui.mjs",
     "scripts/audit-direct-db-mutation-policy.mjs",
     "scripts/audit-runtime-hardcodes.mjs",
     "scripts/audit-user-facing-copy.mjs",
     "scripts/direct-db-mutation-retirements.json",
-    "scripts/fix-session-checkin-ui.mjs",
     "scripts/patch-open-session.cjs",
-    "scripts/register-session-checkin-boundary.mjs",
     "scripts/smoke-f0-2-boundary.mjs",
     "scripts/smoke-mcp-v1-api.mjs",
     "scripts/validate-runtime-config.mjs",
@@ -253,17 +248,15 @@
   ],
   "summary": {
     "total": 56,
-    "approved": 55,
+    "approved": 56,
     "legacyDebt": 0,
     "forbidden": 0,
-    "unclassified": 1,
+    "unclassified": 0,
     "read": 5,
-    "mutation": 37,
-    "unknownOperation": 14
+    "mutation": 38,
+    "unknownOperation": 13
   },
-  "errors": [
-    "unclassified_finding:fdb8534a5fa190e47190a2be"
-  ],
+  "errors": [],
   "findings": [
     {
       "fingerprint": "5c6180b65c078bbf2532e0fa",
@@ -397,15 +390,15 @@
       "line": 215,
       "functionName": "setSessionCustomerCheckin",
       "consumer": "backend",
-      "operation": "unknown",
+      "operation": "mutation",
       "providerSurface": "rpc",
-      "classification": "unclassified",
+      "classification": "approved-boundary",
       "ruleCode": "HELPER_RPC_CALL",
       "target": "mcp_idempotent_set_session_customer_checkin",
-      "reason": "No audited baseline entry matches this finding.",
+      "reason": "Typed Foundation wrapper for explicit manual sales check-in; persisted idempotency, business mutation and append-only audit share one PostgreSQL transaction.",
       "replacementTarget": null,
-      "owner": null,
-      "replacementPhase": null,
+      "owner": "session-customer-checkin-idempotent-use-case",
+      "replacementPhase": "keep",
       "usesServiceRole": false,
       "evidence": "supabaseRpc("
     },
