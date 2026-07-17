@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const scriptPath = new URL("../scripts/smoke-f05-runtime-closure.mjs", import.meta.url);
+const scriptPath = new URL("./runtime/smoke-f05-runtime-closure.mjs", import.meta.url);
+const packagePath = new URL("../package.json", import.meta.url);
 
 async function source() {
   return readFile(scriptPath, "utf8");
@@ -14,6 +15,14 @@ test("F05 runtime smoke script has valid syntax", () => {
     encoding: "utf8"
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("F05 runtime smoke remains operational test tooling, not application code", async () => {
+  const pkg = JSON.parse(await readFile(packagePath, "utf8"));
+  assert.equal(
+    pkg.scripts["smoke:f05-runtime"],
+    "node test/runtime/smoke-f05-runtime-closure.mjs"
+  );
 });
 
 test("F05 runtime smoke closes Gateway idempotency and check-in gates", async () => {
