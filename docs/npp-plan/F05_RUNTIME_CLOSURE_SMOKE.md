@@ -1,7 +1,7 @@
 # NPP-F05 — Repeatable Gateway runtime closure smoke
 
 > Cập nhật: **2026-07-17**  
-> Trạng thái source: **READY TO MERGE**  
+> Trạng thái source: **MERGED + VERIFIED**  
 > Production runtime: **PENDING `pullmcp` + smoke output**
 
 ## 1. Mục tiêu
@@ -110,12 +110,13 @@ Quy tắc:
 ## 4. Source / PR / CI
 
 ```text
-PR:           #27
+PR:           #27 — MERGED
 Branch:       f05-runtime-smoke-closure
-Head SHA:     6de1f41e45b68da014e934342264aec610062ce4
+Final head:   6afc741c6a1b407d88781be4e70b69157019e8cb
+Merge SHA:    a59dfdc01c6755ef426753c3c8216cc460b747d2
 CI workflow:  Foundation F0.2
-CI run:       #284
-CI run ID:    29563539777
+Final CI:     #286
+CI run ID:    29563734574
 Conclusion:   success
 ```
 
