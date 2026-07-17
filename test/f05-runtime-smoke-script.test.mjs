@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { asObject, readJsonValue } from "./runtime/json-response.mjs";
 
 const scriptPath = new URL("./runtime/smoke-f05-runtime-closure.mjs", import.meta.url);
 const packagePath = new URL("../package.json", import.meta.url);
@@ -15,6 +16,32 @@ test("F05 runtime smoke script has valid syntax", () => {
     encoding: "utf8"
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("F05 JSON reader preserves Supabase row arrays", async () => {
+  const rows = await readJsonValue(
+    {
+      status: 200,
+      text: async () => '[{"id":"mrc_test","geo_lat":null}]'
+    },
+    "DB GET mcp_route_customers"
+  );
+
+  assert.deepEqual(rows, [{ id: "mrc_test", geo_lat: null }]);
+  assert.equal(Array.isArray(rows), true);
+  assert.deepEqual(asObject(rows), {});
+});
+
+test("F05 JSON reader keeps Gateway envelopes as objects", async () => {
+  const envelope = await readJsonValue(
+    {
+      status: 200,
+      text: async () => '{"data":{"ok":true},"requestId":"req-1","receivedAt":"now"}'
+    },
+    "GET /api/health"
+  );
+
+  assert.deepEqual(asObject(envelope), envelope);
 });
 
 test("F05 runtime smoke remains operational test tooling, not application code", async () => {
@@ -55,6 +82,7 @@ test("F05 runtime smoke closes Gateway idempotency and check-in gates", async ()
   assert.match(text, /checkin_changed_visit_status/);
   assert.match(text, /mcp_audit_events/);
   assert.match(text, /mcp_idempotency_records/);
+  assert.match(text, /ensure\(Array\.isArray\(payload\), `DB GET \$\{path\}: response_not_array`\)/);
   assert.match(text, /cleanupAll\(\)/);
   assert.match(text, /flattenErrors\(error\)/);
   assert.match(text, /F05_RUNTIME_CLOSURE_SMOKE: "PASS"/);
