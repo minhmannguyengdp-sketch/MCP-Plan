@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import type { McpDayData, McpDayLine } from "@/features/mcp-day/mcp-day.types";
 import type { RouteCustomersData } from "@/features/mcp/route-customers.types";
 import type { RoutesData } from "@/features/routes/routes.types";
 import { McpLineCard } from "./McpLineCard";
 import { mcpCustomerActionDescription, type McpCustomerAction } from "./mcp-customer-actions";
 import { McpMarketReportFields, buildMarketReportContent, emptyMarketReportDraft, marketReportHasInput, type MarketReportDraft } from "./McpMarketReportFields";
+import popupStyles from "./McpSessionPopupCompact.module.css";
 
 type SessionTab = "all" | "pending" | "visited" | "skipped" | "added" | "followups";
 type ProductCatalogItem = { productId: string; variantId: string; name: string; brand?: string | null; category?: string | null; rawCategory?: string | null; sku?: string | null; variantName?: string | null; sizeLabel?: string | null; sellUnit?: string | null; packUnit?: string | null; packQuantity?: number | null; price?: number | null };
@@ -139,15 +141,66 @@ async function getVariants(productId: string) {
   return normalizeCatalogItems((payload as { data?: unknown }).data);
 }
 
-function LineList({ lines, onOpen, onAction }: { lines: McpDayLine[]; onOpen: (line: McpDayLine) => void; onAction: (line: McpDayLine, action: McpCustomerAction) => void }) {
+type CheckinNotice = { kind: "success" | "error"; message: string };
+
+function currentSalesPosition() {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("Thiết bị hoặc trình duyệt không hỗ trợ định vị."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    });
+  });
+}
+
+function geolocationMessage(error: unknown) {
+  if (error instanceof GeolocationPositionError) {
+    if (error.code === error.PERMISSION_DENIED) return "Chưa được cấp quyền định vị. Hãy bật quyền vị trí rồi bấm check-in lại.";
+    if (error.code === error.POSITION_UNAVAILABLE) return "Thiết bị chưa lấy được vị trí hiện tại. Hãy đứng nơi thoáng và thử lại.";
+    if (error.code === error.TIMEOUT) return "Lấy vị trí quá thời gian. Hãy thử lại tại điểm bán.";
+  }
+  return error instanceof Error ? error.message : "Không lấy được vị trí hiện tại.";
+}
+
+async function saveManualCheckin(line: McpDayLine, checkedIn: boolean, position?: GeolocationPosition) {
+  const sessionCustomerId = line.sessionCustomerId || line.id;
+  const response = await idempotentMutationFetch(
+    "/api/backend/mcp-day/session-customer/checkin",
+    {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(checkedIn ? {
+        sessionCustomerId,
+        checkedIn: true,
+        geoLat: position?.coords.latitude,
+        geoLng: position?.coords.longitude,
+        geoAccuracy: position?.coords.accuracy,
+        geoSource: "browser_manual"
+      } : {
+        sessionCustomerId,
+        checkedIn: false
+      })
+    },
+    { operation: "session-customer.checkin.set" }
+  );
+  const payload = await response.json().catch(() => ({})) as { error?: { message?: string }; detail?: string };
+  if (!response.ok) throw new Error(payload.error?.message || payload.detail || "Không lưu được check-in.");
+  return payload;
+}
+
+function LineList({ lines, onOpen, onAction, onToggleCheckin, checkinBusyIds }: { lines: McpDayLine[]; onOpen: (line: McpDayLine) => void; onAction: (line: McpDayLine, action: McpCustomerAction) => void; onToggleCheckin: (line: McpDayLine) => void; checkinBusyIds: Set<string> }) {
   if (lines.length === 0) return <div className="empty-inline"><strong>Chưa có dữ liệu</strong><p className="page-subtitle">Tab này chưa có khách phù hợp.</p></div>;
-  return <div className="mcp-line-list">{lines.map((line) => <McpLineCard key={line.id} line={line} onOpen={onOpen} onAction={onAction} />)}</div>;
+  return <div className="mcp-line-list">{lines.map((line) => <McpLineCard key={line.id} line={line} onOpen={onOpen} onAction={onAction} onToggleCheckin={onToggleCheckin} checkinBusy={checkinBusyIds.has(line.sessionCustomerId || line.id)} />)}</div>;
 }
 
 function CustomerSheet({ line, onClose, onAction }: { line: McpDayLine | null; onClose: () => void; onAction: (line: McpDayLine, action: McpCustomerAction) => void }) {
   if (!line) return null;
   return (
-    <BottomSheet open={Boolean(line)} onClose={onClose} title={line.accountName} description={`${line.area} · ${sourceLabel(line.source)}`} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Tạo đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Thử sản phẩm</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Quan sát</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Theo dõi</button><button className="button" type="button" onClick={() => onAction(line, "skip")}>Bỏ qua / không mua</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
+    <BottomSheet variant="compact" open={Boolean(line)} onClose={onClose} title={line.accountName} description={`${line.area} · ${sourceLabel(line.source)}`} footer={<div className={popupStyles.customerFooter}><button className="button primary" type="button" onClick={() => onAction(line, "order")}>Tạo đơn</button><button className="button" type="button" onClick={() => onAction(line, "test")}>Thử sản phẩm</button><button className="button" type="button" onClick={() => onAction(line, "market_report")}>Quan sát</button><button className="button" type="button" onClick={() => onAction(line, "follow_up")}>Theo dõi</button><button className="button" type="button" onClick={() => onAction(line, "skip")}>Bỏ qua</button><button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
       <div className="visit-sheet-content"><div className="visit-focus-card"><span>Trạng thái</span><strong>{statusLabel(line.status)}</strong><small>{line.note || "Chưa ghi kết quả chi tiết"}</small></div></div>
     </BottomSheet>
   );
@@ -210,7 +263,7 @@ function ActionFields({ action, draft, marketReport, productSearch, orderItems, 
 
 function CustomerActionSheet({ selection, draft, marketReport, productSearch, orderItems, orderTotal, saving, message, onChange, onMarketReportChange, onSearchChange, onCategoryChange, onRunSearch, onPickProduct, onCommitPickerItems, onRemoveOrderItem, onChangeItemQuantity, onClose, onSubmit }: { selection: { line: McpDayLine; action: McpCustomerAction } | null; draft: ActionDraft; marketReport: MarketReportDraft; productSearch: ProductSearchState; orderItems: OrderDraftItem[]; orderTotal: number; saving: boolean; message: string | null; onChange: (field: keyof ActionDraft, value: string) => void; onMarketReportChange: (value: MarketReportDraft) => void; onSearchChange: (value: string) => void; onCategoryChange: (category: string) => void; onRunSearch: () => void; onPickProduct: (productId: string) => void; onCommitPickerItems: (entries: PickerEntry[]) => void; onRemoveOrderItem: (variantId: string) => void; onChangeItemQuantity: (variantId: string, quantity: number) => void; onClose: () => void; onSubmit: () => void }) {
   const isOrder = selection?.action === "order";
-  return <BottomSheet open={Boolean(selection)} onClose={onClose} title={selection ? actionTitle(selection.action) : "Thao tác tại điểm bán"} description={selection ? selection.line.accountName : undefined} footer={<div className={isOrder ? "sheet-action-grid order-sheet-footer" : "sheet-action-grid"}>{isOrder ? <div className="order-footer-total">Tổng: <strong>{formatMoney(orderTotal)}</strong></div> : null}<button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : actionSaveLabel(selection?.action)}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>{selection ? <div className={isOrder ? "visit-sheet-content order-action-content" : "visit-sheet-content"}><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} marketReport={marketReport} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} onChange={onChange} onMarketReportChange={onMarketReportChange} onSearchChange={onSearchChange} onCategoryChange={onCategoryChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onCommitPickerItems={onCommitPickerItems} onRemoveOrderItem={onRemoveOrderItem} onChangeItemQuantity={onChangeItemQuantity} />{message ? <p className="page-subtitle order-message">{message}</p> : null}</div> : null}</BottomSheet>;
+  return <BottomSheet variant={isOrder ? "default" : "compact"} open={Boolean(selection)} onClose={onClose} title={selection ? actionTitle(selection.action) : "Thao tác tại điểm bán"} description={selection ? selection.line.accountName : undefined} footer={<div className={isOrder ? "sheet-action-grid order-sheet-footer" : popupStyles.footer}>{isOrder ? <div className="order-footer-total">Tổng: <strong>{formatMoney(orderTotal)}</strong></div> : null}<button className="button primary" type="button" onClick={onSubmit} disabled={saving}>{saving ? "Đang lưu..." : actionSaveLabel(selection?.action)}</button><button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button></div>}>{selection ? <div className={isOrder ? "visit-sheet-content order-action-content" : `visit-sheet-content ${popupStyles.content}`}><div className="visit-focus-card"><span>Khách</span><strong>{selection.line.accountName}</strong><small>{mcpCustomerActionDescription(selection.action)}</small></div><ActionFields action={selection.action} draft={draft} marketReport={marketReport} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} onChange={onChange} onMarketReportChange={onMarketReportChange} onSearchChange={onSearchChange} onCategoryChange={onCategoryChange} onRunSearch={onRunSearch} onPickProduct={onPickProduct} onCommitPickerItems={onCommitPickerItems} onRemoveOrderItem={onRemoveOrderItem} onChangeItemQuantity={onChangeItemQuantity} />{message ? <p className="page-subtitle order-message">{message}</p> : null}</div> : null}</BottomSheet>;
 }
 
 export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { activeHref?: string; routesData: RoutesData; mcpDayData: McpDayData; routeCustomersData: RouteCustomersData }) {
@@ -222,6 +275,8 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   const [productSearch, setProductSearch] = useState<ProductSearchState>(emptyProductSearchState());
   const [orderItems, setOrderItems] = useState<OrderDraftItem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [checkinBusyIds, setCheckinBusyIds] = useState<Set<string>>(new Set());
+  const [checkinNotice, setCheckinNotice] = useState<CheckinNotice | null>(null);
   const [saving, startSaving] = useTransition();
   const router = useRouter();
   const run = mcpDayData.run;
@@ -244,6 +299,28 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
   function removeOrderItem(variantId: string) { setOrderItems((current) => current.filter((item) => item.variantId !== variantId)); }
   function changeItemQuantity(variantId: string, quantity: number) { const nextQuantity = Math.max(1, quantity || 1); setOrderItems((current) => current.map((item) => item.variantId === variantId ? { ...item, quantity: nextQuantity, lineTotal: nextQuantity * item.unitPrice } : item)); }
   function openCustomerAction(line: McpDayLine, action: McpCustomerAction) { setMessage(null); setSelectedLine(null); setDraft(emptyDraft(run.owner || "")); setMarketReport(emptyMarketReportDraft()); setProductSearch(emptyProductSearchState()); setOrderItems([]); setSelectedAction({ line, action }); if (action === "order") void loadProducts("", ""); }
+
+  async function toggleCustomerCheckin(line: McpDayLine) {
+    const sessionCustomerId = line.sessionCustomerId || line.id;
+    if (checkinBusyIds.has(sessionCustomerId)) return;
+    setCheckinNotice(null);
+    setCheckinBusyIds((current) => new Set(current).add(sessionCustomerId));
+    try {
+      if (line.checkedIn) {
+        await saveManualCheckin(line, false);
+        setCheckinNotice({ kind: "success", message: `Đã bỏ check-in của ${line.accountName}.` });
+      } else {
+        const position = await currentSalesPosition();
+        await saveManualCheckin(line, true, position);
+        setCheckinNotice({ kind: "success", message: `Đã check-in vị trí hiện tại tại ${line.accountName} · sai số khoảng ${Math.round(position.coords.accuracy)}m.` });
+      }
+      router.refresh();
+    } catch (error) {
+      setCheckinNotice({ kind: "error", message: geolocationMessage(error) });
+    } finally {
+      setCheckinBusyIds((current) => { const next = new Set(current); next.delete(sessionCustomerId); return next; });
+    }
+  }
 
   function submitAction() {
     if (!selectedAction) return;
@@ -276,6 +353,6 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
     });
   }
 
-  return <AppShell activeHref={activeHref}><PageHeader eyebrow="Phiên đi tuyến" title="Phiên đi tuyến" subtitle={`Tuyến: ${run.routeName} · Ngày: ${run.date} · Phụ trách: ${run.owner}`} /><section className="mcp-gate-banner mcp-session-compact-head"><strong>{counters.pending} chờ ghé</strong><span>{counters.visited} đã ghé · {counters.skipped} bỏ qua · {counters.added} phát sinh · {counters.followups} việc theo dõi · mở lúc {run.openedAt}</span></section><div className="mcp-status-chips" role="tablist" aria-label="Phiên đi tuyến"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>Tất cả điểm bán <b>{counters.all}</b></button><button className={tab === "pending" ? "active" : ""} type="button" onClick={() => setTab("pending")}>Chờ ghé <b>{counters.pending}</b></button><button className={tab === "visited" ? "active" : ""} type="button" onClick={() => setTab("visited")}>Đã ghé <b>{counters.visited}</b></button><button className={tab === "skipped" ? "active" : ""} type="button" onClick={() => setTab("skipped")}>Bỏ qua <b>{counters.skipped}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Có việc theo dõi <b>{counters.followups}</b></button></div><LineList lines={linesByTab[tab]} onOpen={setSelectedLine} onAction={openCustomerAction} /><CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} /><CustomerActionSheet selection={selectedAction} draft={draft} marketReport={marketReport} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} message={message} onChange={updateDraft} onMarketReportChange={setMarketReport} onSearchChange={(value) => setProductSearch((current) => ({ ...current, q: value }))} onCategoryChange={changeProductCategory} onRunSearch={runProductSearch} onPickProduct={pickProduct} onCommitPickerItems={commitPickerItems} onRemoveOrderItem={removeOrderItem} onChangeItemQuantity={changeItemQuantity} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} /></AppShell>;
+  return <AppShell activeHref={activeHref}><PageHeader eyebrow="Phiên đi tuyến" title="Phiên đi tuyến" subtitle={`Tuyến: ${run.routeName} · Ngày: ${run.date} · Phụ trách: ${run.owner}`} /><section className="mcp-gate-banner mcp-session-compact-head"><strong>{counters.pending} chờ ghé</strong><span>{counters.visited} đã ghé · {counters.skipped} bỏ qua · {counters.added} phát sinh · {counters.followups} việc theo dõi · mở lúc {run.openedAt}</span></section><div className="mcp-status-chips" role="tablist" aria-label="Phiên đi tuyến"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>Tất cả điểm bán <b>{counters.all}</b></button><button className={tab === "pending" ? "active" : ""} type="button" onClick={() => setTab("pending")}>Chờ ghé <b>{counters.pending}</b></button><button className={tab === "visited" ? "active" : ""} type="button" onClick={() => setTab("visited")}>Đã ghé <b>{counters.visited}</b></button><button className={tab === "skipped" ? "active" : ""} type="button" onClick={() => setTab("skipped")}>Bỏ qua <b>{counters.skipped}</b></button><button className={tab === "added" ? "active" : ""} type="button" onClick={() => setTab("added")}>Phát sinh <b>{counters.added}</b></button><button className={tab === "followups" ? "active" : ""} type="button" onClick={() => setTab("followups")}>Có việc theo dõi <b>{counters.followups}</b></button></div>{checkinNotice ? <p className={`${popupStyles.notice} ${checkinNotice.kind === "error" ? popupStyles.noticeError : ""}`}>{checkinNotice.message}</p> : null}<LineList lines={linesByTab[tab]} onOpen={setSelectedLine} onAction={openCustomerAction} onToggleCheckin={toggleCustomerCheckin} checkinBusyIds={checkinBusyIds} /><CustomerSheet line={selectedLine} onClose={() => setSelectedLine(null)} onAction={openCustomerAction} /><CustomerActionSheet selection={selectedAction} draft={draft} marketReport={marketReport} productSearch={productSearch} orderItems={orderItems} orderTotal={orderTotal} saving={saving} message={message} onChange={updateDraft} onMarketReportChange={setMarketReport} onSearchChange={(value) => setProductSearch((current) => ({ ...current, q: value }))} onCategoryChange={changeProductCategory} onRunSearch={runProductSearch} onPickProduct={pickProduct} onCommitPickerItems={commitPickerItems} onRemoveOrderItem={removeOrderItem} onChangeItemQuantity={changeItemQuantity} onClose={() => { if (!saving) setSelectedAction(null); }} onSubmit={submitAction} /></AppShell>;
 }
 

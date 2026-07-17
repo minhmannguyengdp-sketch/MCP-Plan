@@ -1355,7 +1355,7 @@ async function loadMcpDayData(url = new URL("http://local/api/mcp-day/data")) {
 
   const [snapshots, visits] = await Promise.all([
     supabaseGet("mcp_session_customers", {
-      select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,address,sort_order,source,planned_status,visit_status,status_reason,visit_id,order_id,test_id,report_id,followup_count,note,created_at,updated_at",
+      select: "id,session_id,route_id,route_customer_id,customer_id,customer_name,phone,area,address,sort_order,source,planned_status,visit_status,status_reason,visit_id,order_id,test_id,report_id,followup_count,note,checkin_lat,checkin_lng,checkin_accuracy,checkin_at,checkin_source,created_at,updated_at",
       session_id: `eq.${session.id}`,
       order: "sort_order.asc,created_at.asc",
       limit: 2000
@@ -1407,7 +1407,13 @@ async function loadMcpDayData(url = new URL("http://local/api/mcp-day/data")) {
       hasTest,
       hasReport,
       followupCount,
-      visitId: visit?.id || snapshot.visit_id || undefined
+      visitId: visit?.id || snapshot.visit_id || undefined,
+      checkedIn: Boolean(snapshot.checkin_at),
+      checkinAt: snapshot.checkin_at || undefined,
+      checkinLat: snapshot.checkin_lat == null ? undefined : numberValue(snapshot.checkin_lat),
+      checkinLng: snapshot.checkin_lng == null ? undefined : numberValue(snapshot.checkin_lng),
+      checkinAccuracy: snapshot.checkin_accuracy == null ? undefined : numberValue(snapshot.checkin_accuracy),
+      checkinSource: snapshot.checkin_source || undefined
     };
   });
   const results = visits.map((visit) => {
