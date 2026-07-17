@@ -21,14 +21,15 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Capture TypeScript diagnostics
+      - name: Deduplicate and typecheck
         run: |
+          node scripts/dedupe-session-checkin-helper.mjs
           mkdir -p .tmp
           npm run typecheck > .tmp/session-ui-typecheck.log 2>&1 || true
-      - name: Commit diagnostics
+      - name: Commit corrected source and diagnostics
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .tmp/session-ui-typecheck.log
-          git commit -m "Export session UI typecheck diagnostics"
+          git add src/features/mcp/McpSessionCompactViewFinal2.tsx .tmp/session-ui-typecheck.log
+          git commit -m "Deduplicate manual check-in helpers"
           git push origin HEAD:ui-session-checkin-modal-density
