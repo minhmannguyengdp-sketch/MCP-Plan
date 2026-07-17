@@ -2,9 +2,9 @@
 
 > Cập nhật: **2026-07-17**  
 > Scope: **NPP-F05 behavior hotfix**  
-> PR: **#29**  
-> Trạng thái source/DB: **IMPLEMENTED + CI PASS + PRODUCTION DB VERIFIED**  
-> Trạng thái runtime: **MERGE / VERCEL / VPS / UI SMOKE PENDING**
+> PR: **#29 — MERGED**  
+> Trạng thái source/DB: **IMPLEMENTED + FINAL CI PASS + PRODUCTION DB VERIFIED**  
+> Trạng thái runtime: **VERCEL / VPS / UI SMOKE PENDING**
 
 ## Root cause
 
@@ -29,14 +29,15 @@
 ## Source verification
 
 ```text
-Branch:       hotfix/route-active-session-explicit-sync
-Final CI:     Foundation F0.2 #313
-Run ID:       29586400763
-Scanner:      PASS
-Contracts:    PASS
-Backend:      PASS
-TypeScript:   PASS
-Next build:   PASS
+Branch head:   d5cda4aab4be655717f03560a7d985177bce41be
+Merge SHA:     5276abc8abe1c860b9b13d83cc567a2483a47f60
+Final CI:      Foundation F0.2 #315
+Run ID:        29586644169
+Scanner:       PASS
+Contracts:     PASS
+Backend:       PASS
+TypeScript:    PASS
+Next build:    PASS
 ```
 
 Test mới:
@@ -97,8 +98,8 @@ Preflight không thấy duplicate `(session_id, route_customer_id)`. Tuy nhiên 
 ## Còn lại trước khi đóng hotfix
 
 ```text
-Merge PR #29                              PENDING
-Vercel production deployment             PENDING
+Merge PR #29                              PASS
+Vercel production deployment             BLOCKED — build-rate-limit
 VPS pullmcp / Gateway smoke               PENDING
 UI smoke route không active session       PENDING
 UI smoke hai lựa chọn trên đúng 1 active  PENDING — cần fixture/trạng thái hợp lệ
