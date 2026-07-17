@@ -18,6 +18,9 @@ const PUBLIC_MESSAGES = {
   CORS_ORIGIN_DENIED: "Origin không được phép truy cập.",
   INVALID_JSON_BODY: "Nội dung JSON không hợp lệ.",
   INVALID_IDEMPOTENCY_KEY: "Idempotency-Key không hợp lệ.",
+  IDEMPOTENCY_KEY_REQUIRED: "Mutation này yêu cầu Idempotency-Key.",
+  IDEMPOTENCY_KEY_CONFLICT: "Idempotency-Key đã được dùng cho nội dung khác.",
+  IDEMPOTENCY_IN_PROGRESS: "Yêu cầu cùng Idempotency-Key đang được xử lý.",
   REQUEST_BODY_TOO_LARGE: "Nội dung request vượt quá giới hạn.",
   NOT_FOUND: "Không tìm thấy tài nguyên.",
   METHOD_NOT_ALLOWED: "Phương thức không được hỗ trợ.",
@@ -117,8 +120,30 @@ export function sanitizePublicDetails(value) {
   return safe && typeof safe === "object" && !Array.isArray(safe) ? safe : {};
 }
 
-export function canonicalSuccessPayload(data, { requestId, receivedAt = new Date().toISOString() }) {
-  return { data, receivedAt, requestId };
+function successMetadata(value) {
+  const metadata = object(value);
+  const idempotency = object(metadata.idempotency);
+  if (!Object.keys(idempotency).length) return undefined;
+
+  const originalRequestId = String(idempotency.originalRequestId || "").trim();
+  return {
+    idempotency: {
+      replayed: idempotency.replayed === true,
+      ...(originalRequestId ? { originalRequestId: originalRequestId.slice(0, 128) } : {})
+    }
+  };
+}
+
+export function canonicalSuccessPayload(
+  data,
+  { requestId, receivedAt = new Date().toISOString(), meta }
+) {
+  return {
+    data,
+    ...(meta ? { meta } : {}),
+    receivedAt,
+    requestId
+  };
 }
 
 export function canonicalErrorPayload(
@@ -158,6 +183,7 @@ function successData(payload) {
 
   const output = { ...value };
   delete output.ok;
+  delete output.meta;
   delete output.receivedAt;
   delete output.requestId;
   return output;
@@ -187,7 +213,11 @@ export function normalizeApiPayload(
 
   return {
     statusCode: httpStatus === 204 ? 200 : httpStatus,
-    payload: canonicalSuccessPayload(successData(payload), { requestId, receivedAt })
+    payload: canonicalSuccessPayload(successData(payload), {
+      requestId,
+      receivedAt,
+      meta: successMetadata(value.meta)
+    })
   };
 }
 
