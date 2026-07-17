@@ -1,4 +1,6 @@
 const BUSINESS_ERROR_RULES: Array<{ match: string[]; message: string }> = [
+  { match: ["route_active_session_ambiguous", "active_session_ambiguous", "nhiều hơn một phiên hoạt động"], message: "Tuyến đang có nhiều phiên cùng mở. Hãy vào Quản lý phiên để chốt hoặc hủy các phiên cũ, rồi thử lại." },
+  { match: ["route_active_session_exists", "active_session_exists"], message: "Tuyến đang có một phiên khác chưa chốt. Hãy vào Quản lý phiên để chốt hoặc hủy phiên cũ trước khi mở phiên mới." },
   { match: ["session_not_found", "route_not_found", "session_customer_not_found", "no_data_found"], message: "Dữ liệu không còn tồn tại. Vui lòng tải lại trang." },
   { match: ["session_has_activity", "session_has_activity_cancel_instead"], message: "Phiên đã có hoạt động nên không thể xóa. Hãy hủy phiên để giữ lại lịch sử." },
   { match: ["session_closed", "session_closed_read_only", "read_only"], message: "Phiên đã chốt và không thể chỉnh sửa." },
