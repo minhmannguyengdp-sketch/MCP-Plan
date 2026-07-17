@@ -38,9 +38,13 @@ test("audit ledger is service-owned and append-only", () => {
   assert.match(coreSql, /outcome in \('succeeded', 'rejected', 'failed', 'replayed'\)/i);
   assert.match(coreSql, /before update or delete on public\.mcp_audit_events/i);
   assert.match(coreSql, /raise exception 'audit_events_append_only'/i);
-  assert.match(coreSql, /revoke all on table public\.mcp_audit_events from public, anon, authenticated;/i);
+  assert.match(
+    coreSql,
+    /revoke select, insert, update, delete, truncate, references, trigger on table public\.mcp_audit_events from public, anon, authenticated;/i
+  );
   assert.match(coreSql, /grant select on table public\.mcp_audit_events to service_role;/i);
   assert.doesNotMatch(coreSql, /grant (?:insert|update|delete) on table public\.mcp_audit_events to (?:anon|authenticated)/i);
+  assert.doesNotMatch(coreSql, /revoke all on table public\.mcp_audit_events/i);
 });
 
 test("claim helper implements hash, replay, conflict, lease and reclaim semantics", () => {
@@ -77,9 +81,10 @@ test("generic idempotency helpers are not callable through service role", () => 
   ]) {
     assert.match(
       coreSql,
-      new RegExp(`revoke all on function public\\.${name}\\([\\s\\S]*?service_role;`, "i")
+      new RegExp(`revoke execute on function public\\.${name}\\([\\s\\S]*?service_role;`, "i")
     );
   }
+  assert.doesNotMatch(coreSql, /revoke all on function public\.mcp_(?:idempotency|append_audit)/i);
 });
 
 test("nine Foundation mutation routes have typed wrappers", () => {
