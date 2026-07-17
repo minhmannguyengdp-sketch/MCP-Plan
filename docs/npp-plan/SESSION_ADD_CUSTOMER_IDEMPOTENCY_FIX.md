@@ -2,7 +2,7 @@
 
 > Cập nhật: **2026-07-17**  
 > Trạng thái source: **MERGED + VERIFIED**  
-> Runtime frontend: **PENDING Vercel deploy vì account build-rate-limit**
+> Runtime frontend: **VERCEL PRODUCTION READY — `/` + `/mcp` HTTP 200**
 
 ## 1. Lỗi người dùng
 
@@ -88,19 +88,28 @@ Không thay đổi:
 
 Đây là frontend caller fix. Không cần migration và không có backend runtime change riêng.
 
-## 7. Deploy gate
-
-Người dùng chỉ nhận fix sau khi Vercel deploy current `main` chứa merge SHA trên hoặc commit mới hơn.
-
-Hiện Vercel vẫn bị:
+## 7. Production deployment
 
 ```text
-account build-rate-limit
+Vercel deployment: dpl_5GigX6fwHF3FrNJi9zZNBL9rxKrZ
+Target:            production
+State:             READY
+Deployed main SHA: 35883e87e3580bcf66be70951b49ce77d6e1fbc4
+Root `/`:          HTTP 200
+MCP `/mcp`:        HTTP 200
 ```
 
-Sau khi quota mở lại:
+Deployment chứa merge SHA hotfix `dc000bd9b6e1ead9d4ae40eca429fd94d9c9cbad` và các commit evidence/handoff mới hơn.
 
-1. deploy current `main`;
-2. xác nhận `/` và `/mcp` HTTP 200;
-3. mở phiên, thêm một khách thử;
-4. xác nhận lưu thành công và không tạo trùng khi retry mạng.
+## 8. Remaining functional smoke
+
+Vẫn cần thao tác thực tế trên trình duyệt:
+
+1. mở một phiên đang active;
+2. bấm **Thêm khách**;
+3. nhập tên khách thử và bấm **Thêm khách**;
+4. xác nhận lưu thành công, không còn lỗi thiếu `Idempotency-Key`;
+5. xác nhận khách xuất hiện đúng trong phiên và tuyến gốc;
+6. dọn khách thử theo đúng luồng nghiệp vụ nếu chỉ dùng cho smoke.
+
+Không ghi giả functional smoke đã PASS khi chưa có thao tác thực tế này.
