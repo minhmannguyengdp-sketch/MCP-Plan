@@ -1,0 +1,31 @@
+name: Diagnose session add customer
+
+on:
+  push:
+    branches:
+      - fix-session-add-customer-idempotency
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate add-customer flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '=== ADD CUSTOMER REFERENCES ==='
+            rg -n --hidden --glob '!node_modules/**' --glob '!.git/**' \
+              'addMcpDayCustomer|session-customer/add|Thêm khách|Them khach|customer_name_required|idempotency_key_required|IDEMPOTENCY_KEY_REQUIRED' \
+              src apps test scripts || true
+            echo
+            echo '=== FORM ACTION REFERENCES ==='
+            rg -n --hidden --glob '!node_modules/**' --glob '!.git/**' \
+              'add customer|add-customer|customerName|sessionId' \
+              src/app src/features | head -500 || true
+          } | tee diagnose-session-add-customer.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: diagnose-session-add-customer
+          path: diagnose-session-add-customer.txt
