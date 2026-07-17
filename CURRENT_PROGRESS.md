@@ -3,19 +3,20 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật: **2026-07-17**  
 > Master plan: **Phase A / NPP-F05 — audit consumer + khóa mutation trực tiếp**  
-> Trạng thái: **ROUTE -> ACTIVE SESSION + SINGLE-ACTIVE LIFECYCLE DB VERIFIED — F05 RUNTIME RERUN + UI SMOKE PENDING**
+> Trạng thái: **F05 RUNTIME CLOSURE PASS — UI FUNCTIONAL SMOKE PENDING**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Trên VPS chạy `pullmcp` để nhận source fix PR #30/#31.
-2. Chạy lại test/runtime/smoke-f05-runtime-closure.mjs.
-3. Chỉ khi có F05_RUNTIME_CLOSURE_SMOKE=PASS + fixtureCleanup=PASS mới đóng runtime gate.
-4. Trên UI tuyến Thứ 6 thử thêm điểm bán với cả hai lựa chọn prompt.
-5. Regression UI Thêm khách trong Phiên.
-6. Deploy lại Vercel merge SHA PR #31 khi build-rate-limit cho phép để nhận copy lỗi rõ hơn.
+1. UI smoke tuyến không có active session: thêm route master bình thường, không prompt.
+2. UI smoke tuyến Thứ 6 có đúng một active session:
+   - Thêm vào tuyến và phiên hiện tại.
+   - Chỉ thêm vào tuyến cố định.
+3. Regression UI Thêm khách trong Phiên lưu thành công.
+4. Manual check-in thao tác thật trên UI.
+5. Deploy lại Vercel current main khi build-rate-limit cho phép để nhận copy lỗi/lifecycle mới nhất.
+6. Chỉ sau khi các UI gate PASS mới bắt đầu A5.5.2.
 
-KHÔNG bắt đầu A5.5.2.
 KHÔNG bắt đầu NPP-F06.
 KHÔNG bắt đầu Order Core.
 KHÔNG đụng milktea-backend port 3002.
@@ -29,7 +30,7 @@ Phase:             Phase A — Foundation portability
 Current milestone: NPP-F05 / A5.5
 ```
 
-F05 runtime và UI smoke phải hoàn tất trước A5.5.2, NPP-F06 và Order Core.
+F05 runtime đã đóng. UI functional smoke vẫn phải hoàn tất trước A5.5.2, NPP-F06 và Order Core.
 
 ## 3. Hotfix route master -> active session explicit sync
 
@@ -98,8 +99,6 @@ DB trước hotfix chỉ unique `(route_id, session_date)` và cho phép mở ng
 
 ### Production evidence
 
-Invariant toàn DB:
-
 ```text
 max_active_per_route = 1
 ambiguous_routes     = 0
@@ -137,7 +136,7 @@ operational links untouched
 route/session/idempotency/audit leaks after rollback: 0
 ```
 
-Frontend production hiện tại đã có prompt từ PR #29. DB repair đưa preflight về đúng một active session nên nút có thể đi tiếp tới prompt/mutation ngay; phần copy lỗi rõ hơn của PR #31 chờ Vercel quota.
+Frontend production hiện tại đã có prompt từ PR #29. DB repair đưa preflight về đúng một active session nên nút có thể đi tiếp tới prompt/mutation; phần copy lỗi rõ hơn của PR #31 chờ Vercel quota.
 
 ## 5. Hotfix Thêm khách trong Phiên
 
@@ -165,34 +164,68 @@ DB conflict/undo:       PASS
 Outlet GPS unchanged:   true
 Visit status unchanged: true
 VPS/Gateway boundary:   PASS
-Runtime flow:           RERUN PENDING
+Runtime flow:           PASS
+UI functional smoke:    PENDING
+```
+
+Authenticated runtime evidence:
+
+```text
+check-in first:          PASS
+check-in replay:         PASS
+check-in conflict:       PASS
+second-click undo:       PASS
+audit:                   PASS
+outletGpsUnchanged:      true
+visitStatusUnchanged:    true
+fixtureCleanup:          PASS
 ```
 
 Evidence: `docs/npp-plan/SESSION_UI_CHECKIN_RELEASE.md`.
 
-## 7. Repeatable F05 runtime smoke
+## 7. Repeatable F05 runtime closure
 
 ```text
 Original PR:       #27 — MERGED
-Fix PR:            #30 — MERGED
-Fix CI:            Foundation F0.2 #320 — PASS
+Route-owner fix:   #30 — MERGED
+Parser fix:        #33 — MERGED
+Parser merge SHA:  6020c2f8b5783241ecbb2c3b1b28be577cbb941b
+Final parser CI:   Foundation F0.2 #329 — PASS
+CI run ID:         29596820247
 Smoke file:        test/runtime/smoke-f05-runtime-closure.mjs
-Expected:          F05_RUNTIME_CLOSURE_SMOKE=PASS + fixtureCleanup=PASS
-Runtime rerun:     PENDING
+Runtime rerun:     PASS
+fixtureCleanup:    PASS
 ```
 
-VPS evidence hiện có:
+Root cause của lần `outlet_before_missing` cuối:
+
+- Supabase PostgREST trả row array;
+- smoke parser cũ ép array thành object rỗng;
+- `db()` diễn giải thành `[]` và báo false negative;
+- PR #33 giữ nguyên JSON type, normalize object chỉ tại Gateway envelope, DB read bắt buộc array.
+
+VPS evidence:
 
 ```text
-pullmcp:                       PASS
-F0.2_VPS_SMOKE:                PASS
-Gateway port 3001:             LISTEN
-Legacy internal port 3102:     LISTEN
-Initial F05 runtime attempt:   FAIL — tooling drift
-Production fixture leak:       NONE
+127.0.0.1:3001 LISTEN
+127.0.0.1:3102 LISTEN
+F0.2_VPS_SMOKE=PASS
+Previous runtime backup: /var/www/mcp-plan-backend.backup.20260717-164200
 ```
 
-PR #30 sửa fixture idempotency/cleanup contract; cần `pullmcp` lại rồi rerun.
+Output thật:
+
+```text
+F05_RUNTIME_CLOSURE_SMOKE=PASS
+health=PASS
+canonicalEnvelope=PASS
+checkin first/replay/conflict/undo/audit=PASS
+outletGpsUnchanged=true
+visitStatusUnchanged=true
+foundationResult first/replay/conflict/audit=PASS
+responsePreserved=true
+fixtureCleanup=PASS
+```
 
 Evidence: `docs/npp-plan/F05_RUNTIME_CLOSURE_SMOKE.md`.
 
@@ -204,7 +237,19 @@ CI/DB smoke:           PASS
 Scope complete:        9/30 mutation route cases
 Legacy remaining:      21 — NOT STARTED
 VPS boundary:          PASS
-Full runtime release:  PENDING F05 rerun
+Gateway runtime:       PASS
+Full release:          VERIFIED
+```
+
+Runtime Foundation result mutation đã chứng minh:
+
+```text
+first execute:                PASS
+same key + payload replay:    PASS
+same key + changed payload:   conflict PASS
+persisted response preserved: true
+audit succeeded + replayed:   PASS
+fixture cleanup:              PASS
 ```
 
 Evidence:
@@ -214,7 +259,7 @@ docs/npp-plan/A5_5_IDEMPOTENCY_AUDIT.md
 docs/npp-plan/A5_5_1_IDEMPOTENCY_RELEASE.md
 ```
 
-## 9. Runtime và lệnh tiếp tục
+## 9. Runtime
 
 ```text
 VPS source:      /var/www/mcp-plan-source
@@ -225,27 +270,24 @@ legacy internal: 127.0.0.1:3102
 milktea:         3002 — KHÔNG ĐỤNG
 ```
 
-```bash
-pullmcp
-cd /var/www/mcp-plan-source
-node --env-file=/var/www/mcp-plan-backend/.env test/runtime/smoke-f05-runtime-closure.mjs
-```
-
-## 10. Gate đóng F05
+## 10. Gate đóng NPP-F05
 
 ```text
-Route master -> active session source + DB + merge + deploy      PASS
+Route master -> active session source + DB + deploy              PASS
 Single-active session lifecycle migration + DB verification      PASS
 Typed route -> active session rollback smoke                      PASS
 VPS pullmcp => F0.2_VPS_SMOKE=PASS                               PASS
-F05 smoke tooling drift fix / CI                                 PASS
-F05 runtime smoke rerun                                           PENDING
-fixtureCleanup                                                    PENDING
-Gateway replay/conflict/undo/audit                                PENDING runtime evidence
+F05 smoke tooling fixes / CI                                      PASS
+F05 runtime smoke rerun                                           PASS
+fixtureCleanup                                                    PASS
+Gateway replay/conflict/undo/audit                                PASS
+Outlet GPS + visit status preservation                            PASS
+UI route không active session                                     PENDING
 UI route -> active session cả hai lựa chọn                         PENDING
 UI Thêm khách trong Phiên lưu thành công                          PENDING
+UI manual check-in thao tác thật                                  PENDING
 Vercel PR #31 copy deployment                                     PENDING build quota
-Progress + evidence cập nhật                                      PASS
+Progress + runtime evidence cập nhật                              PASS
 ```
 
-Không chỉ ghi trạng thái trong chat.
+Chưa chuyển sang A5.5.2 chỉ vì UI functional smoke còn thiếu. Không chỉ ghi trạng thái trong chat.
