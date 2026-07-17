@@ -1,9 +1,9 @@
 name: Diagnose session add customer
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix-session-add-customer-idempotency
+      - main
 
 jobs:
   diagnose:
