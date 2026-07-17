@@ -7,6 +7,20 @@ const sql = await readFile(
   "utf8"
 );
 
+function functionBody(name) {
+  const start = sql.indexOf(`create or replace function public.${name}(`);
+  assert.notEqual(start, -1, `${name} must exist`);
+  const next = sql.indexOf("create or replace function public.", start + 1);
+  return sql.slice(start, next === -1 ? undefined : next);
+}
+
+function normalizationBody() {
+  const start = sql.indexOf("do $migration$");
+  const end = sql.indexOf("create unique index", start);
+  assert.ok(start >= 0 && end > start, "normalization block must exist before the index");
+  return sql.slice(start, end);
+}
+
 test("duplicate active sessions are normalized before the invariant is installed", () => {
   const normalizeAt = sql.indexOf("row_number() over");
   const indexAt = sql.indexOf("create unique index");
@@ -35,8 +49,23 @@ test("database permits at most one active session for each route", () => {
   );
 });
 
-test("the invariant is documented as a lifecycle repair, not customer snapshot sync", () => {
-  assert.doesNotMatch(sql, /insert into public\.mcp_session_customers/i);
-  assert.doesNotMatch(sql, /mcp_backfill_session_customers_from_route/i);
-  assert.doesNotMatch(sql, /update public\.mcp_session_customers/i);
+test("opening a newer daily session atomically finalizes the stale active session", () => {
+  const body = functionBody("mcp_open_route_session");
+  const routeLock = body.indexOf("from public.mcp_routes");
+  const staleLock = body.indexOf("from public.mcp_route_sessions", routeLock + 1);
+  const insert = body.indexOf("insert into public.mcp_route_sessions");
+
+  assert.match(body, /from public\.mcp_routes[\s\S]*?for update;/i);
+  assert.ok(routeLock >= 0 && staleLock > routeLock && insert > staleLock, "route and stale session must be resolved before insert");
+  assert.match(body, /session_date < p_session_date/i);
+  assert.match(body, /mcp_update_route_session\([\s\S]*?'done'/i);
+  assert.match(body, /mcp_update_route_session\([\s\S]*?'cancelled'/i);
+  assert.match(body, /mcp_backfill_session_customers_from_route\(v_session\.id, true\)/i);
+});
+
+test("historical repair does not copy or rewrite customer snapshots", () => {
+  const body = normalizationBody();
+  assert.doesNotMatch(body, /insert into public\.mcp_session_customers/i);
+  assert.doesNotMatch(body, /mcp_backfill_session_customers_from_route/i);
+  assert.doesNotMatch(body, /update public\.mcp_session_customers/i);
 });
