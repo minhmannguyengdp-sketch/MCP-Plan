@@ -1,7 +1,7 @@
 # A5.4.4 — Field-check + market-report write ownership
 
-> Cập nhật: **2026-07-16**  
-> Trạng thái: **MERGED / SUPABASE VERIFIED — VPS PENDING**  
+> Cập nhật: **2026-07-17**  
+> Trạng thái: **FULL RELEASE VERIFIED**  
 > PR: **#24**  
 > Merge SHA: **7eed7a69ff7efd386971b7a820561b0cb1660848**  
 > Audit đầu vào: `docs/npp-plan/A5_4_4_FIELD_CHECK_MARKET_REPORT_AUDIT.md`
@@ -138,9 +138,9 @@ TypeScript typecheck
 Next production build
 ```
 
-## 6. Production smoke
+## 6. Production verification
 
-Smoke dùng một result thật trong PostgreSQL subtransaction và chủ động rollback.
+Database smoke dùng một result thật trong PostgreSQL subtransaction và chủ động rollback:
 
 ```text
 RPC update:                  PASS
@@ -151,7 +151,35 @@ session-customer validation: PASS
 rollback byte-equal:         true
 ```
 
-Không có fixture hoặc thay đổi dữ liệu còn lại sau smoke.
+VPS deployment:
+
+```text
+pullmcp:                  F0.2_VPS_SMOKE=PASS
+backup:                   /var/www/mcp-plan-backend.backup.20260717-003144
+PM2 mcp-plan-backend:     online
+PM2 restart count:        0
+Gateway listener:         127.0.0.1:3001
+legacy internal listener: 127.0.0.1:3102
+milktea-backend:          port 3002, process riêng, không đụng tới
+health:                   HTTP 200, canonical envelope + requestId
+error log:                không có lỗi mới
+```
+
+Authenticated Gateway smoke sau deploy:
+
+```text
+POST /api/field-checks/result: PASS
+canonical envelope:           PASS
+status mapping:               opportunity -> interested
+persisted status:             interested
+Foundation context:           PASS
+installationId present:       true
+actorId present:              true
+restore rollbackEqual:        true
+fixture remaining:            false
+```
+
+Không có fixture hoặc thay đổi dữ liệu còn lại sau smoke. Các dòng `foundation_gateway_shutdown SIGINT` trong PM2 out log là lịch sử deploy/restart có chủ đích; process hiện tại online, restart count 0.
 
 ## 7. Release state
 
@@ -163,20 +191,22 @@ SUPABASE:      APPLIED + VERIFIED
 PR #24:        MERGED
 MERGE SHA:     7eed7a69ff7efd386971b7a820561b0cb1660848
 MAIN:          UPDATED
-LOCAL:         PENDING PULL
-VPS:           PENDING PULL/DEPLOY
-GATEWAY SMOKE: PENDING AFTER VPS DEPLOY
-FULL RELEASE:  PENDING
+VPS:           DEPLOYED + VERIFIED
+GATEWAY SMOKE: PASS
+FULL RELEASE:  VERIFIED
 ```
 
-## 8. Bước tiếp theo bắt buộc
+Local pull/build mới không được cung cấp trong output cuối, nên không ghi nhận giả. Đây không phải release blocker vì merge-context CI production build, production database, VPS runtime và authenticated Gateway mutation đều đã verified.
 
-1. Local pull `main` và chạy production build.
-2. VPS chạy `pullmcp` ngay vì backend runtime thay đổi.
-3. Kiểm tra PM2, backend logs và health `127.0.0.1:3001`.
-4. Kiểm tra listeners 3001/3102; không đụng Milktea 3002.
-5. Chạy authenticated Gateway smoke `/api/field-checks/result` trên row thật với restore/rollback.
-6. Cập nhật file này và `CURRENT_PROGRESS.md` bằng VPS evidence và trạng thái VERIFIED.
-7. Chỉ sau đó mới bắt đầu A5.5 persisted idempotency + append-only audit.
+## 8. Bước tiếp theo
 
-Chưa bắt đầu Order Core.
+Bắt đầu **A5.5 — persisted idempotency + append-only audit**, trước tiên audit, chưa sửa code.
+
+Audit phải xác định:
+
+1. `Idempotency-Key` hiện được đọc, truyền và lưu ở đâu.
+2. Request lặp hiện có thực sự replay kết quả hay chỉ dựa vào uniqueness/upsert.
+3. Mutation owner/RPC nào đã nhận Foundation context nhưng chưa có persisted idempotency record.
+4. Audit event hiện có bảng/trigger/log nào và phần nào chỉ nằm trong mutable `raw_payload`.
+5. Thiết kế transaction boundary, retention, payload hash, response snapshot, conflict semantics và cleanup.
+6. Không mở Order Core trong A5.5.
