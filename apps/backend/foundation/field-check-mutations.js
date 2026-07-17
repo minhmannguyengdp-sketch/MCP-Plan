@@ -1,3 +1,4 @@
+import { normalizeIdempotencyProviderError } from "./idempotency.js";
 import { supabaseRpc } from "./supabase-adapter.js";
 
 const PRESENTATION_STATUSES = new Set(["normal", "opportunity", "risk"]);
@@ -70,6 +71,8 @@ function providerBusinessCode(error) {
 }
 
 function normalizeMutationError(error) {
+  if (normalizeIdempotencyProviderError(error)) return error;
+
   const code = providerBusinessCode(error);
   if (!code) return error;
   error.code = code;
@@ -88,7 +91,7 @@ export async function updateFieldCheckResult(body, context, config, options) {
   const status = presentationStatus(body.status);
 
   try {
-    return await supabaseRpc(config, "mcp_update_field_check_result", {
+    return await supabaseRpc(config, "mcp_idempotent_update_field_check_result", {
       p_result_id: requiredText(body.resultId ?? body.result_id, "result_id_required", 200),
       p_product_id: nullableText(body.productId ?? body.product_id, "invalid_product_id", 200),
       p_product_name: requiredText(body.productName ?? body.product_name, "product_name_required", 500),
