@@ -289,6 +289,7 @@ begin
         coalesce(v_note, 'Thêm từ tuyến cố định vào phiên đang chạy'),
         jsonb_build_object(
           'source', 'route_customer_explicit_sync',
+          'session_id', v_session.id,
           'route_customer_id', v_route_customer.id,
           'foundation_context', coalesce(p_context, '{}'::jsonb)
         ),
