@@ -172,12 +172,12 @@ async function postIdempotentJson<T>(
 
 await replaceOnce(
   "src/lib/api/api-client.ts",
-  `    createMcpDayResult(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", backendApiToken, payload); }
-    addMcpDayCustomer(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", backendApiToken, payload); }
-    createMcpDayFollowup(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", backendApiToken, payload); }`,
-  `    createMcpDayResult(payload) { return postIdempotentJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", backendApiToken, payload, "session-customer.result.record"); }
-    addMcpDayCustomer(payload) { return postIdempotentJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", backendApiToken, payload, "session-customer.add"); }
-    createMcpDayFollowup(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", backendApiToken, payload); }`
+  `    createMcpDayResult(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", backendApiToken, payload); },
+    addMcpDayCustomer(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", backendApiToken, payload); },
+    createMcpDayFollowup(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", backendApiToken, payload); },`,
+  `    createMcpDayResult(payload) { return postIdempotentJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/result", backendApiToken, payload, "session-customer.result.record"); },
+    addMcpDayCustomer(payload) { return postIdempotentJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/add", backendApiToken, payload, "session-customer.add"); },
+    createMcpDayFollowup(payload) { return postJson<McpDayActionResult>(baseUrl, "/api/mcp-day/session-customer/followup", backendApiToken, payload); },`
 );
 
 console.log("a551_onboarding_scope_fixed");
