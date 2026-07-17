@@ -1,0 +1,36 @@
+name: A5.5.1 CI Diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    if: github.head_ref == 'a5-5-1-idempotency-core'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Capture regression outputs
+        run: |
+          mkdir -p diagnostics
+          set +e
+          npm run test:direct-db-mutation > diagnostics/scanner-tests.txt 2>&1
+          echo $? > diagnostics/scanner-tests.exit
+          npm --prefix apps/backend test > diagnostics/backend-tests.txt 2>&1
+          echo $? > diagnostics/backend-tests.exit
+          npm run typecheck > diagnostics/typecheck.txt 2>&1
+          echo $? > diagnostics/typecheck.exit
+          set -e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a551-ci-diagnostics
+          path: diagnostics
+          if-no-files-found: error
