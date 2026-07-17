@@ -2,7 +2,7 @@
 
 > Cập nhật: **2026-07-17**  
 > Phạm vi: **9/30 mutation route cases — Foundation-owned routes**  
-> Trạng thái release: **MERGED + SUPABASE VERIFIED + VERCEL READY — VPS/GATEWAY RUNTIME PENDING**
+> Trạng thái release: **FULL RELEASE VERIFIED — CODE / CI / DB / VERCEL / VPS / GATEWAY PASS**
 
 ## 1. Trạng thái chính thức
 
@@ -21,12 +21,13 @@ APPEND-ONLY AUDIT:        PASS
 TYPED WRAPPER SMOKE:      PASS
 BUSINESS ROW RESTORE:     rollbackEqual=true
 VERCEL PRODUCTION:        READY + root HTTP 200
-VPS RUNTIME:              PENDING — chưa có SSH connector trong phiên thực hiện
-GATEWAY REPLAY SMOKE:     PENDING — chạy sau pullmcp
-FULL RELEASE:             PENDING
+VPS RUNTIME:              PASS — F0.2_VPS_SMOKE=PASS
+GATEWAY REPLAY SMOKE:     PASS
+FIXTURE CLEANUP:          PASS
+FULL RELEASE:             VERIFIED
 ```
 
-A5.5.1 chưa được gọi là `FULL RELEASE VERIFIED` cho đến khi VPS chạy merge SHA và authenticated Gateway smoke chứng minh replay/conflict qua runtime thật.
+A5.5.1 đã có runtime evidence thật qua authenticated Foundation Gateway. Việc còn lại trong master milestone là UI functional smoke của NPP-F05, không còn là blocker của persisted idempotency core.
 
 ## 2. Source và CI
 
@@ -75,7 +76,7 @@ forbidden:    0
 public.mcp_idempotency_records
 ```
 
-Đây là mutable state machine cho:
+Mutable state machine cho:
 
 - claim;
 - request hash;
@@ -109,7 +110,7 @@ mcp_idempotency_complete
 mcp_append_audit_event
 ```
 
-Các helper generic bị revoke `EXECUTE` khỏi `public`, `anon`, `authenticated` và `service_role`; chúng chỉ được typed SECURITY DEFINER wrappers gọi nội bộ.
+Các helper generic bị revoke `EXECUTE` khỏi `public`, `anon`, `authenticated` và `service_role`; chỉ typed SECURITY DEFINER wrappers gọi nội bộ.
 
 ### Chín typed wrappers
 
@@ -158,7 +159,7 @@ Lần apply core đầu tiên fail trước commit:
 ERROR 42883: function digest(bytea, unknown) does not exist
 ```
 
-Nguyên nhân thật:
+Nguyên nhân:
 
 - production cài `pgcrypto` trong schema `extensions`;
 - helper có `search_path=public`;
@@ -171,7 +172,7 @@ create extension if not exists pgcrypto with schema extensions;
 extensions.digest(...)
 ```
 
-Có đúng 3 lời gọi `extensions.digest(...)`. Lần apply lỗi rollback sạch; kiểm tra sau lỗi cho thấy hai bảng chưa tồn tại. Source sửa đã chạy CI lại trước khi apply production lần hai.
+Lần apply lỗi rollback sạch; source sửa chạy CI lại trước khi apply production lần hai.
 
 ## 5. Supabase verification
 
@@ -186,9 +187,7 @@ service_role SELECT:            true
 authenticated SELECT denied:    true
 ```
 
-Supabase advisor báo `RLS enabled, no policy` ở hai bảng mới ở mức `INFO`. Đây là deny-all có chủ đích: browser roles không được đọc/ghi; service role chỉ có SELECT và typed wrappers thực hiện mutation nội bộ. Không tạo policy `USING (true)` để làm im advisor.
-
-Các WARN security/performance khác thuộc schema cũ và không được trộn vào phạm vi A5.5.1.
+`RLS enabled, no policy` là deny-all có chủ đích cho browser roles. Không tạo policy `USING (true)` để làm im advisor.
 
 ## 6. Core production smoke
 
@@ -230,8 +229,6 @@ Safe existing row:
 mcp_setting_groups.id = msg_0687516286014cc5b77cf667b6c9f349
 ```
 
-Smoke chỉ ghi lại title hiện tại, sau đó restore toàn bộ row về snapshot ban đầu.
-
 Kết quả:
 
 ```text
@@ -245,7 +242,7 @@ audit replayed event:           true
 business row restore:           rollbackEqual=true
 ```
 
-Không còn fixture nghiệp vụ sau restore. Hai idempotency/audit smoke records được giữ lại có chủ đích làm release evidence.
+Không còn fixture nghiệp vụ sau restore. Idempotency/audit smoke records được giữ làm release evidence.
 
 ## 8. Client/runtime contract
 
@@ -280,58 +277,70 @@ Domain:         https://mcp-plan.vercel.app
 Root smoke:     HTTP 200
 ```
 
-`/api/health` trên Vercel trả 404 vì Next app không định nghĩa route đó; Gateway health nằm ở VPS port 3001. Root `/` trả 200 và render dashboard dữ liệu thật.
+Gateway health nằm ở VPS port `3001`; Next app không sở hữu `/api/health`.
 
-## 10. Gate còn lại — VPS/Gateway
+## 10. VPS/Gateway runtime evidence
 
-Phiên thực hiện này không có SSH connector hoặc private-key mount, nên không được ghi giả là đã deploy VPS.
-
-Lệnh duy nhất cần chạy trên VPS shell:
-
-```bash
-pullmcp
-```
-
-`ops/pullmcp` sẽ:
-
-1. reset source về `origin/main`;
-2. chạy backend verify;
-3. stage runtime đầy đủ;
-4. atomic swap + backup;
-5. restart `mcp-plan-backend` qua PM2;
-6. smoke health/auth/CORS;
-7. in `F0.2_VPS_SMOKE=PASS`.
-
-Sau deploy phải chạy authenticated Gateway idempotency smoke trên một Foundation route an toàn:
+Parser tooling false-negative được sửa tại:
 
 ```text
-1. request đầu với key K + payload P => 200, replayed=false
-2. request hai với K + P          => 200, replayed=true
-3. request ba với K + P2          => 409 IDEMPOTENCY_KEY_CONFLICT
-4. restore business row           => rollbackEqual=true
-5. query audit ledger              => succeeded + replayed
+PR:           #33 — MERGED
+Merge SHA:    6020c2f8b5783241ecbb2c3b1b28be577cbb941b
+Final CI:     Foundation F0.2 #329 — PASS
 ```
 
-Không bắt đầu A5.5.2 trước khi gate này PASS và evidence được cập nhật.
+VPS boundary:
+
+```text
+127.0.0.1:3001 LISTEN
+127.0.0.1:3102 LISTEN
+F0.2_VPS_SMOKE=PASS
+Previous runtime backup: /var/www/mcp-plan-backend.backup.20260717-164200
+```
+
+Authenticated Gateway idempotency smoke trên Foundation route `POST /api/mcp-day/session-customer/result`:
+
+```text
+first request:                    PASS — replayed=false
+same key + same payload:          PASS — replayed=true
+same key + changed payload:       PASS — conflict
+persisted response preserved:     true
+audit succeeded:                  PASS
+audit replayed:                   PASS
+idempotency record completed:     PASS
+fixture cleanup:                  PASS
+```
+
+Cùng smoke cũng chứng minh check-in execute/replay/conflict/undo, bảo toàn outlet GPS và `visit_status`.
+
+Output tổng:
+
+```text
+F05_RUNTIME_CLOSURE_SMOKE=PASS
+fixtureCleanup=PASS
+```
+
+Evidence đầy đủ: `docs/npp-plan/F05_RUNTIME_CLOSURE_SMOKE.md`.
 
 ## 11. Rollback
 
 ### Runtime
 
-`pullmcp` tạo backup runtime và tự restore nếu verify/start/smoke fail. Không đụng `milktea-backend` port 3002.
+`pullmcp` tạo backup runtime và tự restore nếu verify/start/smoke fail. Không đụng `milktea-backend` port `3002`.
 
 ### Database
 
-Hai bảng/core wrappers đã có production evidence và Vercel code mới phụ thuộc chúng. Không drop bảng hoặc wrapper để rollback nóng. Nếu runtime mới lỗi, rollback runtime về backup trước; DB objects giữ tương thích và không ảnh hưởng browser roles.
+Hai bảng/core wrappers đã có production evidence và runtime phụ thuộc chúng. Không drop bảng hoặc wrapper để rollback nóng. Nếu runtime mới lỗi, rollback runtime về backup trước; DB objects giữ tương thích và không ảnh hưởng browser roles.
 
 ## 12. Handoff chính xác
 
 ```text
 A5.5.1 code/CI/DB/Vercel: COMPLETE
-A5.5.1 VPS/Gateway:       PENDING
-Exact next command:       pullmcp
-After pullmcp:            authenticated Gateway replay/conflict/restore/audit smoke
-Then:                     update this file + CURRENT_PROGRESS.md
-Only after that:          start A5.5.2 audit/implementation for 21 legacy routes
+A5.5.1 VPS/Gateway:       PASS
+A5.5.1 FULL RELEASE:      VERIFIED
+A5.5.2 legacy routes:     NOT STARTED — 21 cases
+NPP-F05 UI smoke:         PENDING
 Order Core:               BLOCKED
 ```
+
+Không bắt đầu A5.5.2 cho đến khi NPP-F05 UI functional smoke được hoàn tất và `CURRENT_PROGRESS.md` chuyển gate tương ứng sang PASS.

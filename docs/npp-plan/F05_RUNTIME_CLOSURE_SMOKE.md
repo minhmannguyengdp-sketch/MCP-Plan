@@ -1,13 +1,14 @@
 # NPP-F05 — Repeatable Gateway runtime closure smoke
 
 > Cập nhật: **2026-07-17**  
-> Trạng thái source: **PR #27 MERGED; drift fix PR #30 CI PASS**  
+> Trạng thái source: **PR #27 / #30 / #33 MERGED + CI PASS**  
 > VPS boundary: **`F0.2_VPS_SMOKE=PASS`**  
-> F05 runtime closure: **RERUN PENDING SAU PR #30**
+> F05 runtime closure: **PASS**  
+> Fixture cleanup: **PASS**
 
 ## 1. Mục tiêu
 
-Đóng hai runtime gate còn thiếu mà không dùng một khối lệnh thủ công dài:
+Đóng hai runtime gate còn thiếu bằng một script repeatable:
 
 1. manual sales check-in qua authenticated Foundation Gateway;
 2. persisted idempotency/audit của một mutation thuộc A5.5.1.
@@ -132,59 +133,14 @@ CI run ID:    29563734574
 ### Drift fix sau route-customer typed ownership
 
 ```text
-PR:           #30 — MERGED AFTER CI PASS
+PR:           #30 — MERGED
 Branch:       fix/f05-runtime-smoke-route-owner
 Final head:   3875aef1565134d7b38b395c720fa0ce97c2b6ca
 Final CI:     Foundation F0.2 #320 — PASS
 CI run ID:    29593856963
 ```
 
-CI #320 PASS:
-
-- runtime hardcode audit;
-- scanner + retirement policy;
-- production hygiene;
-- direct DB mutation audit;
-- deploy/frontend auth contracts;
-- backend Foundation verify;
-- runtime smoke syntax/contract tests;
-- TypeScript;
-- Next production build.
-
-Vercel Preview của PR #30 bị `CANCELED` bởi `ignoreCommand`, đúng chủ đích; branch không chạy `npm install`/`next build` trên Vercel.
-
-## 5. VPS evidence và root cause lần chạy đầu
-
-`pullmcp` đã hoàn tất thành công:
-
-```text
-127.0.0.1:3001 LISTEN
-127.0.0.1:3102 LISTEN
-F0.2_VPS_SMOKE=PASS
-```
-
-F05 runtime attempt đầu trả:
-
-```json
-{
-  "F05_RUNTIME_CLOSURE_SMOKE": "FAIL",
-  "errors": [
-    "outlet_before_missing",
-    "f05_runtime_cleanup_failed"
-  ]
-}
-```
-
-Đây không phải lỗi deployer hoặc PM2. Root cause là smoke tooling bị drift:
-
-1. `POST /api/route-customers` đã chuyển sang typed idempotent owner nhưng fixture cũ không gửi `Idempotency-Key`.
-2. Fixture cũ dùng `__MCP_V1_API_F05_RUNTIME__`, area/note riêng, không khớp hard-delete smoke guard hiện hữu.
-3. Cleanup RPC đã xóa route nhưng trả `smokeCleanup=false`; script diễn giải thành cleanup fail.
-4. `AggregateError` chỉ in message ngoài, che mất lỗi cleanup con.
-
-Production DB được kiểm tra sau lần FAIL và không còn route fixture F05. Không có fixture leak.
-
-PR #30 sửa đúng tooling:
+PR #30 sửa:
 
 - thêm stable route-customer idempotency key;
 - dùng lại guarded fixture contract hiện hữu;
@@ -192,11 +148,74 @@ PR #30 sửa đúng tooling:
 - flatten nested cleanup errors;
 - không đổi schema, business mutation hoặc hard-delete guard.
 
-## 6. Expected output sau rerun
+### JSON array parser fix
+
+Lần rerun sau PR #30 vẫn báo:
+
+```json
+{
+  "F05_RUNTIME_CLOSURE_SMOKE": "FAIL",
+  "errors": [
+    "outlet_before_missing"
+  ]
+}
+```
+
+Root cause không nằm ở route customer hoặc DB. Helper `readJson()` cũ ép mọi JSON qua object-only normalizer. Supabase PostgREST trả row array như `[{...}]`, nhưng parser biến array thành `{}`; `db()` sau đó trả `[]` và tạo false negative `outlet_before_missing`.
+
+Fix:
+
+```text
+PR:           #33 — MERGED
+Branch:       fix/f05-smoke-json-array-parser
+Merge SHA:    6020c2f8b5783241ecbb2c3b1b28be577cbb941b
+Final CI:     Foundation F0.2 #329 — PASS
+CI run ID:    29596820247
+```
+
+PR #33:
+
+- tách parser JSON giữ nguyên kiểu dữ liệu;
+- chỉ Gateway canonical envelope mới normalize thành object;
+- DB read bắt buộc array và fail rõ `response_not_array` nếu provider contract lệch;
+- thêm regression test thực thi cho Supabase row array và Gateway object envelope;
+- không đổi business mutation, schema, runtime backend hoặc cleanup guard.
+
+CI #329 PASS:
+
+- runtime hardcode audit;
+- scanner + retirement policy;
+- production hygiene;
+- direct DB mutation audit;
+- deploy/frontend auth contracts;
+- backend Foundation verify;
+- runtime smoke parser/syntax/contract tests;
+- TypeScript;
+- Next production build.
+
+Vercel Preview của các branch bị `CANCELED` bởi `ignoreCommand`, đúng chủ đích; branch không chạy `npm install`/`next build` trên Vercel.
+
+## 5. VPS evidence
+
+`pullmcp` hoàn tất thành công sau merge PR #33:
+
+```text
+127.0.0.1:3001 LISTEN
+127.0.0.1:3102 LISTEN
+F0.2_VPS_SMOKE=PASS
+Previous runtime backup: /var/www/mcp-plan-backend.backup.20260717-164200
+```
+
+Runtime process sau deploy lắng nghe đúng Foundation Gateway `3001` và legacy internal `3102`. Không đụng `milktea-backend` port `3002`.
+
+## 6. F05 runtime closure — output thật
+
+Output từ VPS:
 
 ```json
 {
   "F05_RUNTIME_CLOSURE_SMOKE": "PASS",
+  "gateway": "http://127.0.0.1:3001",
   "health": "PASS",
   "canonicalEnvelope": "PASS",
   "checkin": {
@@ -219,31 +238,44 @@ PR #30 sửa đúng tooling:
 }
 ```
 
+Evidence đóng gate:
+
+```text
+Gateway health/auth/canonical envelope:             PASS
+check-in first execute:                             PASS
+check-in replay same key + payload:                 PASS
+check-in conflict same key + changed payload:       PASS
+second-click undo:                                  PASS
+check-in audit:                                     PASS
+outlet GPS unchanged:                               true
+visit status unchanged:                             true
+Foundation result first execute:                    PASS
+Foundation result replay:                           PASS
+Foundation result conflict:                         PASS
+Foundation result audit:                            PASS
+persisted replay response preserved:                true
+fixture cleanup:                                    PASS
+```
+
+Không còn fixture nghiệp vụ sau smoke. Audit/idempotency assertions được đọc từ production provider qua service-role read-only boundary; mọi business mutation vẫn đi qua Gateway.
+
 ## 7. Release gate
 
-Không được đóng NPP-F05/A5.5.1 runtime trước khi có output thật từ VPS:
+```text
+pullmcp => F0.2_VPS_SMOKE=PASS                    PASS
+smoke-f05-runtime-closure => PASS                 PASS
+fixtureCleanup => PASS                            PASS
+Gateway replay/conflict/undo/audit                PASS
+outlet GPS unchanged                              PASS
+visit status unchanged                            PASS
+```
+
+NPP-F05 runtime closure và A5.5.1 VPS/Gateway runtime gate đã đóng. Phần còn lại trước khi chuyển milestone là UI functional smoke:
 
 ```text
-pullmcp => F0.2_VPS_SMOKE=PASS        PASS
-smoke-f05-runtime-closure => PASS     PENDING RERUN
-fixtureCleanup => PASS                PENDING RERUN
+route không active session
+route có đúng một active session — cả hai lựa chọn
+regression Thêm khách trong Phiên
 ```
 
-Lệnh rerun:
-
-```bash
-pullmcp
-cd /var/www/mcp-plan-source
-node --env-file=/var/www/mcp-plan-backend/.env test/runtime/smoke-f05-runtime-closure.mjs
-```
-
-Sau khi output thật PASS phải cập nhật:
-
-```text
-CURRENT_PROGRESS.md
-docs/npp-plan/SESSION_UI_CHECKIN_RELEASE.md
-docs/npp-plan/A5_5_1_IDEMPOTENCY_RELEASE.md
-file này
-```
-
-Không bắt đầu A5.5.2, NPP-F06 hoặc Order Core trước khi hoàn tất gate trên.
+Không bắt đầu A5.5.2, NPP-F06 hoặc Order Core trước khi UI smoke và handoff tương ứng được hoàn tất.
