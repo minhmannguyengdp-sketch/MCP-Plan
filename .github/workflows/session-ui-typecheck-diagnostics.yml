@@ -1,0 +1,34 @@
+name: Session UI Typecheck Diagnostics
+
+on:
+  push:
+    branches:
+      - ui-session-checkin-modal-density
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-session-checkin-modal-density
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Capture TypeScript diagnostics
+        run: |
+          mkdir -p .tmp
+          npm run typecheck > .tmp/session-ui-typecheck.log 2>&1 || true
+      - name: Commit diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp/session-ui-typecheck.log
+          git commit -m "Export session UI typecheck diagnostics"
+          git push origin HEAD:ui-session-checkin-modal-density
