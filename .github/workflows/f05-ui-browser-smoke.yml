@@ -1,0 +1,78 @@
+name: F05 UI Browser Smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/f05-ui-browser-smoke.yml"
+      - "src/features/mcp/**"
+      - "src/app/routes/**"
+      - "src/app/visits/**"
+      - "src/app/api/**"
+      - "src/lib/api/**"
+      - "test/ui/f05-ui-**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright@1.54.1
+          npx playwright install --with-deps chromium
+
+      - name: Build Next production app
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3109
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: service:ci:mcp-v1
+          SUPABASE_URL: https://project.example.com
+          SUPABASE_ANON_KEY: ci-publishable-key
+        run: npm run build
+
+      - name: Run browser smoke
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3109
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: service:ci:mcp-v1
+          SUPABASE_URL: https://project.example.com
+          SUPABASE_ANON_KEY: ci-publishable-key
+          F05_UI_RESULTS_DIR: test-results/f05-ui-smoke
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/f05-ui-smoke
+          node test/ui/f05-ui-mock-backend.mjs >test-results/f05-ui-smoke/mock-backend.log 2>&1 &
+          MOCK_PID=$!
+          npm start -- -p 3000 >test-results/f05-ui-smoke/next.log 2>&1 &
+          APP_PID=$!
+          cleanup() {
+            kill "$APP_PID" "$MOCK_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          node test/ui/f05-ui-browser-smoke.mjs | tee test-results/f05-ui-smoke/browser-smoke.log
+
+      - name: Upload browser smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f05-ui-browser-smoke-evidence
+          path: |
+            test-results/f05-ui-smoke
+            .next/static/css
+          if-no-files-found: error

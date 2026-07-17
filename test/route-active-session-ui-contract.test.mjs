@@ -10,6 +10,14 @@ const userFacingErrorSource = await readFile(
   new URL("../src/lib/ui/user-facing-error.ts", import.meta.url),
   "utf8"
 );
+const popupOwnershipCss = await readFile(
+  new URL("../src/app/mcp-popup-content-ownership.css", import.meta.url),
+  "utf8"
+);
+const layoutSource = await readFile(
+  new URL("../src/app/layout.tsx", import.meta.url),
+  "utf8"
+);
 
 test("route customer create checks the selected route for exactly one active session", () => {
   assert.match(source, /\/api\/backend\/mcp-settings\/session-status\?routeId=/);
@@ -23,6 +31,15 @@ test("active session choice uses explicit primary and secondary actions", () => 
   assert.match(source, />Chỉ thêm vào tuyến</);
   assert.match(source, /includeActiveSession: true/);
   assert.match(source, /includeActiveSession: false/);
+});
+
+test("single-card active-session decision content remains visible after compact popup rules", () => {
+  assert.match(layoutSource, /import "\.\/mcp-popup-compact\.css";[\s\S]*?import "\.\/mcp-popup-content-ownership\.css";/);
+  assert.match(
+    popupOwnershipCss,
+    /\.visit-focus-card:first-child:last-child\s*\{\s*display:\s*grid;/,
+    "a decision prompt with one owned card must not be hidden by the generic two-action compact rule"
+  );
 });
 
 test("one user intent keeps one idempotency key and never uses raw route-customer POST", () => {
