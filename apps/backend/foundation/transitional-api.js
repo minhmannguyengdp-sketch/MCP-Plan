@@ -5,6 +5,7 @@ import {
   recordSessionCustomerResult,
   setSessionCustomerCheckin
 } from "./session-customer-mutations.js";
+import { addRouteCustomer } from "./route-customer-mutations.js";
 import {
   createSessionReportSnapshot,
   saveSessionReportAiResult
@@ -82,6 +83,12 @@ async function saveSessionCustomerResult(req, context, config, fetchImpl) {
 async function saveAddedSessionCustomer(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await addSessionCustomer(body, context, config, { fetchImpl });
+  return mutationResponse(data);
+}
+
+async function saveAddedRouteCustomer(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await addRouteCustomer(body, context, config, { fetchImpl });
   return mutationResponse(data);
 }
 
@@ -201,6 +208,9 @@ export async function handleTransitionalApi(
   }
   if (method === "POST" && pathname === "/api/mcp-day/session-customer/add") {
     return saveAddedSessionCustomer(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/route-customers") {
+    return saveAddedRouteCustomer(req, context, config, fetchImpl);
   }
   if (method === "POST" && pathname === "/api/mcp-day/session-customer/checkin") {
     return saveSessionCustomerCheckin(req, context, config, fetchImpl);
