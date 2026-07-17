@@ -37,6 +37,13 @@ function errorCode(payload) {
   return String(envelope.code || payload?.error || payload?.message || "request_failed");
 }
 
+function flattenErrors(error) {
+  if (error instanceof AggregateError) {
+    return Array.from(error.errors || []).flatMap((item) => flattenErrors(item));
+  }
+  return [error?.message || String(error)];
+}
+
 async function readJson(response, label) {
   const text = await response.text();
   if (!text) return {};
@@ -125,10 +132,10 @@ async function createFixture() {
     method: "POST",
     requestId: `f05-route-${stamp}`,
     body: {
-      routeName: `__MCP_V1_API_F05_RUNTIME__${stamp}`,
-      area: "F05 Runtime Smoke",
+      routeName: `__MCP_V1_API_FULL__${stamp}`,
+      area: "API Smoke",
       weekday: 5,
-      note: "temporary F05 runtime closure smoke"
+      note: "temporary MCP v1 API smoke"
     }
   });
   const routeData = object(routeResult.payload.data);
@@ -136,15 +143,17 @@ async function createFixture() {
   ensure(routeId, "fixture_route_id_missing");
   cleanupRouteIds.add(routeId);
 
+  const customerKey = `f05.route-customer.${stamp}`;
   const customerResult = await must("/api/route-customers", {
     method: "POST",
     requestId: `f05-customer-${stamp}`,
+    idempotencyKey: customerKey,
     body: {
       routeId,
       customerName: `__MCP_V1_API_F05_CUSTOMER__${stamp}`,
-      area: "F05 Runtime Smoke",
+      area: "API Smoke",
       sortOrder: 1,
-      note: "temporary F05 runtime closure smoke"
+      note: "temporary MCP v1 API smoke"
     }
   });
   const customerData = object(customerResult.payload.data);
@@ -155,7 +164,7 @@ async function createFixture() {
   const openResult = await must("/api/mcp-day/open-session", {
     method: "POST",
     requestId: `f05-open-${stamp}`,
-    body: { routeId, sessionDate, owner: "F05 Runtime Smoke" }
+    body: { routeId, sessionDate, owner: "API Smoke" }
   });
   const openData = object(openResult.payload.data);
   const sessionId = String(object(openData.session).id || "");
@@ -169,7 +178,9 @@ async function createFixture() {
   ensure(Array.isArray(dayData.lines) && dayData.lines.length === 1, "fixture_line_count_mismatch");
   const line = object(dayData.lines[0]);
   const sessionCustomerId = String(line.sessionCustomerId || line.id || "");
+  const lineRouteCustomerId = String(line.routeCustomerId || "");
   ensure(sessionCustomerId, "fixture_session_customer_id_missing");
+  ensure(lineRouteCustomerId === routeCustomerId, "route_customer_response_line_mismatch");
 
   return {
     routeId,
@@ -452,7 +463,7 @@ async function run() {
       JSON.stringify(
         {
           F05_RUNTIME_CLOSURE_SMOKE: "FAIL",
-          errors: errors.map((error) => error?.message || String(error))
+          errors: errors.flatMap((error) => flattenErrors(error))
         },
         null,
         2

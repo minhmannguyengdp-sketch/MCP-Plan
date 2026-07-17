@@ -29,6 +29,7 @@ test("F05 runtime smoke closes Gateway idempotency and check-in gates", async ()
   const text = await source();
 
   for (const route of [
+    "/api/route-customers",
     "/api/mcp-day/session-customer/checkin",
     "/api/mcp-day/session-customer/result",
     "/api/mcp-day/open-session",
@@ -40,6 +41,12 @@ test("F05 runtime smoke closes Gateway idempotency and check-in gates", async ()
   assert.match(text, /"Idempotency-Key": idempotencyKey/);
   assert.match(text, /"X-Backend-Token": backendToken/);
   assert.match(text, /"X-Request-Id": requestId/);
+  assert.match(text, /const customerKey = `f05\.route-customer\.\$\{stamp\}`/);
+  assert.match(text, /idempotencyKey: customerKey/);
+  assert.match(text, /routeName: `__MCP_V1_API_FULL__\$\{stamp\}`/);
+  assert.match(text, /area: "API Smoke"/);
+  assert.match(text, /note: "temporary MCP v1 API smoke"/);
+  assert.match(text, /route_customer_response_line_mismatch/);
   assert.match(text, /sameJson\(first\.payload\.data, second\.payload\.data\)/);
   assert.match(text, /mustConflict\("\/api\/mcp-day\/session-customer\/checkin"/);
   assert.match(text, /mustConflict\("\/api\/mcp-day\/session-customer\/result"/);
@@ -49,6 +56,7 @@ test("F05 runtime smoke closes Gateway idempotency and check-in gates", async ()
   assert.match(text, /mcp_audit_events/);
   assert.match(text, /mcp_idempotency_records/);
   assert.match(text, /cleanupAll\(\)/);
+  assert.match(text, /flattenErrors\(error\)/);
   assert.match(text, /F05_RUNTIME_CLOSURE_SMOKE: "PASS"/);
 });
 
