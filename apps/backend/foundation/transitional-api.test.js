@@ -54,7 +54,7 @@ test("session customer result uses the atomic RPC instead of the public Edge fun
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.visit.id, "visit-1");
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_record_session_customer_result$/);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_record_session_customer_result$/);
   assert.equal(calls[0].url.includes(edgeFunctionPath), false);
   assert.equal(calls[0].init.headers.apikey, "server-only-key");
 
@@ -110,7 +110,7 @@ test("session customer add requires an explicit session and uses the atomic RPC"
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.sessionCustomer.id, "session-customer-added");
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_add_session_customer$/);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_add_session_customer$/);
   assert.equal(calls[0].url.includes(edgeFunctionPath), false);
 
   const args = JSON.parse(calls[0].init.body);
@@ -195,7 +195,7 @@ test("field check writes use the typed RPC with mapped status and Foundation con
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.id, "result-1");
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_update_field_check_result$/);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_update_field_check_result$/);
   const args = JSON.parse(calls[0].init.body);
   assert.equal(args.p_result_id, "result-1");
   assert.equal(args.p_status, "interested");

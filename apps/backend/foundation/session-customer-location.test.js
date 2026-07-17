@@ -41,7 +41,7 @@ test("session customer GPS is validated and forwarded to the atomic RPC", async 
 
   assert.equal(result.routeCustomer.id, "route-customer-1");
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_add_session_customer$/);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_add_session_customer$/);
 
   const args = JSON.parse(calls[0].init.body);
   assert.equal(args.p_session_id, "session-1");

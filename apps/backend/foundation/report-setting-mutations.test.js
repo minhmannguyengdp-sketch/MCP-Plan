@@ -48,7 +48,7 @@ test("group create uses deterministic key and service-role RPC context", async (
 
   assert.equal(result.id, "group-1");
   assert.equal(provider.calls.length, 1);
-  assert.match(provider.calls[0].url, /\/rest\/v1\/rpc\/mcp_create_report_setting_group$/);
+  assert.match(provider.calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_create_report_setting_group$/);
   const args = JSON.parse(provider.calls[0].init.body);
   assert.equal(args.p_group_key, "san_pham_dang_dung");
   assert.equal(args.p_group_type, "market_report");
@@ -66,7 +66,7 @@ test("group update sends only a whitelisted normalized patch", async () => {
     status: "INACTIVE"
   }, context, config, provider);
 
-  assert.match(provider.calls[0].url, /\/rest\/v1\/rpc\/mcp_update_report_setting_group$/);
+  assert.match(provider.calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_update_report_setting_group$/);
   const args = JSON.parse(provider.calls[0].init.body);
   assert.deepEqual(args.p_patch, { description: null, status: "inactive" });
   assert.equal(args.p_group_id, "group-1");
@@ -83,14 +83,14 @@ test("item create and update use Foundation RPC ownership", async () => {
     sortOrder: 3
   }, context, config, createProvider);
   const createArgs = JSON.parse(createProvider.calls[0].init.body);
-  assert.match(createProvider.calls[0].url, /\/rest\/v1\/rpc\/mcp_create_report_setting_item$/);
+  assert.match(createProvider.calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_create_report_setting_item$/);
   assert.equal(createArgs.p_item_key, "tra_sua");
   assert.equal(createArgs.p_value, "Trà sữa");
   assert.equal(createArgs.p_context.nppCode, "NPP-A");
 
   const updateProvider = capture({ id: "item-1", status: "inactive" });
   await updateReportSettingItem({ itemId: "item-1", status: "inactive", productId: "" }, context, config, updateProvider);
-  assert.match(updateProvider.calls[0].url, /\/rest\/v1\/rpc\/mcp_update_report_setting_item$/);
+  assert.match(updateProvider.calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_update_report_setting_item$/);
   const updateArgs = JSON.parse(updateProvider.calls[0].init.body);
   assert.deepEqual(updateArgs.p_patch, { product_id: null, status: "inactive" });
 });

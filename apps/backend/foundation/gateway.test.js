@@ -113,9 +113,9 @@ test("session mutation business errors remain canonical through the Gateway", as
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     const target = String(url);
-    const message = target.endsWith("/mcp_record_session_customer_result")
+    const message = target.endsWith("/mcp_idempotent_record_session_customer_result")
       ? "session_customer_not_found"
-      : target.endsWith("/mcp_add_session_customer")
+      : target.endsWith("/mcp_idempotent_add_session_customer")
         ? "session_not_found"
         : null;
     if (!message) throw new Error(`unexpected_provider_request:${target}`);
@@ -134,7 +134,8 @@ test("session mutation business errors remain canonical through the Gateway", as
 
   const headers = {
     "x-backend-token": state.config.backendApiToken,
-    "content-type": "application/json"
+    "content-type": "application/json",
+    "idempotency-key": "gateway-business-error-12345678"
   };
 
   const result = await request(state.publicPort, "/api/mcp-day/session-customer/result", {

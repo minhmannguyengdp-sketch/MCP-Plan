@@ -46,7 +46,7 @@ test("field-check update maps presentation status and sends whitelisted context"
 
   assert.equal(result.id, "result-1");
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_update_field_check_result$/);
+  assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_update_field_check_result$/);
   const args = JSON.parse(calls[0].init.body);
   assert.equal(args.p_status, "interested");
   assert.equal(args.p_result_id, "result-1");
