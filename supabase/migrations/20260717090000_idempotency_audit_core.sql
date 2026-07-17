@@ -95,8 +95,8 @@ create index if not exists mcp_audit_events_idempotency_idx
 alter table public.mcp_idempotency_records enable row level security;
 alter table public.mcp_audit_events enable row level security;
 
-revoke all on table public.mcp_idempotency_records from public, anon, authenticated;
-revoke all on table public.mcp_audit_events from public, anon, authenticated;
+revoke select, insert, update, delete, truncate, references, trigger on table public.mcp_idempotency_records from public, anon, authenticated;
+revoke select, insert, update, delete, truncate, references, trigger on table public.mcp_audit_events from public, anon, authenticated;
 
 grant select on table public.mcp_idempotency_records to service_role;
 grant select on table public.mcp_audit_events to service_role;
@@ -560,8 +560,8 @@ begin
 end;
 $function$;
 
-revoke all on function public.mcp_reject_audit_event_mutation() from public, anon, authenticated, service_role;
-revoke all on function public.mcp_idempotency_request_hash(text, jsonb) from public, anon, authenticated, service_role;
-revoke all on function public.mcp_append_audit_event(text, text, text, text, text, text, text, text, text, text, text, text, text, text, integer, text, text, text, text, jsonb) from public, anon, authenticated, service_role;
-revoke all on function public.mcp_idempotency_begin(text, text, text, text, text, text, jsonb, jsonb, integer) from public, anon, authenticated, service_role;
-revoke all on function public.mcp_idempotency_complete(uuid, integer, jsonb, text) from public, anon, authenticated, service_role;
+revoke execute on function public.mcp_reject_audit_event_mutation() from public, anon, authenticated, service_role;
+revoke execute on function public.mcp_idempotency_request_hash(text, jsonb) from public, anon, authenticated, service_role;
+revoke execute on function public.mcp_append_audit_event(text, text, text, text, text, text, text, text, text, text, text, text, text, text, integer, text, text, text, text, jsonb) from public, anon, authenticated, service_role;
+revoke execute on function public.mcp_idempotency_begin(text, text, text, text, text, text, jsonb, jsonb, integer) from public, anon, authenticated, service_role;
+revoke execute on function public.mcp_idempotency_complete(uuid, integer, jsonb, text) from public, anon, authenticated, service_role;
