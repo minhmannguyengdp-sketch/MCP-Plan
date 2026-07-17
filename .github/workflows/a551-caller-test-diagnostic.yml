@@ -1,0 +1,33 @@
+name: A5.5.1 Caller Test Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    if: github.head_ref == 'a5-5-1-idempotency-core'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Capture caller test
+        run: |
+          set +e
+          npm run test:idempotency > caller-test.txt 2>&1
+          echo $? > caller-test.exit
+          set -e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a551-caller-test
+          path: |
+            caller-test.txt
+            caller-test.exit
+          if-no-files-found: error
