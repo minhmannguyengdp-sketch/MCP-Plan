@@ -8,6 +8,7 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import { userFacingError } from "@/lib/ui/user-facing-error";
 import type { MarketCheckItem, MarketCheckSessionGroup, MarketCheckStatus } from "./market-checks.types";
 import styles from "./MarketChecksClientPage.module.css";
@@ -78,7 +79,7 @@ function InlineTestRow({ check, onSelect }: { check: MarketCheckItem; onSelect: 
         <span>{check.note}</span>
       </div>
       <strong className={getStatusClass(check.status)}>{getStatusLabel(check.status)}</strong>
-      <button className="button primary" type="button" disabled={!check.resultId} onClick={() => onSelect(check)}>{check.resultId ? "Cập nhật" : "Chưa có kết quả"}</button>
+      <button className="button primary" type="button" onClick={() => onSelect(check)}>Cập nhật</button>
     </article>
   );
 }
@@ -114,35 +115,37 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!check) return;
-    if (!check.resultId) {
-      setError("Chưa có kết quả để cập nhật. Hãy tạo kết quả từ phiên đi tuyến.");
-      return;
-    }
     setSaving(true);
     setError(null);
 
-    const payload: SavePayload = {
-      resultId: check.resultId,
-      fileId: check.fileId,
-      customerId: check.customerId,
-      productId: check.productId,
-      productName,
-      status,
-      note,
-      sessionId: check.sessionId,
-      sessionCustomerId: check.sessionCustomerId,
-      routeId: check.routeId,
-      sessionDate: check.sessionDate
-    };
-
     try {
-      const response = await fetch("/api/field-checks/result", {
-        method: "POST",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      if (!check.resultId) throw new Error("Không tìm thấy kết quả thử cần cập nhật.");
+
+      const payload: SavePayload = {
+        resultId: check.resultId,
+        fileId: check.fileId,
+        customerId: check.customerId,
+        productId: check.productId,
+        productName,
+        status,
+        note,
+        sessionId: check.sessionId,
+        sessionCustomerId: check.sessionCustomerId,
+        routeId: check.routeId,
+        sessionDate: check.sessionDate
+      };
+
+      const response = await idempotentMutationFetch(
+        "/api/field-checks/result",
+        {
+          method: "POST",
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        },
+        { operation: "field-check.result.update" }
+      );
       const json = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(json.error || `request_failed_${response.status}`);
+      if (!response.ok) throw new Error(json.error?.message || json.error || `request_failed_${response.status}`);
       const saved = json.data || {};
       onSaved({
         ...check,
@@ -169,7 +172,7 @@ function FieldCheckSheet({ check, onClose, onSaved }: { check: MarketCheckItem |
       description={check ? `${check.accountName} · ${check.routeName} · ${check.sessionDate || check.date}` : undefined}
       footer={
         <div className="sheet-action-grid">
-          <button className="button primary" disabled={saving || !check?.resultId} form="field-check-save-form" type="submit">{saving ? "Đang lưu..." : "Lưu kết quả"}</button>
+          <button className="button primary" disabled={saving} form="field-check-save-form" type="submit">{saving ? "Đang lưu..." : "Lưu kết quả"}</button>
           <button className="button" type="button" onClick={onClose}>Đóng</button>
         </div>
       }
