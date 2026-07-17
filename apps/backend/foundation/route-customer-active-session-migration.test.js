@@ -34,6 +34,11 @@ test("active-session inclusion locks and validates the exact session before the 
   assert.match(body, /if v_include_active_session then/i);
 });
 
+test("added snapshot carries the exact explicit session context required by the existing trigger", () => {
+  const body = functionBody("mcp_idempotent_add_route_customer");
+  assert.match(body, /jsonb_build_object\([\s\S]*?'source', 'route_customer_explicit_sync'[\s\S]*?'session_id', v_session\.id[\s\S]*?'route_customer_id', v_route_customer\.id/i);
+});
+
 test("duplicate route and session customers are resolved without rewriting operational state", () => {
   const body = functionBody("mcp_idempotent_add_route_customer");
   assert.match(body, /regexp_replace\(coalesce\(phone, ''\), '\[\^0-9\]\+', '', 'g'\)/i);
