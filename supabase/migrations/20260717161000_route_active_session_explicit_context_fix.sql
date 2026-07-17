@@ -11,6 +11,7 @@ declare
   v_after text := $$'source', 'route_customer_explicit_sync',
           'session_id', v_session.id,
           'route_customer_id', v_route_customer.id,$$;
+  v_session_context_needle text := $$'session_id', v_session.id$$;
 begin
   select p.oid
     into v_oid
@@ -27,7 +28,7 @@ begin
 
   v_definition := pg_get_functiondef(v_oid);
 
-  if position("'session_id', v_session.id" in v_definition) > 0 then
+  if position(v_session_context_needle in v_definition) > 0 then
     return;
   end if;
 
