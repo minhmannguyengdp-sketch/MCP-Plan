@@ -1,0 +1,28 @@
+name: A5.5.1 Diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    if: github.head_ref == 'a5-5-1-idempotency-core'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build caller and scanner diagnostics
+        run: |
+          mkdir -p diagnostics
+          git ls-files > diagnostics/repository-files.txt
+          grep -RInE '/api/(mcp-day/session-customer/(result|add)|mcp-session-report|field-checks/result|mcp-report-setting-groups|mcp-report-settings)' src apps test docs > diagnostics/foundation-route-callers.txt || true
+          node scripts/audit-direct-db-mutation-policy.mjs > diagnostics/scanner-output.txt 2>&1 || true
+          cp artifacts/direct-db-mutation-findings.json diagnostics/ 2>/dev/null || true
+          cp artifacts/direct-db-mutation-summary.md diagnostics/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a551-diagnostics
+          path: diagnostics
+          if-no-files-found: error
