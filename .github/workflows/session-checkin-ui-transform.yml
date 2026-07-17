@@ -1,0 +1,34 @@
+name: Session Check-in UI Transform
+
+on:
+  push:
+    branches:
+      - ui-session-checkin-modal-density
+
+permissions:
+  contents: write
+
+jobs:
+  transform:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-session-checkin-modal-density
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply exact source changes
+        run: node scripts/apply-session-checkin-ui.mjs
+      - name: Commit transformed source
+        run: |
+          if git diff --quiet; then
+            echo "source_already_transformed"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/features/mcp/McpSessionCompactViewFinal2.tsx apps/backend/server.js
+            git commit -m "Connect manual check-in UI and session data"
+            git push origin HEAD:ui-session-checkin-modal-density
+          fi
