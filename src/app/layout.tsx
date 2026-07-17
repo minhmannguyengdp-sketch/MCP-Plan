@@ -9,6 +9,7 @@ import "./dashboard-home.css";
 import "./compact-operational.css";
 import "./safe-area.css";
 import "./mcp-popup-compact.css";
+import "./mcp-popup-content-ownership.css";
 import "./mcp-order-tea-filter.css";
 import "./mcp-order-selected-compact.css";
 import "./mcp-order-mobile-workbench.css";
