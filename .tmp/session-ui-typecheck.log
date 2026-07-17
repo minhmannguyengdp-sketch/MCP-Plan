@@ -1,0 +1,12 @@
+
+> mcp-plan@0.1.0 typecheck
+> tsc --noEmit
+
+src/features/mcp/McpSessionCompactViewFinal2.tsx(144,6): error TS2300: Duplicate identifier 'CheckinNotice'.
+src/features/mcp/McpSessionCompactViewFinal2.tsx(146,10): error TS2393: Duplicate function implementation.
+src/features/mcp/McpSessionCompactViewFinal2.tsx(160,10): error TS2393: Duplicate function implementation.
+src/features/mcp/McpSessionCompactViewFinal2.tsx(169,16): error TS2393: Duplicate function implementation.
+src/features/mcp/McpSessionCompactViewFinal2.tsx(195,6): error TS2300: Duplicate identifier 'CheckinNotice'.
+src/features/mcp/McpSessionCompactViewFinal2.tsx(197,10): error TS2393: Duplicate function implementation.
+src/features/mcp/McpSessionCompactViewFinal2.tsx(211,10): error TS2393: Duplicate function implementation.
+src/features/mcp/McpSessionCompactViewFinal2.tsx(221,16): error TS2393: Duplicate function implementation.
