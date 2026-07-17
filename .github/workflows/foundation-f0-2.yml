@@ -53,7 +53,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: foundation-contract-test-output
-          path: foundation-contract-test-output.txt
+          path: |
+            foundation-contract-test-output.txt
+            scripts/direct-db-mutation-baseline.json
           if-no-files-found: error
 
       - name: Verify production hygiene contracts
