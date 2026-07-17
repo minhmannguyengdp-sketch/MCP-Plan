@@ -3,7 +3,7 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật: **2026-07-17**  
 > Master plan: **Phase A / NPP-F05 — audit consumer + khóa mutation trực tiếp**  
-> Trạng thái: **HOTFIX THÊM KHÁCH DEPLOYED — VERCEL READY — UI SMOKE + VPS/F05 RUNTIME PENDING**
+> Trạng thái: **HOTFIX CODE DEPLOYED — DOCS-ONLY MAIN RATE-LIMIT — UI SMOKE + VPS/F05 RUNTIME PENDING**
 
 ## 1. Điểm tiếp tục duy nhất
 
@@ -46,7 +46,7 @@ Scanner/backend/TS:  PASS
 Next build:          PASS
 DB/migration:        không thay đổi
 Backend runtime:     không thay đổi bởi hotfix này
-Vercel production:   READY
+Vercel production:   READY — hotfix code đã deploy
 Deployed main SHA:   35883e87e3580bcf66be70951b49ce77d6e1fbc4
 Root `/`:            HTTP 200
 MCP `/mcp`:          HTTP 200
@@ -71,13 +71,9 @@ UI functional smoke: PENDING
 
 Không thay check-in, field-check, report settings, RPC, schema hay 21 legacy routes.
 
-Evidence:
+Evidence: `docs/npp-plan/SESSION_ADD_CUSTOMER_IDEMPOTENCY_FIX.md`.
 
-```text
-docs/npp-plan/SESSION_ADD_CUSTOMER_IDEMPOTENCY_FIX.md
-```
-
-## 4. Vercel production hiện tại
+## 4. Vercel production đang phục vụ hotfix
 
 ```text
 Project:       mcp-plan
@@ -89,7 +85,11 @@ Domain:        https://mcp-plan.vercel.app
 `/mcp`:        HTTP 200
 ```
 
-Build-rate-limit trước đó đã hết. HTTP smoke chưa thay thế thao tác Lưu khách thật trên trình duyệt.
+Deployment trên chứa merge SHA hotfix `dc000bd9b6e1ead9d4ae40eca429fd94d9c9cbad` và toàn bộ source runtime liên quan.
+
+Các commit sau SHA deployed chỉ cập nhật evidence/handoff. Vercel có thể tiếp tục báo build-rate-limit cho các commit docs-only này; đây không phải blocker của hotfix runtime đã deploy.
+
+HTTP smoke chưa thay thế thao tác Lưu khách thật trên trình duyệt.
 
 ## 5. Session UI + manual check-in
 
@@ -103,7 +103,7 @@ DB conflict/undo:       PASS
 Business restore:       rollbackEqual=true
 Outlet GPS unchanged:   true
 Visit status unchanged: true
-Vercel:                 READY — current main
+Vercel runtime:         READY — included in deployed SHA
 VPS/Gateway:            PENDING
 ```
 
@@ -174,13 +174,14 @@ npm run build
 ## 9. Gate đóng F05
 
 ```text
-Vercel current main READY + `/` + `/mcp` HTTP 200       PASS
-UI Thêm khách lưu thành công                            PENDING
-VPS pullmcp => F0.2_VPS_SMOKE=PASS                      PENDING
-F05 runtime smoke                                       PENDING
-fixtureCleanup                                          PENDING
-Gateway replay/conflict/undo/audit                      PENDING
-Progress + evidence cập nhật                            PARTIAL
+Hotfix source deployed + `/` + `/mcp` HTTP 200           PASS
+Latest docs-only main deployed                            NOT REQUIRED
+UI Thêm khách lưu thành công                              PENDING
+VPS pullmcp => F0.2_VPS_SMOKE=PASS                        PENDING
+F05 runtime smoke                                         PENDING
+fixtureCleanup                                            PENDING
+Gateway replay/conflict/undo/audit                        PENDING
+Progress + evidence cập nhật                              PASS
 ```
 
 Không chỉ ghi trạng thái trong chat.
