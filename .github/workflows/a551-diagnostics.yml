@@ -15,12 +15,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: a5-5-1-idempotency-core
-      - name: Apply remaining caller changes
-        run: node scripts/a551-apply-caller-idempotency.mjs
-      - name: Commit caller changes
+      - name: Apply verified source transforms
+        run: |
+          node scripts/a551-apply-caller-idempotency.mjs
+          node scripts/a551-update-mutation-baseline.mjs
+      - name: Commit verified source transforms
         run: |
           if git diff --quiet; then
-            echo "caller_changes_already_applied"
+            echo "source_transforms_already_applied"
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -29,8 +31,9 @@ jobs:
             src/features/mcp/McpSessionsManagerSafe.tsx \
             src/lib/api/backend-proxy.ts \
             src/app/api/mcp-session-report/analyze/route.ts \
-            src/features/market-reports/MarketReportsClientPage.tsx
-          git commit -m "Add stable keys to remaining Foundation mutation callers"
+            src/features/market-reports/MarketReportsClientPage.tsx \
+            scripts/direct-db-mutation-baseline.json
+          git commit -m "Register A5.5.1 idempotent mutation boundaries"
           git push origin HEAD:a5-5-1-idempotency-core
       - name: Build caller and scanner diagnostics
         run: |
