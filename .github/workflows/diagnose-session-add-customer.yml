@@ -16,14 +16,14 @@ jobs:
           set -euo pipefail
           {
             echo '=== ADD CUSTOMER REFERENCES ==='
-            rg -n --hidden --glob '!node_modules/**' --glob '!.git/**' \
+            git grep -n -E \
               'addMcpDayCustomer|session-customer/add|Thêm khách|Them khach|customer_name_required|idempotency_key_required|IDEMPOTENCY_KEY_REQUIRED' \
-              src apps test scripts || true
+              -- src apps test scripts || true
             echo
             echo '=== FORM ACTION REFERENCES ==='
-            rg -n --hidden --glob '!node_modules/**' --glob '!.git/**' \
+            git grep -n -E \
               'add customer|add-customer|customerName|sessionId' \
-              src/app src/features | head -500 || true
+              -- src/app src/features | head -500 || true
           } | tee diagnose-session-add-customer.txt
       - uses: actions/upload-artifact@v4
         with:
