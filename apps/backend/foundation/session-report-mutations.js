@@ -64,12 +64,8 @@ function analyzedAt(value) {
   return parsed.toISOString();
 }
 
-export async function createSessionReportSnapshot(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function createSessionReportSnapshot(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionId = text(body.sessionId || body.session_id);
   if (!sessionId) badRequest("session_id_required");
 
@@ -89,12 +85,8 @@ export async function createSessionReportSnapshot(
   }
 }
 
-export async function saveSessionReportAiResult(
-  body,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function saveSessionReportAiResult(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
   const sessionId = text(body.sessionId || body.session_id);
   const aiResult = object(body.aiResult || body.ai_result);
 
