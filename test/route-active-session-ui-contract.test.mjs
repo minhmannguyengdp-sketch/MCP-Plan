@@ -6,6 +6,10 @@ const source = await readFile(
   new URL("../src/features/mcp/McpMasterView.tsx", import.meta.url),
   "utf8"
 );
+const userFacingErrorSource = await readFile(
+  new URL("../src/lib/ui/user-facing-error.ts", import.meta.url),
+  "utf8"
+);
 
 test("route customer create checks the selected route for exactly one active session", () => {
   assert.match(source, /\/api\/backend\/mcp-settings\/session-status\?routeId=/);
@@ -35,4 +39,11 @@ test("success copy distinguishes current-session, next-session and reused outcom
   assert.match(source, /Đã thêm điểm bán vào tuyến và phiên hiện tại\./);
   assert.match(source, /Đã thêm điểm bán vào tuyến, áp dụng từ phiên sau\./);
   assert.match(source, /Điểm bán đã tồn tại và được dùng lại/);
+});
+
+test("ambiguous and existing active-session conflicts explain the lifecycle action", () => {
+  assert.match(userFacingErrorSource, /route_active_session_ambiguous/);
+  assert.match(userFacingErrorSource, /nhiều hơn một phiên hoạt động/);
+  assert.match(userFacingErrorSource, /route_active_session_exists/);
+  assert.match(userFacingErrorSource, /Quản lý phiên/);
 });
