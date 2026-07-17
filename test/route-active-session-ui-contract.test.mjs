@@ -23,7 +23,7 @@ test("active session choice uses explicit primary and secondary actions", () => 
 
 test("one user intent keeps one idempotency key and never uses raw route-customer POST", () => {
   assert.match(source, /createIdempotencyKey\("route-customer\.add"\)/);
-  assert.match(source, /idempotentMutationFetch\([\s\S]*?"\/api\/route-customers"[\s\S]*?operation: "route-customer\.add"[\s\S]*?key:/);
+  assert.match(source, /idempotentMutationFetch\([\s\S]*?"\/api\/route-customers"[\s\S]*?operation: "route-customer\.add"[\s\S]*?\bkey\b/);
   assert.doesNotMatch(
     source,
     /fetch\("\/api\/route-customers",\s*\{\s*method:\s*"POST"/,
