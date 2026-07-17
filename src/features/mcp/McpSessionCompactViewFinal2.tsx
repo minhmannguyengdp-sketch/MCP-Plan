@@ -158,57 +158,6 @@ function currentSalesPosition() {
 }
 
 function geolocationMessage(error: unknown) {
-  if (error instanceof GeolocationPositionError) {
-    if (error.code === error.PERMISSION_DENIED) return "Chưa được cấp quyền định vị. Hãy bật quyền vị trí rồi bấm check-in lại.";
-    if (error.code === error.POSITION_UNAVAILABLE) return "Thiết bị chưa lấy được vị trí hiện tại. Hãy đứng nơi thoáng và thử lại.";
-    if (error.code === error.TIMEOUT) return "Lấy vị trí quá thời gian. Hãy thử lại tại điểm bán.";
-  }
-  return error instanceof Error ? error.message : "Không lấy được vị trí hiện tại.";
-}
-
-async function saveManualCheckin(line: McpDayLine, checkedIn: boolean, position?: GeolocationPosition) {
-  const sessionCustomerId = line.sessionCustomerId || line.id;
-  const response = await idempotentMutationFetch(
-    "/api/backend/mcp-day/session-customer/checkin",
-    {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify(checkedIn ? {
-        sessionCustomerId,
-        checkedIn: true,
-        geoLat: position?.coords.latitude,
-        geoLng: position?.coords.longitude,
-        geoAccuracy: position?.coords.accuracy,
-        geoSource: "browser_manual"
-      } : {
-        sessionCustomerId,
-        checkedIn: false
-      })
-    },
-    { operation: "session-customer.checkin.set" }
-  );
-  const payload = await response.json().catch(() => ({})) as { error?: { message?: string }; detail?: string };
-  if (!response.ok) throw new Error(payload.error?.message || payload.detail || "Không lưu được check-in.");
-  return payload;
-}
-
-type CheckinNotice = { kind: "success" | "error"; message: string };
-
-function currentSalesPosition() {
-  return new Promise<GeolocationPosition>((resolve, reject) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error("Thiết bị hoặc trình duyệt không hỗ trợ định vị."));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    });
-  });
-}
-
-function geolocationMessage(error: unknown) {
   const geolocationError = error as Partial<GeolocationPositionError>;
   if (typeof geolocationError?.code === "number") {
     if (geolocationError.code === 1) return "Chưa được cấp quyền định vị. Hãy bật quyền vị trí rồi bấm check-in lại.";
