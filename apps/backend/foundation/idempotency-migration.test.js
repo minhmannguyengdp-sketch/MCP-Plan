@@ -31,6 +31,7 @@ test("core migration creates scoped persisted idempotency state", () => {
   assert.match(coreSql, /mcp_idempotency_records_status_lease_idx/i);
   assert.match(coreSql, /mcp_idempotency_records_expires_at_idx/i);
   assert.match(coreSql, /expires_at = now\(\) \+ interval '30 days'/i);
+  assert.equal((coreSql.match(/extensions\.digest\(/g) || []).length, 3);
 });
 
 test("audit ledger is service-owned and append-only", () => {

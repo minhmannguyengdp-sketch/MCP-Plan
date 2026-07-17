@@ -1,4 +1,4 @@
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.mcp_idempotency_records (
   id uuid primary key default gen_random_uuid(),
@@ -128,7 +128,7 @@ strict
 set search_path = public
 as $function$
   select encode(
-    digest(
+    extensions.digest(
       convert_to(trim(p_operation) || E'\n' || coalesce(p_payload, '{}'::jsonb)::text, 'UTF8'),
       'sha256'
     ),
@@ -416,7 +416,7 @@ begin
       null,
       case
         when v_record.response_payload is null then null
-        else encode(digest(convert_to(v_record.response_payload::text, 'UTF8'), 'sha256'), 'hex')
+        else encode(extensions.digest(convert_to(v_record.response_payload::text, 'UTF8'), 'sha256'), 'hex')
       end,
       null,
       jsonb_build_object(
@@ -509,7 +509,7 @@ begin
   end if;
 
   if v_payload is not null then
-    v_after_hash := encode(digest(convert_to(v_payload::text, 'UTF8'), 'sha256'), 'hex');
+    v_after_hash := encode(extensions.digest(convert_to(v_payload::text, 'UTF8'), 'sha256'), 'hex');
   end if;
 
   update public.mcp_idempotency_records
