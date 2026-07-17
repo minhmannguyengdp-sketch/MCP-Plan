@@ -1,3 +1,5 @@
+import { asObject as object, readJsonValue } from "./json-response.mjs";
+
 const gatewayBase = String(
   process.env.MCP_API_BASE_URL || "http://127.0.0.1:3001"
 ).replace(/\/+$/, "");
@@ -7,10 +9,6 @@ const serviceRole = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
 const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const cleanupRouteIds = new Set();
-
-function object(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
 
 function ensure(condition, message) {
   if (!condition) throw new Error(message);
@@ -33,8 +31,9 @@ function sameJson(left, right) {
 }
 
 function errorCode(payload) {
-  const envelope = object(payload?.error);
-  return String(envelope.code || payload?.error || payload?.message || "request_failed");
+  const root = object(payload);
+  const envelope = object(root.error);
+  return String(envelope.code || root.error || root.message || "request_failed");
 }
 
 function flattenErrors(error) {
@@ -42,16 +41,6 @@ function flattenErrors(error) {
     return Array.from(error.errors || []).flatMap((item) => flattenErrors(item));
   }
   return [error?.message || String(error)];
-}
-
-async function readJson(response, label) {
-  const text = await response.text();
-  if (!text) return {};
-  try {
-    return object(JSON.parse(text));
-  } catch {
-    throw new Error(`${label}: invalid_json_http_${response.status}`);
-  }
 }
 
 async function gateway(path, {
@@ -72,7 +61,7 @@ async function gateway(path, {
     },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-  const payload = await readJson(response, `${method} ${path}`);
+  const payload = object(await readJsonValue(response, `${method} ${path}`));
   return { response, payload, requestId };
 }
 
@@ -120,11 +109,12 @@ async function db(path) {
       Authorization: `Bearer ${serviceRole}`
     }
   });
-  const payload = await readJson(response, `DB GET ${path}`);
+  const payload = await readJsonValue(response, `DB GET ${path}`);
   if (!response.ok) {
     throw new Error(`DB GET ${path} -> ${response.status}: ${errorCode(payload)}`);
   }
-  return Array.isArray(payload) ? payload : [];
+  ensure(Array.isArray(payload), `DB GET ${path}: response_not_array`);
+  return payload;
 }
 
 async function createFixture() {
@@ -246,7 +236,9 @@ async function idempotencyRows(operation, idempotencyKey) {
 }
 
 function replayed(payload) {
-  return object(object(payload.meta).idempotency).replayed === true;
+  return object(object(payload).meta).idempotency
+    ? object(object(object(payload).meta).idempotency).replayed === true
+    : false;
 }
 
 async function runCheckinFlow(fixture) {
@@ -414,7 +406,6 @@ async function runFoundationResultFlow(fixture) {
 }
 
 async function run() {
-  let fixture = null;
   let primaryError = null;
   let cleanupError = null;
   let output = null;
@@ -433,7 +424,7 @@ async function run() {
     ensure(healthData.providerConfigured === true, "health_provider_not_configured");
     ensure(healthData.authBoundary === "proxy-service", "health_auth_boundary_invalid");
 
-    fixture = await createFixture();
+    const fixture = await createFixture();
     const checkin = await runCheckinFlow(fixture);
     const foundationResult = await runFoundationResultFlow(fixture);
 
