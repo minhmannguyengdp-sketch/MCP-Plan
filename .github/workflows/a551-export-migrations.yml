@@ -1,0 +1,22 @@
+name: A5.5.1 Export Migrations
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.head_ref == 'a5-5-1-idempotency-core'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a551-production-migrations
+          path: |
+            supabase/migrations/20260717090000_idempotency_audit_core.sql
+            supabase/migrations/20260717091000_foundation_idempotent_mutations.sql
+          if-no-files-found: error
