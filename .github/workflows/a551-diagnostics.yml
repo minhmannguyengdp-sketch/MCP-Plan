@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   diagnostics:
@@ -13,6 +13,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: a5-5-1-idempotency-core
+      - name: Apply remaining caller changes
+        run: node scripts/a551-apply-caller-idempotency.mjs
+      - name: Commit caller changes
+        run: |
+          if git diff --quiet; then
+            echo "caller_changes_already_applied"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/api/api-client.ts \
+            src/features/mcp/McpSessionsManagerSafe.tsx \
+            src/lib/api/backend-proxy.ts \
+            src/app/api/mcp-session-report/analyze/route.ts \
+            src/features/market-reports/MarketReportsClientPage.tsx
+          git commit -m "Add stable keys to remaining Foundation mutation callers"
+          git push origin HEAD:a5-5-1-idempotency-core
       - name: Build caller and scanner diagnostics
         run: |
           mkdir -p diagnostics
