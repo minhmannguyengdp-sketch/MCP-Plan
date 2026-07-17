@@ -23,6 +23,7 @@ jobs:
         run: |
           node scripts/apply-session-checkin-ui.mjs
           node scripts/fix-session-checkin-ui.mjs
+          node scripts/register-session-checkin-boundary.mjs
       - name: Commit transformed source
         run: |
           if git diff --quiet; then
@@ -30,7 +31,7 @@ jobs:
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/features/mcp/McpSessionCompactViewFinal2.tsx apps/backend/server.js
-            git commit -m "Harden manual check-in UI behavior"
+            git add src/features/mcp/McpSessionCompactViewFinal2.tsx apps/backend/server.js scripts/direct-db-mutation-baseline.json
+            git commit -m "Register manual check-in mutation boundary"
             git push origin HEAD:ui-session-checkin-modal-density
           fi
