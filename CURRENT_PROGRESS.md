@@ -3,21 +3,20 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật gần nhất: **2026-07-17**  
 > Master plan: **Phase A / NPP-F05 — audit consumer + khóa mutation trực tiếp**  
-> Trạng thái: **SOURCE/CI/DB VERIFIED — PR #27 READY TO MERGE — VERCEL RATE-LIMIT + VPS RUNTIME PENDING**
+> Trạng thái: **PR #27 MERGED + SOURCE/CI/DB VERIFIED — VERCEL RATE-LIMIT + VPS RUNTIME PENDING**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Merge PR #27 sau final docs CI.
-2. Chờ/gỡ Vercel account build-rate-limit và deploy current main.
-3. Xác nhận Vercel / và /mcp trả HTTP 200.
-4. SSH VPS và chạy pullmcp.
-5. Xác nhận F0.2_VPS_SMOKE=PASS.
-6. Chạy smoke runtime chính thức:
+1. Chờ/gỡ Vercel account build-rate-limit và deploy current main.
+2. Xác nhận Vercel / và /mcp trả HTTP 200.
+3. SSH VPS và chạy pullmcp.
+4. Xác nhận F0.2_VPS_SMOKE=PASS.
+5. Chạy smoke runtime chính thức:
    cd /var/www/mcp-plan-source
    node --env-file=/var/www/mcp-plan-backend/.env test/runtime/smoke-f05-runtime-closure.mjs
-7. Chỉ khi JSON có F05_RUNTIME_CLOSURE_SMOKE=PASS mới đóng runtime gate.
-8. Cập nhật CURRENT_PROGRESS.md + evidence release trên main.
+6. Chỉ khi JSON có F05_RUNTIME_CLOSURE_SMOKE=PASS mới đóng runtime gate.
+7. Cập nhật CURRENT_PROGRESS.md + evidence release trên main.
 
 KHÔNG bắt đầu A5.5.2.
 KHÔNG bắt đầu NPP-F06.
@@ -87,11 +86,11 @@ docs/npp-plan/SESSION_UI_CHECKIN_RELEASE.md
 ## 4. PR #27 — repeatable F05 runtime smoke
 
 ```text
-PR:             #27 — OPEN / READY TO MERGE
-BRANCH:         f05-runtime-smoke-closure
-HEAD SHA:       6de1f41e45b68da014e934342264aec610062ce4
-CI:             PASS — Foundation F0.2 #284
-CI RUN ID:      29563539777
+PR:             #27 — MERGED
+FINAL HEAD SHA: 6afc741c6a1b407d88781be4e70b69157019e8cb
+MERGE SHA:      a59dfdc01c6755ef426753c3c8216cc460b747d2
+FINAL CI:       PASS — Foundation F0.2 #286
+CI RUN ID:      29563734574
 SCANNER:        PASS — không thêm baseline/exception
 TYPECHECK:      PASS
 NEXT BUILD:     PASS
@@ -167,7 +166,7 @@ docs/npp-plan/A5_5_1_IDEMPOTENCY_RELEASE.md
 
 ## 6. Vercel blocker
 
-Empty trigger commits đã được tạo trên `main`, mới nhất:
+Empty trigger commits đã được tạo trên `main`, mới nhất trước PR #27:
 
 ```text
 285b0391f4032242b33c9abbfef9cfc82150e784
@@ -212,7 +211,7 @@ Không được suy diễn VPS đã chạy source mới nếu chưa có output t
 
 ## 8. Local workstation sync
 
-Sau khi PR #27 merge:
+PR #27 đã merge, local cần:
 
 ```powershell
 cd "F:\1_A_Disk_D\Tool\mcp-plan"
