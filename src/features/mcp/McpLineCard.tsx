@@ -63,13 +63,14 @@ export function McpLineCard({
   line: McpDayLine;
   onOpen: (line: McpDayLine) => void;
   onAction: (line: McpDayLine, action: McpCustomerAction) => void;
-  onToggleCheckin: (line: McpDayLine) => void;
+  onToggleCheckin?: (line: McpDayLine) => void;
   checkinBusy?: boolean;
 }) {
   const directions = useMcpCustomerDirections(line.routeCustomerId, line.accountName, line.area);
+  const checkinEnabled = typeof onToggleCheckin === "function";
 
   return (
-    <article className={`${styles.card} ${statusClass(line.status)}`}>
+    <article className={`${styles.card} ${statusClass(line.status)} ${checkinEnabled ? "" : styles.withoutCheckin}`}>
       <button className={styles.main} type="button" onClick={() => onOpen(line)}>
         <span className={styles.index}>#{line.sortOrder || "-"}</span>
         <span className={styles.identity}>
@@ -98,19 +99,21 @@ export function McpLineCard({
           </button>
         ))}
       </div>
-      <button
-        className={`${styles.checkin} ${line.checkedIn ? styles.checkinActive : ""}`}
-        type="button"
-        aria-pressed={line.checkedIn === true}
-        aria-label={line.checkedIn ? `Bỏ check-in tại ${line.accountName}` : `Check-in vị trí hiện tại tại ${line.accountName}`}
-        title={line.checkedIn ? "Bấm lần nữa để bỏ check-in nếu thao tác nhầm" : "Chỉ lấy vị trí hiện tại khi bấm nút này"}
-        disabled={checkinBusy}
-        onClick={() => onToggleCheckin(line)}
-      >
-        <span aria-hidden="true">{checkinBusy ? "…" : line.checkedIn ? "✓" : "⌖"}</span>
-        <strong>{checkinBusy ? "Đang xử lý" : line.checkedIn ? "Đã check-in" : "Check-in"}</strong>
-        <small>{line.checkedIn ? checkinTime(line.checkinAt) : "Lấy GPS"}</small>
-      </button>
+      {onToggleCheckin ? (
+        <button
+          className={`${styles.checkin} ${line.checkedIn ? styles.checkinActive : ""}`}
+          type="button"
+          aria-pressed={line.checkedIn === true}
+          aria-label={line.checkedIn ? `Bỏ check-in tại ${line.accountName}` : `Check-in vị trí hiện tại tại ${line.accountName}`}
+          title={line.checkedIn ? "Bấm lần nữa để bỏ check-in nếu thao tác nhầm" : "Chỉ lấy vị trí hiện tại khi bấm nút này"}
+          disabled={checkinBusy}
+          onClick={() => onToggleCheckin(line)}
+        >
+          <span aria-hidden="true">{checkinBusy ? "…" : line.checkedIn ? "✓" : "⌖"}</span>
+          <strong>{checkinBusy ? "Đang xử lý" : line.checkedIn ? "Đã check-in" : "Check-in"}</strong>
+          <small>{line.checkedIn ? checkinTime(line.checkinAt) : "Lấy GPS"}</small>
+        </button>
+      ) : null}
     </article>
   );
 }
