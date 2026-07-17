@@ -3,20 +3,21 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật gần nhất: **2026-07-17**  
 > Master plan: **Phase A / NPP-F05 — audit consumer + khóa mutation trực tiếp**  
-> Trạng thái: **PR #27 MERGED + SOURCE/CI/DB VERIFIED — VERCEL RATE-LIMIT + VPS RUNTIME PENDING**
+> Trạng thái: **PR #28 HOTFIX MERGED + SOURCE/CI/DB VERIFIED — VERCEL RATE-LIMIT + VPS RUNTIME PENDING**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
 1. Chờ/gỡ Vercel account build-rate-limit và deploy current main.
 2. Xác nhận Vercel / và /mcp trả HTTP 200.
-3. SSH VPS và chạy pullmcp.
-4. Xác nhận F0.2_VPS_SMOKE=PASS.
-5. Chạy smoke runtime chính thức:
+3. Smoke UI: mở Phiên -> Thêm khách -> Lưu; phải thành công, không còn thiếu Idempotency-Key.
+4. SSH VPS và chạy pullmcp.
+5. Xác nhận F0.2_VPS_SMOKE=PASS.
+6. Chạy smoke runtime chính thức:
    cd /var/www/mcp-plan-source
    node --env-file=/var/www/mcp-plan-backend/.env test/runtime/smoke-f05-runtime-closure.mjs
-6. Chỉ khi JSON có F05_RUNTIME_CLOSURE_SMOKE=PASS mới đóng runtime gate.
-7. Cập nhật CURRENT_PROGRESS.md + evidence release trên main.
+7. Chỉ khi JSON có F05_RUNTIME_CLOSURE_SMOKE=PASS mới đóng runtime gate.
+8. Cập nhật CURRENT_PROGRESS.md + evidence release trên main.
 
 KHÔNG bắt đầu A5.5.2.
 KHÔNG bắt đầu NPP-F06.
@@ -48,7 +49,44 @@ A5.5.2 — 21 legacy mutation route cases
 Order Core / NPP-03
 ```
 
-## 3. Session UI + manual sales check-in
+## 3. Hotfix Thêm khách trong Phiên
+
+```text
+PR:             #28 — MERGED
+FINAL HEAD SHA: 1ee7e93722ec0f500ccc864ba513d1a8fd0ec95c
+MERGE SHA:      dc000bd9b6e1ead9d4ae40eca429fd94d9c9cbad
+CI:             PASS — Foundation F0.2 #294
+CI RUN ID:      29571820520
+TYPECHECK:      PASS
+NEXT BUILD:     PASS
+DB/MIGRATION:   NOT CHANGED
+VPS BACKEND:    NOT CHANGED BY THIS HOTFIX
+VERCEL:         PENDING — ACCOUNT BUILD-RATE-LIMIT
+```
+
+Root cause:
+
+- `McpSessionAddCustomerButton` gọi raw `fetch()` trực tiếp;
+- typed backend `session-customer.add` bắt buộc `Idempotency-Key` đúng theo A5.5.1;
+- API client chuẩn có helper nhưng component live bypass helper;
+- key bị rơi ở caller UI, không phải DB/RPC/proxy.
+
+Fix:
+
+- component dùng `idempotentMutationFetch`;
+- operation cố định `session-customer.add`;
+- helper giữ cùng key qua retry mạng;
+- proxy chỉ forward key;
+- backend vẫn từ chối request thiếu key;
+- test cấm component quay lại raw `fetch()` cho route add-customer.
+
+Evidence:
+
+```text
+docs/npp-plan/SESSION_ADD_CUSTOMER_IDEMPOTENCY_FIX.md
+```
+
+## 4. Session UI + manual sales check-in
 
 ```text
 PR:                        #26 — MERGED
@@ -83,7 +121,7 @@ Evidence:
 docs/npp-plan/SESSION_UI_CHECKIN_RELEASE.md
 ```
 
-## 4. PR #27 — repeatable F05 runtime smoke
+## 5. PR #27 — repeatable F05 runtime smoke
 
 ```text
 PR:             #27 — MERGED
@@ -141,7 +179,7 @@ Evidence:
 docs/npp-plan/F05_RUNTIME_CLOSURE_SMOKE.md
 ```
 
-## 5. A5.5.1 — persisted idempotency core
+## 6. A5.5.1 — persisted idempotency core
 
 ```text
 PR:                       #25 — MERGED
@@ -164,9 +202,9 @@ docs/npp-plan/A5_5_IDEMPOTENCY_AUDIT.md
 docs/npp-plan/A5_5_1_IDEMPOTENCY_RELEASE.md
 ```
 
-## 6. Vercel blocker
+## 7. Vercel blocker
 
-Empty trigger commits đã được tạo trên `main`, mới nhất trước PR #27:
+Empty trigger commit gần nhất trước hotfix:
 
 ```text
 285b0391f4032242b33c9abbfef9cfc82150e784
@@ -181,9 +219,9 @@ state:   failure
 reason:  build-rate-limit
 ```
 
-Không retry liên tục. Khi quota/build window mở lại, deploy current `main` và smoke `/` + `/mcp`.
+Không retry liên tục. Khi quota/build window mở lại, deploy current `main` và smoke `/` + `/mcp`, sau đó test lưu khách trong Phiên.
 
-## 7. VPS runtime
+## 8. VPS runtime
 
 ```text
 source:             /var/www/mcp-plan-source
@@ -209,24 +247,25 @@ node --env-file=/var/www/mcp-plan-backend/.env test/runtime/smoke-f05-runtime-cl
 
 Không được suy diễn VPS đã chạy source mới nếu chưa có output thực tế của `pullmcp`.
 
-## 8. Local workstation sync
+## 9. Local workstation sync
 
-PR #27 đã merge, local cần:
+PR #28 đã merge, local cần:
 
 ```powershell
 cd "F:\1_A_Disk_D\Tool\mcp-plan"
-git pull origin main
+git pull --ff-only origin main
 npm run build
 ```
 
 Không commit/push nếu chỉ pull và build không tạo thay đổi source.
 
-## 9. Quy tắc đóng F05
+## 10. Quy tắc đóng F05
 
 Chỉ đóng NPP-F05/A5.5.1 runtime khi có đủ:
 
 ```text
 Vercel current main READY + / + /mcp HTTP 200
+UI thêm khách trong Phiên lưu thành công
 VPS pullmcp => F0.2_VPS_SMOKE=PASS
 F05 runtime smoke => PASS
 fixtureCleanup => PASS
