@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { userFacingError } from "@/lib/ui/user-facing-error";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { ExportMenu, buildExportLink } from "@/features/exports/ExportLinks";
 
@@ -95,14 +96,19 @@ function friendlyError(error: unknown, fallback: string) {
 }
 
 async function callApi(path: string, init: RequestInit) {
-  const response = await fetch(path, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json"
+  const method = String(init.method || "POST").toUpperCase();
+  const response = await idempotentMutationFetch(
+    path,
+    {
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      ...init,
+      method
     },
-    ...init
-  });
+    { operation: `mcp-session-manager.${method.toLowerCase()}` }
+  );
 
   const payload = await response.json().catch(() => ({}));
 

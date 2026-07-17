@@ -13,6 +13,7 @@ import type { RouteCustomersData } from "@/features/mcp/route-customers.types";
 import { routesMock } from "@/features/routes/routes.mock";
 import type { RoutesData } from "@/features/routes/routes.types";
 import type { AccountDto, ActionDto, ApiResult, DashboardOverviewDto, DashboardSummaryDto, DayRunDto, ListQuery, MarketCheckDto, OrderDto, RouteDto } from "./api.types";
+import { idempotentMutationFetch } from "./idempotent-fetch";
 
 export type McpApiClient = {
   getDashboardSummary(): Promise<ApiResult<DashboardSummaryDto>>;
@@ -152,12 +153,15 @@ async function postJson<T>(
   backendApiToken: string | null,
   body: unknown
 ): Promise<ApiResult<T>> {
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: "POST",
-    cache: "no-store",
-    headers: backendHeaders(backendApiToken, true),
-    body: JSON.stringify(body)
-  });
+  const response = await idempotentMutationFetch(
+    `${baseUrl}${path}`,
+    {
+      method: "POST",
+      headers: backendHeaders(backendApiToken, true),
+      body: JSON.stringify(body)
+    },
+    { operation: `api-client${path}` }
+  );
   const payload = (await response.json().catch(() => ({}))) as T | { data: T; receivedAt?: string; error?: string; detail?: string };
   if (!response.ok) {
     const errorPayload = payload as { error?: string; detail?: string };

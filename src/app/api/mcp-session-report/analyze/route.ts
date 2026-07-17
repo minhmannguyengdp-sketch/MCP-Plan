@@ -117,13 +117,15 @@ async function fetchWithTimeout(
 async function persistAgentResult(
   sessionId: string,
   aiResult: Record<string, unknown>,
-  requestId: string
+  requestId: string,
+  idempotencyKey: string
 ) {
   const analyzedAt = new Date().toISOString();
   const { headers } = backendApiRequestHeaders(undefined, {
     requestId,
     hasBody: true,
-    contentType: "application/json"
+    contentType: "application/json",
+    idempotencyKey
   });
   const response = await fetch(
     `${backendApiBaseUrl()}/api/mcp-session-report/ai-result`,
@@ -200,6 +202,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const requestId = normalizeApiRequestId(request.headers.get("x-request-id"));
+  const idempotencyKey = text(request.headers.get("idempotency-key"));
   let body: Record<string, unknown>;
 
   try {
@@ -209,6 +212,13 @@ export async function POST(request: Request) {
       requestId,
       status: 400,
       message: "Nội dung JSON không hợp lệ."
+    });
+  }
+
+  if (!idempotencyKey) {
+    return apiErrorResponse("IDEMPOTENCY_KEY_REQUIRED", {
+      requestId,
+      status: 400
     });
   }
 
@@ -292,7 +302,8 @@ export async function POST(request: Request) {
         result,
         generatedAt: new Date().toISOString()
       },
-      requestId
+      requestId,
+      idempotencyKey
     );
 
     return apiSuccessResponse(
