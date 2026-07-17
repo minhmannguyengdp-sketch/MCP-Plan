@@ -4,7 +4,7 @@
 > Trạng thái source: **MERGED + VERIFIED**  
 > Trạng thái production DB: **APPLIED + VERIFIED**  
 > Vercel production: **BLOCKED — ACCOUNT BUILD-RATE-LIMIT**  
-> Runtime VPS/Gateway: **PENDING**
+> Runtime VPS/Gateway: **PASS**
 
 ## 1. Phạm vi
 
@@ -141,7 +141,7 @@ checkin
 remove_checkin
 ```
 
-## 4. Production smoke
+## 4. Production DB smoke
 
 Safe row:
 
@@ -190,9 +190,47 @@ both records:               completed / HTTP 200
 
 Business row was restored to its exact pre-smoke `raw_payload`, `updated_at` and null check-in fields. Release idempotency/audit rows remain as immutable evidence.
 
-## 5. Vercel blocker
+## 5. VPS/Gateway runtime smoke
 
-GitHub combined status for both the merge SHA and the later `main` documentation commit returned:
+Source runtime parser fix:
+
+```text
+PR:           #33 — MERGED
+Merge SHA:    6020c2f8b5783241ecbb2c3b1b28be577cbb941b
+Final CI:     Foundation F0.2 #329 — PASS
+```
+
+VPS deploy boundary:
+
+```text
+127.0.0.1:3001 LISTEN
+127.0.0.1:3102 LISTEN
+F0.2_VPS_SMOKE=PASS
+Previous runtime backup: /var/www/mcp-plan-backend.backup.20260717-164200
+```
+
+Authenticated Gateway runtime output:
+
+```text
+health:                    PASS
+canonicalEnvelope:         PASS
+check-in first:            PASS
+check-in replay:           PASS
+check-in conflict:         PASS
+second-click undo:         PASS
+check-in audit:            PASS
+outletGpsUnchanged:        true
+visitStatusUnchanged:      true
+fixtureCleanup:            PASS
+```
+
+Đây là runtime evidence thật qua `http://127.0.0.1:3001`, không phải suy luận từ DB smoke. Check-in GPS chỉ tồn tại trên session snapshot trong lúc check-in; undo xóa các cột check-in và không ghi đè GPS route master.
+
+Evidence đầy đủ: `docs/npp-plan/F05_RUNTIME_CLOSURE_SMOKE.md`.
+
+## 6. Vercel blocker
+
+GitHub combined status cho merge UI trước đó trả:
 
 ```text
 context: Vercel
@@ -200,24 +238,30 @@ state:   failure
 reason:  build-rate-limit
 ```
 
-Verified affected SHAs:
+Không retry deploy liên tục. Khi quota/build window cho phép, deploy production từ `main`, xác nhận deployment chứa commit hiện tại hoặc commit `main` mới hơn và smoke `/` + `/mcp` HTTP 200.
+
+Frontend production trước blocker đã có check-in UI và prompt route từ các PR trước. Phần runtime backend/DB đã được kiểm độc lập trên VPS.
+
+## 7. Release gate
 
 ```text
-6c1a3b8e9d74489abb4d3a1409faeb812543a105
-6667b8734046b1da4c693d33ae94088ad6c5d2e2
+source + CI                              PASS
+production DB migration + DB smoke      PASS
+VPS pullmcp / F0.2 boundary             PASS
+Gateway execute/replay/conflict/undo    PASS
+Gateway audit/idempotency               PASS
+outlet GPS preserved                    PASS
+visit status preserved                  PASS
+fixture cleanup                         PASS
 ```
 
-Không retry deploy liên tục. Khi quota/build window cho phép, deploy production từ `main`, xác nhận deployment chứa merge SHA hoặc commit `main` mới hơn và smoke `/` + `/mcp` HTTP 200.
+Runtime gate của manual sales check-in đã đóng. Việc còn lại của NPP-F05 là functional UI smoke thật:
 
-## 6. Remaining runtime gates
+```text
+route không active session
+route có đúng một active session — cả hai lựa chọn
+Thêm khách trong Phiên lưu thành công
+manual check-in thao tác trên UI thật
+```
 
-Before declaring this UI release fully deployed:
-
-1. clear/wait out Vercel build-rate-limit and deploy current `main`;
-2. verify Vercel root and `/mcp` return HTTP 200;
-3. SSH VPS and run `pullmcp`;
-4. verify `F0.2_VPS_SMOKE=PASS`;
-5. run authenticated Gateway check-in/replay/conflict/undo smoke;
-6. update `CURRENT_PROGRESS.md` and this evidence file.
-
-Do not infer VPS is current until actual `pullmcp` output exists. Do not touch `milktea-backend` port 3002.
+Không đụng `milktea-backend` port `3002`.
