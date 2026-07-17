@@ -16,11 +16,12 @@ async function missing(path) {
   }
 }
 
-test("field-check route has one RPC owner and no direct table fallback", () => {
+test("field-check route has one typed RPC owner and no direct table fallback", () => {
   assert.match(transitional, /updateFieldCheckResult/);
   assert.doesNotMatch(transitional, /test_customer_results\?id=/);
   assert.doesNotMatch(transitional, /test_customer_results\?select=/);
-  assert.match(fieldOwner, /mcp_update_field_check_result/);
+  assert.match(fieldOwner, /mcp_idempotent_update_field_check_result/);
+  assert.doesNotMatch(fieldOwner, /supabaseRest\(|test_customer_results\?/);
   assert.match(fieldOwner, /result_id_required/);
 });
 
