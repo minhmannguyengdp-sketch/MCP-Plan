@@ -2,8 +2,9 @@
 
 > Cập nhật: **2026-07-17**  
 > Incident: nút **Thêm điểm bán** tại tuyến `Thứ 6` dừng trước mutation và hiện lỗi chung  
-> PR: **#31**  
-> Trạng thái: **SOURCE + CI PASS — PRODUCTION MIGRATION PENDING**
+> PR: **#31 — MERGED**  
+> Merge SHA: **0fefd6e724bed25b829bbbaf61b81537bb4a5967**  
+> Trạng thái: **PRODUCTION MIGRATION APPLIED + DB VERIFIED — UI RETRY PENDING**
 
 ## 1. Triệu chứng
 
@@ -34,7 +35,7 @@ route_name: Thứ 6
 area:       Chợ Gạo-Gò Công
 ```
 
-Có năm phiên cùng `active`:
+Trước hotfix có năm phiên cùng `active`:
 
 ```text
 2026-07-17  active  có hoạt động thật
@@ -69,9 +70,9 @@ nhiều active session -> vào Quản lý phiên để chốt/hủy phiên cũ
 active session conflict -> chốt/hủy phiên đang mở trước khi mở phiên mới
 ```
 
-## 4. Tests
+## 4. Tests và CI
 
-Contract mới:
+Contract:
 
 ```text
 apps/backend/foundation/route-session-single-active-migration.test.js
@@ -88,11 +89,11 @@ Khóa các yêu cầu:
 - stale active được done/cancelled trước insert ngày mới;
 - new session vẫn snapshot đúng một lần.
 
-CI:
+Final head CI:
 
 ```text
-Foundation F0.2 #324
-Run ID: 29595470829
+Foundation F0.2 #325
+Run ID: 29595626624
 Scanner: PASS
 Production hygiene: PASS
 Backend tests: PASS
@@ -118,7 +119,7 @@ Unique index compile thành công. Sau `ROLLBACK`, statuses và schema productio
 
 ### Mở phiên ngày mới
 
-Sau repair, giả lập:
+Giả lập:
 
 ```sql
 mcp_open_route_session(route Thứ 6, date '2026-07-18', 'Dry Run')
@@ -134,18 +135,77 @@ active_count = 1
 
 Sau `ROLLBACK`, không còn phiên 18/07 và index dry-run không tồn tại.
 
-## 6. Release gate
+## 6. Production apply và verification
 
-Chỉ apply production sau khi PR source CI xanh.
-
-Sau apply phải xác nhận:
+Migration Supabase:
 
 ```text
-active_session_count <= 1 cho mọi route
-Thứ 6: 17/07 active, 10/07 cancelled, 05/07/04/07/03/07 done
-mcp_route_sessions_one_active_per_route_uidx tồn tại
-mcp_open_route_session giữ SECURITY DEFINER
-UI preflight tuyến Thứ 6 thấy đúng một active session và hiện prompt hai lựa chọn
+name:    single_active_route_session
+version: 20260717162038
+result:  APPLIED
+```
+
+Invariant toàn DB:
+
+```text
+max_active_per_route = 1
+ambiguous_routes     = 0
+```
+
+Tuyến `Thứ 6` sau apply:
+
+```text
+17/07 -> active     28 snapshots, 17 visits, 3 follow-ups
+10/07 -> cancelled  17 snapshots, không hoạt động
+05/07 -> done       17 snapshots, 1 visit, 1 follow-up, close report snapshot
+04/07 -> done       18 snapshots, 3 visits, 1 follow-up, close report snapshot
+03/07 -> done       17 visits, close report snapshot
+```
+
+DB objects:
+
+```text
+mcp_route_sessions_one_active_per_route_uidx: EXISTS
+mcp_open_route_session SECURITY DEFINER:       true
+session/route row locks:                       true
+finalize older session only:                   true
+new-session snapshot-once path:                true
+```
+
+## 7. Typed route-customer smoke
+
+Chạy transaction rollback trên route `Thứ 6`, exact active session 17/07:
+
+```text
+route-customer.add includeActiveSession=true
+route customer created:   PASS
+session snapshot created: PASS
+visit_status:             pending
+check-in/order/test/report/follow-up untouched
+```
+
+Sau rollback:
+
+```text
+route_customer_leaks = 0
+session_customer_leaks = 0
+idempotency_leaks = 0
+audit_leaks = 0
+```
+
+## 8. Deployment/UI gate
+
+Frontend production hiện tại đã có prompt hai lựa chọn từ PR #29. DB repair làm preflight tuyến `Thứ 6` từ 5 active sessions về đúng 1, nên thao tác hiện có thể đi tiếp tới prompt và typed mutation.
+
+UI copy rõ hơn của PR #31 chưa lên Vercel vì merge SHA bị platform build-rate-limit. Đây không chặn logic nút lưu sau DB repair; khi quota cho phép cần deploy lại merge SHA và smoke trực tiếp trên thiết bị.
+
+Còn phải xác nhận bằng thao tác thật:
+
+```text
+Tuyến Thứ 6 -> Thêm điểm bán
+-> prompt hiện
+-> Thêm vào tuyến và phiên: PASS
+-> Chỉ thêm vào tuyến: PASS
 ```
 
 Không đụng `milktea-backend` port 3002. Không bắt đầu A5.5.2, NPP-F06 hoặc Order Core trước khi đóng F05 runtime/UI gates.
