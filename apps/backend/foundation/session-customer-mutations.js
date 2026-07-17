@@ -189,3 +189,44 @@ export async function addSessionCustomer(body, context, config, options) {
     throw normalizeMutationError(error);
   }
 }
+
+export async function setSessionCustomerCheckin(body, context, config, options) {
+  const fetchImpl = options?.fetchImpl || fetch;
+  const sessionCustomerId = text(body.sessionCustomerId || body.session_customer_id || body.id);
+  const checkedIn = optionalBoolean(body, "checkedIn", "checked_in");
+  const geoLat = optionalNumber(body, "geoLat", "geo_lat");
+  const geoLng = optionalNumber(body, "geoLng", "geo_lng");
+  const geoAccuracy = optionalNumber(body, "geoAccuracy", "geo_accuracy");
+  const geoSource = text(body.geoSource || body.geo_source);
+
+  if (!sessionCustomerId) badRequest("session_customer_id_required");
+  if (checkedIn === null) badRequest("checked_in_required");
+
+  if (checkedIn) {
+    if (geoLat === null || geoLng === null) badRequest("checkin_coordinates_required");
+    if (geoLat < -90 || geoLat > 90) badRequest("invalid_geo_lat");
+    if (geoLng < -180 || geoLng > 180) badRequest("invalid_geo_lng");
+    if (geoAccuracy !== null && geoAccuracy < 0) badRequest("invalid_geo_accuracy");
+  } else if (geoLat !== null || geoLng !== null || geoAccuracy !== null || geoSource) {
+    badRequest("checkin_coordinates_not_allowed");
+  }
+
+  try {
+    return await supabaseRpc(
+      config,
+      "mcp_idempotent_set_session_customer_checkin",
+      {
+        p_session_customer_id: sessionCustomerId,
+        p_checked_in: checkedIn,
+        p_geo_lat: checkedIn ? geoLat : null,
+        p_geo_lng: checkedIn ? geoLng : null,
+        p_geo_accuracy: checkedIn ? geoAccuracy : null,
+        p_geo_source: checkedIn ? (geoSource || "browser_manual") : null,
+        p_context: foundationContext(context)
+      },
+      { fetchImpl }
+    );
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
+}
