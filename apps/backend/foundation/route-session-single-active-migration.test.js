@@ -51,12 +51,13 @@ test("database permits at most one active session for each route", () => {
 
 test("opening a newer daily session atomically finalizes the stale active session", () => {
   const body = functionBody("mcp_open_route_session");
+  const sessionLock = body.indexOf("from public.mcp_route_sessions");
   const routeLock = body.indexOf("from public.mcp_routes");
-  const staleLock = body.indexOf("from public.mcp_route_sessions", routeLock + 1);
   const insert = body.indexOf("insert into public.mcp_route_sessions");
 
+  assert.match(body, /from public\.mcp_route_sessions[\s\S]*?for update;/i);
   assert.match(body, /from public\.mcp_routes[\s\S]*?for update;/i);
-  assert.ok(routeLock >= 0 && staleLock > routeLock && insert > staleLock, "route and stale session must be resolved before insert");
+  assert.ok(sessionLock >= 0 && routeLock > sessionLock && insert > routeLock, "open-session must follow session -> route lock order before insert");
   assert.match(body, /session_date < p_session_date/i);
   assert.match(body, /mcp_update_route_session\([\s\S]*?'done'/i);
   assert.match(body, /mcp_update_route_session\([\s\S]*?'cancelled'/i);
