@@ -1,3 +1,4 @@
+import { normalizeIdempotencyProviderError } from "./idempotency.js";
 import { supabaseRpc } from "./supabase-adapter.js";
 
 const MAX_SORT_ORDER = 100000;
@@ -87,6 +88,8 @@ function providerBusinessCode(error) {
 }
 
 function normalizeMutationError(error) {
+  if (normalizeIdempotencyProviderError(error)) return error;
+
   const code = providerBusinessCode(error);
   if (!code) return error;
   error.code = code;
@@ -104,7 +107,7 @@ export async function createReportSettingGroup(body, context, config, options) {
   const fetchImpl = options?.fetchImpl || fetch;
   const title = requiredText(body.title, "title_required", 200);
   try {
-    return await supabaseRpc(config, "mcp_create_report_setting_group", {
+    return await supabaseRpc(config, "mcp_idempotent_create_report_setting_group", {
       p_group_key: settingKey(body.key ?? title, "invalid_group_key"),
       p_title: title,
       p_group_type: groupType(body.groupType ?? body.group_type),
@@ -131,7 +134,7 @@ export async function updateReportSettingGroup(body, context, config, options) {
   if (hasOwn(body, "meta")) patch.meta = metadata(body.meta);
   if (Object.keys(patch).length === 0) badRequest("report_setting_patch_required");
   try {
-    return await supabaseRpc(config, "mcp_update_report_setting_group", {
+    return await supabaseRpc(config, "mcp_idempotent_update_report_setting_group", {
       p_group_id: groupId,
       p_patch: patch,
       p_context: foundationContext(context)
@@ -147,7 +150,7 @@ export async function createReportSettingItem(body, context, config, options) {
   const label = requiredText(body.label, "label_required", 200);
   const value = nullableText(body.value, "invalid_value", 500) || label;
   try {
-    return await supabaseRpc(config, "mcp_create_report_setting_item", {
+    return await supabaseRpc(config, "mcp_idempotent_create_report_setting_item", {
       p_group_id: groupId,
       p_item_key: settingKey(body.key ?? label, "invalid_item_key"),
       p_label: label,
@@ -180,7 +183,7 @@ export async function updateReportSettingItem(body, context, config, options) {
   if (hasOwn(body, "meta")) patch.meta = metadata(body.meta);
   if (Object.keys(patch).length === 0) badRequest("report_setting_patch_required");
   try {
-    return await supabaseRpc(config, "mcp_update_report_setting_item", {
+    return await supabaseRpc(config, "mcp_idempotent_update_report_setting_item", {
       p_item_id: itemId,
       p_patch: patch,
       p_context: foundationContext(context)
