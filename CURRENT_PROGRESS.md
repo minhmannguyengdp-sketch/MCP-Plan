@@ -3,17 +3,18 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật gần nhất: **2026-07-17**  
 > Công việc hiện tại: **Session UI + manual sales check-in**  
-> Trạng thái: **MERGED + CI/DB VERIFIED — VERCEL DEPLOY PENDING — VPS/GATEWAY PENDING**
+> Trạng thái: **MERGED + CI/DB VERIFIED — VERCEL BLOCKED BY BUILD-RATE-LIMIT — VPS/GATEWAY PENDING**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Xác nhận Vercel production READY đúng main SHA và root HTTP 200.
-2. SSH VPS, chạy pullmcp.
-3. Xác nhận F0.2_VPS_SMOKE=PASS.
-4. Chạy authenticated Gateway check-in/replay/conflict/undo smoke.
-5. Cập nhật CURRENT_PROGRESS.md và SESSION_UI_CHECKIN_RELEASE.md.
-6. Sau đó quay lại gate VPS/Gateway còn thiếu của A5.5.1.
+1. Chờ/gỡ Vercel account build-rate-limit.
+2. Deploy production từ current main và xác nhận / + /mcp HTTP 200.
+3. SSH VPS, chạy pullmcp.
+4. Xác nhận F0.2_VPS_SMOKE=PASS.
+5. Chạy authenticated Gateway check-in/replay/conflict/undo smoke.
+6. Cập nhật CURRENT_PROGRESS.md và SESSION_UI_CHECKIN_RELEASE.md.
+7. Sau đó quay lại gate VPS/Gateway còn thiếu của A5.5.1.
 
 KHÔNG bắt đầu A5.5.2.
 KHÔNG bắt đầu Order Core.
@@ -50,8 +51,9 @@ DB SECOND-CLICK UNDO:      PASS
 BUSINESS RESTORE:          rollbackEqual=true
 OUTLET GPS UNCHANGED:      true
 VISIT STATUS UNCHANGED:    true
-VERCEL PROD:               PENDING DEPLOYMENT FROM MAIN
+VERCEL PROD:               BLOCKED — ACCOUNT BUILD-RATE-LIMIT
 VPS/GATEWAY:               PENDING
+FULL RUNTIME RELEASE:      PENDING
 ```
 
 Evidence:
@@ -157,7 +159,26 @@ checkin        replayed
 remove_checkin succeeded
 ```
 
-## 3. A5.5.1 — persisted idempotency core
+## 3. Vercel blocker
+
+GitHub combined status:
+
+```text
+merge SHA:  6c1a3b8e9d74489abb4d3a1409faeb812543a105
+main SHA:   6667b8734046b1da4c693d33ae94088ad6c5d2e2
+context:    Vercel
+state:      failure
+reason:     build-rate-limit
+```
+
+Không retry deploy liên tục. Khi build window/quota cho phép:
+
+1. deploy current `main`;
+2. xác nhận production deployment chứa merge SHA hoặc commit `main` mới hơn;
+3. smoke `/` và `/mcp` HTTP 200;
+4. cập nhật hai file tiến độ.
+
+## 4. A5.5.1 — persisted idempotency core
 
 ```text
 AUDIT:                    COMPLETE
@@ -172,7 +193,7 @@ SUPABASE:                 APPLIED + VERIFIED
 DB CORE SMOKE:            PASS
 DB TYPED WRAPPER SMOKE:   PASS
 BUSINESS RESTORE:         rollbackEqual=true
-VERCEL PROD:              READY — root HTTP 200
+VERCEL PROD:              READY — root HTTP 200 for A5.5.1 commit
 VPS:                      PENDING
 GATEWAY REPLAY SMOKE:     PENDING
 FULL RELEASE:             PENDING
@@ -194,7 +215,7 @@ Migrations:
 
 A5.5.1 chỉ chuyển `FULL RELEASE VERIFIED` sau `pullmcp` và authenticated Gateway replay/conflict/restore/audit smoke.
 
-## 4. VPS runtime
+## 5. VPS runtime
 
 ```text
 source:             /var/www/mcp-plan-source
@@ -217,7 +238,7 @@ Không được suy diễn VPS đã chạy source mới nếu chưa có output t
 - smoke health/auth/CORS;
 - in `F0.2_VPS_SMOKE=PASS`.
 
-## 5. Authenticated Gateway smoke cần chạy
+## 6. Authenticated Gateway smoke cần chạy
 
 ### Session check-in
 
@@ -238,19 +259,15 @@ Vẫn cần authenticated Gateway replay/conflict/restore/audit smoke trên mộ
 
 Không đoán token hoặc payload từ chat; đọc runtime/repo và snapshot row trước khi thử.
 
-## 6. Vercel
-
-Project:
+## 7. Vercel project
 
 ```text
-mcp-plan
+project:    mcp-plan
 project id: prj_jbe4PGuBPwVZa71UNfra6wssc3gJ
 domain:     https://mcp-plan.vercel.app
 ```
 
-Deployment production mới phải chứa merge SHA `6c1a3b8e9d74489abb4d3a1409faeb812543a105` hoặc commit tiến độ mới hơn trên `main`, và root phải trả HTTP 200.
-
-## 7. Các phase trước
+## 8. Các phase trước
 
 ```text
 A5.4.3 PR #23: FULL RELEASE VERIFIED, scanner 7 -> 3
@@ -258,7 +275,7 @@ A5.4.4 PR #24: FULL RELEASE VERIFIED, scanner 3 -> 0, rollbackEqual=true
 A5.5.1 PR #25: code/DB/Vercel verified, VPS/Gateway pending
 ```
 
-## 8. Local workstation sync
+## 9. Local workstation sync
 
 Sau khi progress cuối lên `main`:
 
@@ -270,7 +287,7 @@ npm run build
 
 Không commit/push từ local nếu chỉ pull và build không tạo thay đổi source.
 
-## 9. Quy tắc tiến độ
+## 10. Quy tắc tiến độ
 
 Mọi phase/release chỉ được đóng khi source, CI, Supabase, Vercel, VPS/Gateway, smoke, SHA/PR, blocker và bước tiếp theo đã ghi vào:
 
