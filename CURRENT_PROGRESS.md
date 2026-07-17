@@ -8,15 +8,14 @@
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Chờ final CI của PR #35 sau commit evidence; chỉ merge khi xanh.
-2. Deploy current main lên Vercel khi build-rate-limit cho phép.
-3. Trên live production thao tác thật:
+1. Deploy current main lên Vercel khi build-rate-limit cho phép.
+2. Trên live production thao tác thật:
    - tuyến không có active session: lưu thẳng, không prompt;
    - tuyến có đúng một active session: thử cả hai lựa chọn;
    - regression Thêm khách trong Phiên;
    - manual check-in và undo.
-4. Cập nhật live evidence.
-5. Chỉ sau live UI gate mới bắt đầu A5.5.2.
+3. Cập nhật live evidence.
+4. Chỉ sau live UI gate mới bắt đầu A5.5.2.
 
 KHÔNG bắt đầu NPP-F06.
 KHÔNG bắt đầu Order Core.
@@ -51,7 +50,7 @@ Browser duplicate reuse                                             PASS
 Browser Thêm khách trong Phiên                                      PASS
 Browser manual check-in + undo                                      PASS
 Live Vercel production click smoke                                  PENDING
-Vercel current-main deployment                                      PENDING build quota
+Vercel current-main deployment                                      BLOCKED build-rate-limit
 ```
 
 Automated browser smoke không được ghi thay cho live-production click smoke. Nó chứng minh UI/request contract trên Next production build bằng Chromium và stateful mock Gateway, không ghi dữ liệu production.
@@ -59,13 +58,15 @@ Automated browser smoke không được ghi thay cho live-production click smoke
 ## 4. PR #35 — repeatable F05 UI browser smoke
 
 ```text
-PR:                  #35 — OPEN
+PR:                  #35 — MERGED
 Branch:              test/f05-ui-browser-smoke
-Code head:           9c88fa80cb9d4c4c2714f81c2841e8ad0a953bce
-Browser workflow:    F05 UI Browser Smoke #6 — PASS
-Browser run ID:      29600091655
-Foundation workflow: Foundation F0.2 #338 — PASS
-Foundation run ID:   29600091669
+Final head:          28d6ab0e0b89f6493dd08e715043a7f73b3edbc9
+Merge SHA:           059e969c0904c908d4927ee8f23522559ab0248b
+Browser workflow:    F05 UI Browser Smoke #8 — PASS
+Browser run ID:      29600392629
+Foundation workflow: Foundation F0.2 #340 — PASS
+Foundation run ID:   29600392697
+Vercel merge status: FAILURE — build-rate-limit
 Evidence:            docs/npp-plan/F05_UI_BROWSER_SMOKE.md
 ```
 
@@ -81,7 +82,7 @@ manualCheckin          PASS
 F05_UI_BROWSER_SMOKE   PASS
 ```
 
-Artifact:
+Artifact từ browser code head:
 
 ```text
 name:    f05-ui-browser-smoke-evidence
@@ -215,9 +216,9 @@ Gateway:             127.0.0.1:3001
 Legacy internal:     127.0.0.1:3102
 Milktea backend:     3002 — KHÔNG ĐỤNG
 Vercel production:   đang ở SHA 54d4f4e0fdddbdacc0395e9ef094ff0f5b4318ae
-Current-main deploy: PENDING build-rate-limit
+Current-main deploy: BLOCKED build-rate-limit
 ```
 
-PR #35 chỉ sửa UI CSS ownership, tests/workflow và evidence; không cần `pullmcp` cho backend. Sau merge cần Vercel deploy current `main` để nhận visibility fix và lifecycle/error copy mới nhất.
+PR #35 chỉ sửa UI CSS ownership, tests/workflow và evidence; không cần `pullmcp` cho backend. Sau khi Vercel quota mở, deploy current `main` để nhận visibility fix và lifecycle/error copy mới nhất.
 
 Không chỉ ghi trạng thái trong chat.
