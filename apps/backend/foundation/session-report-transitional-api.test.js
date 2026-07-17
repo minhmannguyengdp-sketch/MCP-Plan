@@ -51,7 +51,17 @@ test("session report snapshot route is intercepted by Foundation and calls the c
   assert.match(calls[0].url, /\/rest\/v1\/rpc\/mcp_idempotent_create_session_report_snapshot$/);
   assert.deepEqual(JSON.parse(calls[0].init.body), {
     p_session_id: "session-1",
-    p_source: "close_session"
+    p_source: "close_session",
+    p_context: {
+      requestId: "request-report-route-12345678",
+      idempotencyKey: "report-route-1",
+      receivedAt: "2026-07-16T12:00:00.000Z",
+      installationId: "installation-a",
+      nppCode: "NPP-A",
+      actorId: "service:npp-a:mcp-v1",
+      actorType: "service",
+      actorAuthentication: "proxy-token"
+    }
   });
 });
 
