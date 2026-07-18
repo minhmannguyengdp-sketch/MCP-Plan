@@ -14,8 +14,9 @@ const routes = [
 test("the four UI actions call the same canonical frontend proxy paths accepted by mutationOperation", () => {
   for (const [route, operation] of routes) {
     const path = `/api/backend/mcp-day/session-customer/${route}`;
-    assert.match(source, new RegExp(`if \\(path === "${path.replaceAll("/", "\\/")} "`.replace(" } ", "")));
-    assert.match(source, new RegExp(`postJson\\("${path.replaceAll("/", "\\/")}"`));
+    const escapedPath = path.replaceAll("/", "\\/");
+    assert.match(source, new RegExp(`if \\(path === "${escapedPath}"\\)`));
+    assert.match(source, new RegExp(`postJson\\("${escapedPath}"`));
     assert.match(source, new RegExp(operation.replaceAll(".", "\\.")));
   }
   assert.doesNotMatch(source, /postJson\("\/api\/mcp-orders\/from-session-customer"/);
