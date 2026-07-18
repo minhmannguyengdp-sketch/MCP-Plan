@@ -17,12 +17,6 @@ type CapacitorBridge = {
   Plugins?: { Haptics?: HapticsPlugin };
 };
 
-declare global {
-  interface Window {
-    Capacitor?: CapacitorBridge;
-  }
-}
-
 function browserAvailable() {
   return typeof window !== "undefined";
 }
@@ -51,7 +45,7 @@ export function writeInteractionFeedbackEnabled(enabled: boolean) {
 
 function capacitorHaptics(): HapticsPlugin | null {
   if (!browserAvailable()) return null;
-  const bridge = window.Capacitor;
+  const bridge = (window as typeof window & { Capacitor?: CapacitorBridge }).Capacitor;
   const haptics = bridge?.Plugins?.Haptics;
   if (!haptics) return null;
   if (typeof bridge?.isNativePlatform === "function" && !bridge.isNativePlatform()) return null;
