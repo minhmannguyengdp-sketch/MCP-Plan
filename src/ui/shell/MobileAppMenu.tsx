@@ -66,8 +66,8 @@ export function AppTopBar({ activeHref }: { activeHref: string }) {
           <strong>{current.label}</strong>
         </span>
       </div>
-      <div className={styles.topBarActions}>
-        <div className={styles.topBarTools} data-app-top-bar-tools />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+        <div data-app-top-bar-tools style={{ display: "flex", alignItems: "center", gap: 8 }} />
         <button
           aria-haspopup="dialog"
           aria-label="Mở menu ứng dụng"
