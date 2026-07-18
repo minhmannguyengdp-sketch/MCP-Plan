@@ -66,15 +66,18 @@ export function AppTopBar({ activeHref }: { activeHref: string }) {
           <strong>{current.label}</strong>
         </span>
       </div>
-      <button
-        aria-haspopup="dialog"
-        aria-label="Mở menu ứng dụng"
-        className={styles.trigger}
-        type="button"
-        onClick={context.openMenu}
-      >
-        <span aria-hidden="true">☰</span>
-      </button>
+      <div className={styles.topBarActions}>
+        <div className={styles.topBarTools} data-app-top-bar-tools />
+        <button
+          aria-haspopup="dialog"
+          aria-label="Mở menu ứng dụng"
+          className={styles.trigger}
+          type="button"
+          onClick={context.openMenu}
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+      </div>
     </header>
   );
 }
