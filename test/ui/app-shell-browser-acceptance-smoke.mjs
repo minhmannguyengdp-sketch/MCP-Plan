@@ -47,7 +47,8 @@ async function shellMetrics(page) {
     const bottom = document.querySelector('[data-bottom-navigation="true"]')?.getBoundingClientRect();
     const sidebar = document.querySelector(".sidebar")?.getBoundingClientRect();
     const content = document.querySelector("[data-app-content-shell]")?.getBoundingClientRect();
-    const mainStyle = document.querySelector("[data-app-scroll-region]") ? getComputedStyle(document.querySelector("[data-app-scroll-region]")) : null;
+    const mainNode = document.querySelector("[data-app-scroll-region]");
+    const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       top: top ? { top: top.top, right: top.right, bottom: top.bottom, left: top.left, width: top.width, height: top.height } : null,
@@ -99,8 +100,9 @@ async function verifyMobile(browser) {
   const bottomNav = page.locator('[data-bottom-navigation="true"]');
   await bottomNav.waitFor({ state: "visible" });
   const bottomItems = bottomNav.locator("a");
-  assert.ok(await bottomItems.count() <= 5, "bottom navigation must contain at most five items");
-  assert.equal(Number(await bottomNav.getAttribute("data-navigation-item-count")), await bottomItems.count());
+  const bottomItemCount = await bottomItems.count();
+  assert.ok(bottomItemCount <= 5, "bottom navigation must contain at most five items");
+  assert.equal(Number(await bottomNav.getAttribute("data-navigation-item-count")), bottomItemCount);
 
   const before = await shellMetrics(page);
   assert.ok(before.top && before.main && before.bottom, "mobile shell regions must exist");
@@ -140,7 +142,7 @@ async function verifyMobile(browser) {
   const contrast = await verifyContrast(page);
   await page.screenshot({ path: `${resultsDir}/16-app-shell-mobile-acceptance.png`, fullPage: true });
   await context.close();
-  return { bottomItems: await bottomItems.count(), contrast };
+  return { bottomItems: bottomItemCount, contrast };
 }
 
 async function verifyDesktop(browser) {
