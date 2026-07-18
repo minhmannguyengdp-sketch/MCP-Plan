@@ -24,7 +24,8 @@ test("runtime smoke requires execute replay conflict audit context and cleanup",
     assert.match(operation, new RegExp(`${marker}: "PASS"`));
   }
   assert.match(main, /A5_5_2_SESSION_ACTION_RUNTIME_SMOKE: "PASS"/);
-  assert.match(main, /fixtureCleanup: "PASS"/);
+  assert.match(main, /fixtureCleanup: "PENDING"/);
+  assert.match(main, /output\.fixtureCleanup = "PASS"/);
   assert.match(fixture, /smokeCleanup === true/);
   assert.match(fixture, /verifyFixtureRemoved/);
 });
