@@ -8,12 +8,14 @@ type PageHeaderProps = {
 export function PageHeader({ eyebrow, title, subtitle, children }: PageHeaderProps) {
   return (
     <header className="page-header">
-      <div>
+      <div className="page-header-copy">
         {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
         <h1 className="page-title">{title}</h1>
         {subtitle ? <p className="page-subtitle">{subtitle}</p> : null}
       </div>
-      {children ? <div>{children}</div> : null}
+      <div className="page-header-actions" data-page-header-actions>
+        {children}
+      </div>
     </header>
   );
 }

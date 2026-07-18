@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/f05-ui-browser-smoke.yml"
       - "src/features/mcp/**"
+      - "src/ui/layout/**"
       - "src/app/routes/**"
       - "src/app/visits/**"
       - "src/app/api/**"
@@ -66,6 +67,7 @@ jobs:
           }
           trap cleanup EXIT
           node test/ui/f05-ui-browser-smoke.mjs | tee test-results/f05-ui-smoke/browser-smoke.log
+          node test/ui/f05-ui-session-action-menu-smoke.mjs | tee test-results/f05-ui-smoke/session-action-menu-smoke.log
 
       - name: Upload browser smoke evidence
         if: always()
