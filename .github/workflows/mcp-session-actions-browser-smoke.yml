@@ -1,0 +1,65 @@
+name: MCP Session Actions Browser Smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/mcp-session-actions-browser-smoke.yml"
+      - "src/app/layout.tsx"
+      - "src/app/npp-theme.css"
+      - "src/features/mcp/McpSessionCompactViewFinal2.tsx"
+      - "src/lib/api/**"
+      - "test/ui/mcp-session-actions-**"
+      - "test/a5-5-2-session-action-live-caller-contract.test.mjs"
+      - "test/mcp-warm-theme-contract.test.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright@1.54.1
+          npx playwright install --with-deps chromium
+      - name: Build Next production app
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3110
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: service:ci:mcp-v1
+          SUPABASE_URL: https://project.example.com
+          SUPABASE_ANON_KEY: ci-publishable-key
+        run: npm run build
+      - name: Click four session actions and verify warm tokens
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3110
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: service:ci:mcp-v1
+          SUPABASE_URL: https://project.example.com
+          SUPABASE_ANON_KEY: ci-publishable-key
+          MCP_ACTION_UI_RESULTS_DIR: test-results/mcp-session-actions
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/mcp-session-actions
+          node test/ui/mcp-session-actions-mock-backend.mjs >test-results/mcp-session-actions/mock.log 2>&1 &
+          MOCK_PID=$!
+          npm start -- -p 3011 >test-results/mcp-session-actions/next.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" "$MOCK_PID" 2>/dev/null || true' EXIT
+          node test/ui/mcp-session-actions-browser-smoke.mjs | tee test-results/mcp-session-actions/browser.log
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-session-actions-browser-evidence
+          path: test-results/mcp-session-actions
+          if-no-files-found: error
