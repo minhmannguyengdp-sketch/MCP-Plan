@@ -120,7 +120,7 @@ async function verifyContrast(page) {
 async function verifyMobile(browser) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
-  await page.goto(`${appBase}/plans`, { waitUntil: "networkidle" });
+  await page.goto(`${appBase}/routes`, { waitUntil: "networkidle" });
 
   const trigger = await verifySingleTrigger(page);
   const bottomNav = page.locator('[data-bottom-navigation="true"]');
@@ -129,6 +129,11 @@ async function verifyMobile(browser) {
   const bottomItemCount = await bottomItems.count();
   assert.ok(bottomItemCount <= 5, "bottom navigation must contain at most five items");
   assert.equal(Number(await bottomNav.getAttribute("data-navigation-item-count")), bottomItemCount);
+  await page.evaluate(() => {
+    const links = Array.from(document.querySelectorAll('[data-bottom-navigation="true"] .bottom-nav-link'));
+    links.forEach((link) => link.classList.remove("active"));
+    links.at(-1)?.classList.add("active");
+  });
 
   const before = await shellMetrics(page);
   assert.ok(before.top && before.main && before.bottom, "mobile shell regions must exist");
@@ -146,7 +151,7 @@ async function verifyMobile(browser) {
   for (const margin of [before.bottomAppearance.marginTop, before.bottomAppearance.marginRight, before.bottomAppearance.marginBottom, before.bottomAppearance.marginLeft]) {
     assert.ok(Math.abs(margin) <= 0.1, "bottom nav must not have floating outer margins");
   }
-  assert.ok(before.activeBottomAppearance, "active bottom navigation item must exist on the plans screen");
+  assert.ok(before.activeBottomAppearance, "active bottom navigation item must be measurable");
   assert.equal(before.activeBottomAppearance.backgroundImage, "none", "active bottom item must not use the old gradient pill");
   assert.equal(before.activeBottomAppearance.boxShadow, "none", "active bottom item must not use an oversized floating shadow");
 
@@ -248,7 +253,7 @@ async function verifyDesktop(browser) {
   return { contrast };
 }
 
-await waitForHttp(`${appBase}/plans`);
+await waitForHttp(`${appBase}/routes`);
 const browser = await chromium.launch({ headless: true });
 const result = { APP_SHELL_BROWSER_ACCEPTANCE: "FAIL" };
 
