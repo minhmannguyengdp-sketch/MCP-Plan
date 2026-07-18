@@ -9,6 +9,7 @@ await mkdir(resultsDir, { recursive: true });
 
 async function waitForHttp(url, timeoutMs = 120000) { const start = Date.now(); let error; while (Date.now() - start < timeoutMs) { try { const response = await fetch(url, { cache: "no-store" }); if (response.ok) return; error = new Error(`${url}:${response.status}`); } catch (next) { error = next; } await new Promise((resolve) => setTimeout(resolve, 500)); } throw error || new Error(`timeout:${url}`); }
 async function reset() { const response = await fetch(`${mockBase}/__reset`, { method: "POST" }); assert.equal(response.status, 200); }
+async function behavior(value) { const response = await fetch(`${mockBase}/__behavior`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) }); assert.equal(response.status, 200); }
 async function state() { const response = await fetch(`${mockBase}/__state`, { cache: "no-store" }); assert.equal(response.status, 200); return response.json(); }
 function card(page) { return page.locator("article").filter({ hasText: "UI Existing Customer" }).first(); }
 async function saveAndWait(page, dialogName, saveName) { const dialog = page.getByRole("dialog", { name: dialogName, exact: true }); await dialog.getByRole("button", { name: saveName, exact: true }).click(); await dialog.waitFor({ state: "hidden" }); }
@@ -29,10 +30,44 @@ try {
   assert.deepEqual(tokens, { canvas: "#f7f3ed", surface: "#fff", header: "#5a3a24", primary: "#4f7a3a", accent: "#c89b5b" });
   await shot(page, "01-warm-theme-session");
 
+  await behavior({ productDelayMs: 650 });
   await card(page).getByRole("button", { name: "Đơn", exact: true }).click();
   const order = page.getByRole("dialog", { name: "Tạo đơn hàng", exact: true });
   await order.getByRole("button", { name: "+ Chọn sản phẩm", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Chọn sản phẩm", exact: true });
+  const loadingButton = picker.getByRole("button", { name: "Tải...", exact: true });
+  await loadingButton.waitFor({ state: "visible" });
+  assert.equal(await loadingButton.isDisabled(), true, "loading control must be disabled while request is pending");
+  await picker.getByText("Đang tải...", { exact: true }).first().waitFor({ state: "visible" });
+  result.loadingState = "PASS";
+
+  await picker.getByRole("button", { name: /Trà UI Smoke/ }).first().waitFor({ state: "visible" });
+  const productSearchPattern = "**/api/products/search?*";
+  await page.route(productSearchPattern, async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("q") !== "kiểm tra lỗi") return route.continue();
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json; charset=utf-8",
+      body: JSON.stringify({
+        error: { code: "UPSTREAM_UNAVAILABLE", message: "Không tải được danh mục thử nghiệm", details: {}, retryable: true },
+        receivedAt: new Date().toISOString(),
+        requestId: "req_ui_error_state"
+      })
+    });
+  });
+  const searchInput = picker.getByPlaceholder("Tìm tên sản phẩm, vị, SKU");
+  await searchInput.fill("kiểm tra lỗi");
+  await picker.getByRole("button", { name: "Lọc", exact: true }).click();
+  const errorMessage = picker.getByText("Không tải được danh mục thử nghiệm", { exact: true });
+  await errorMessage.waitFor({ state: "visible" });
+  const errorStyle = await errorMessage.evaluate((node) => ({ color: getComputedStyle(node).color, background: getComputedStyle(node).backgroundColor }));
+  assert.notEqual(errorStyle.color, "rgb(111, 104, 95)", "error state must not use muted text styling");
+  result.errorState = "PASS";
+  await page.unroute(productSearchPattern);
+
+  await picker.getByRole("button", { name: "Lọc", exact: true }).click();
+  await picker.getByRole("button", { name: /Trà UI Smoke/ }).first().waitFor({ state: "visible" });
   await picker.getByRole("button", { name: /Trà UI Smoke/ }).first().click();
   await picker.getByRole("button", { name: "Thêm 1 mã vào đơn", exact: true }).click();
   await saveAndWait(page, "Tạo đơn hàng", "Lưu đơn hàng");

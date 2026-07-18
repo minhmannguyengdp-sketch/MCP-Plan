@@ -96,6 +96,14 @@ function normalizeCatalogItems(value: unknown): ProductCatalogItem[] {
     : [];
 }
 
+function apiErrorMessage(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") return fallback;
+  const value = payload as { error?: string | { message?: string }; detail?: string; message?: string };
+  if (typeof value.error === "string" && value.error.trim()) return value.error;
+  if (value.error && typeof value.error === "object" && value.error.message?.trim()) return value.error.message;
+  return value.detail || value.message || fallback;
+}
+
 function appendToken(current: string, token: string) {
   const parts = current.split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
   return parts.includes(token) ? parts.filter((item) => item !== token).join(", ") : [...parts, token].join(", ");
@@ -119,11 +127,7 @@ function mutationOperation(path: string) {
 async function postJson(path: string, body: unknown) {
   const response = await idempotentMutationFetch(path, { method: "POST", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) }, { operation: mutationOperation(path) });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const err = payload as { error?: string | { message?: string }; detail?: string };
-    const errorMessage = typeof err.error === "string" ? err.error : err.error?.message;
-    throw new Error(errorMessage || err.detail || "Không lưu được hành động MCP");
-  }
+  if (!response.ok) throw new Error(apiErrorMessage(payload, "Không lưu được hành động MCP"));
   return payload;
 }
 
@@ -134,20 +138,14 @@ async function searchProducts(q: string, category = "") {
   if (category) params.set("category", category);
   const response = await fetch(`/api/products/search?${params.toString()}`, { cache: "no-store", headers: { Accept: "application/json" } });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const err = payload as { error?: string; detail?: string };
-    throw new Error(err.error || err.detail || "Không tìm được sản phẩm");
-  }
+  if (!response.ok) throw new Error(apiErrorMessage(payload, "Không tìm được sản phẩm"));
   return normalizeCatalogItems((payload as { data?: unknown }).data);
 }
 
 async function getVariants(productId: string) {
   const response = await fetch(`/api/products/${encodeURIComponent(productId)}/variants`, { cache: "no-store", headers: { Accept: "application/json" } });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const err = payload as { error?: string; detail?: string };
-    throw new Error(err.error || err.detail || "Không tải được quy cách sản phẩm");
-  }
+  if (!response.ok) throw new Error(apiErrorMessage(payload, "Không tải được quy cách sản phẩm"));
   return normalizeCatalogItems((payload as { data?: unknown }).data);
 }
 

@@ -25,6 +25,7 @@ import "./mcp-order-main-final.css";
 import "./mcp-scroll-restore.css";
 import "./export-menu-fix.css";
 import "./npp-theme.css";
+import "./app-shell-contract.css";
 
 export const metadata: Metadata = {
   title: "MCP-Plan",

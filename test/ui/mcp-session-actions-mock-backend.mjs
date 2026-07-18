@@ -5,10 +5,15 @@ const port = Number(process.env.MCP_ACTION_UI_MOCK_PORT || 3110);
 const resultsDir = process.env.MCP_ACTION_UI_RESULTS_DIR || "test-results/mcp-session-actions";
 const product = { productId: "product-ui", variantId: "variant-ui", name: "Trà UI Smoke", brand: "NPP", category: "Trà", sku: "UI-001", variantName: "Chai", sizeLabel: "350ml", sellUnit: "chai", packUnit: "thùng", packQuantity: 24, price: 12000 };
 
+function defaultBehavior() {
+  return { productDelayMs: 0, productError: null };
+}
+
 function initialState() {
   return {
     requests: [],
     aggregates: { orders: [], tests: [], reports: [], followups: [] },
+    behavior: defaultBehavior(),
     line: { id: "sc-existing", sessionCustomerId: "sc-existing", routeCustomerId: "rc-existing", sortOrder: 1, accountName: "UI Existing Customer", area: "API Smoke", source: "planned", status: "pending", note: "Browser smoke seed", hasOrder: false, hasTest: false, hasReport: false, followupCount: 0, checkedIn: false }
   };
 }
@@ -19,6 +24,7 @@ const canonical = (req, data) => ({ data, requestId: String(req.headers["x-reque
 async function body(req) { const chunks = []; for await (const chunk of req) chunks.push(chunk); const text = Buffer.concat(chunks).toString("utf8"); return text ? JSON.parse(text) : {}; }
 function record(req, url, payload) { const item = { method: req.method, path: url.pathname, idempotencyKey: String(req.headers["idempotency-key"] || ""), requestId: String(req.headers["x-request-id"] || ""), payload }; state.requests.push(item); return item; }
 async function persist() { await mkdir(resultsDir, { recursive: true }); await writeFile(`${resultsDir}/mock-state.json`, JSON.stringify(state, null, 2)); }
+async function sleep(ms) { if (ms > 0) await new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const routes = [{ id: "route-active", name: "UI Smoke Active", area: "API Smoke", salesOwner: "Sales UI", plannedCustomers: 1, visitedCustomers: 0, orderCount: 0, lastVisitDate: "-", status: "active" }];
 const routeCustomers = [{ id: "rc-existing", routeId: "route-active", routeName: "UI Smoke Active", accountId: "customer-existing", accountName: "UI Existing Customer", contactName: "0900000000", area: "API Smoke", sortOrder: 1, status: "active", note: "Browser smoke seed" }];
@@ -29,12 +35,24 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
     if (req.method === "POST" && url.pathname === "/__reset") { state = initialState(); await persist(); return json(res, 200, { ok: true }); }
+    if (req.method === "POST" && url.pathname === "/__behavior") {
+      const next = await body(req);
+      state.behavior = { ...state.behavior, ...next };
+      await persist();
+      return json(res, 200, { ok: true, behavior: state.behavior });
+    }
     if (req.method === "GET" && url.pathname === "/__state") return json(res, 200, state);
     if (req.method === "GET" && url.pathname === "/api/routes/data") return json(res, 200, canonical(req, { kpis: [], routes }));
     if (req.method === "GET" && url.pathname === "/api/routes/customers/data") return json(res, 200, canonical(req, { kpis: [], customers: routeCustomers }));
     if (req.method === "GET" && url.pathname === "/api/mcp-day/data") return json(res, 200, canonical(req, dayData()));
     if (req.method === "GET" && url.pathname === "/api/mcp-settings/session-status") return json(res, 200, canonical(req, { sessions: [{ id: "session-active", routeId: "route-active", routeName: "UI Smoke Active", sessionDate: "2099-12-30", status: "active" }] }));
-    if (req.method === "GET" && url.pathname === "/api/products/search") return json(res, 200, { data: [product] });
+    if (req.method === "GET" && url.pathname === "/api/products/search") {
+      const behavior = state.behavior;
+      state.behavior = defaultBehavior();
+      await sleep(Number(behavior.productDelayMs || 0));
+      if (behavior.productError) return json(res, 503, { error: String(behavior.productError) });
+      return json(res, 200, { data: [product] });
+    }
     if (req.method === "GET" && url.pathname === "/api/products/product-ui/variants") return json(res, 200, { data: [product] });
     if (req.method === "GET" && url.pathname === "/api/mcp-report-settings") return json(res, 200, { data: { groups: [] } });
 
