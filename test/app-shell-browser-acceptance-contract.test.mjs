@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const appShell = await readFile("src/ui/shell/AppShell.tsx", "utf8");
 const shellCss = await readFile("src/app/app-shell-contract.css", "utf8");
 const layout = await readFile("src/app/layout.tsx", "utf8");
+const sessionView = await readFile("src/features/mcp/McpSessionCompactViewFinal2.tsx", "utf8");
 const browserSmoke = await readFile("test/ui/app-shell-browser-acceptance-smoke.mjs", "utf8");
 const actionSmoke = await readFile("test/ui/mcp-session-actions-browser-smoke.mjs", "utf8");
 const actionMock = await readFile("test/ui/mcp-session-actions-mock-backend.mjs", "utf8");
@@ -44,4 +45,12 @@ test("browser gate locks mobile and desktop layout, contrast, pressed, loading a
   assert.match(actionSmoke, /loading control must be disabled while request is pending/);
   assert.match(actionSmoke, /error state must not use muted text styling/);
   assert.match(workflow, /app-shell-browser-acceptance-smoke\.mjs/);
+});
+
+test("canonical API errors render their message instead of object coercion", () => {
+  assert.match(sessionView, /function apiErrorMessage\(payload: unknown, fallback: string\)/);
+  assert.match(sessionView, /typeof value\.error === "object" && value\.error\.message\?\.trim\(\)/);
+  assert.match(sessionView, /apiErrorMessage\(payload, "Không tìm được sản phẩm"\)/);
+  assert.match(sessionView, /apiErrorMessage\(payload, "Không tải được quy cách sản phẩm"\)/);
+  assert.doesNotMatch(sessionView, /new Error\(err\.error \|\| err\.detail/);
 });
