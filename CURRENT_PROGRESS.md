@@ -1,9 +1,10 @@
 # MCP-Plan — Current Progress
 
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
-> Cập nhật: **2026-07-17**  
+> Cập nhật: **2026-07-18**  
 > Master plan: **Phase A / NPP-F05 / A5.5**  
 > Trạng thái: **RUNTIME CLOSURE PASS + PRODUCTION-BUILD BROWSER SMOKE PASS — LIVE VERCEL UI SMOKE PENDING**
+> Redeploy production: **đã kích một lần qua Git Integration ngày 2026-07-18; không retry liên tục nếu còn build-rate-limit.**
 
 ## 1. Điểm tiếp tục duy nhất
 
