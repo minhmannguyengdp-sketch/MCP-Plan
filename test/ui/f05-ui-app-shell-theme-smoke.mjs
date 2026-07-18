@@ -66,12 +66,13 @@ try {
   await screenshot(page, "13-app-shell-expanded-menu");
 
   await menu.getByRole("button", { name: /^Đi tuyến hôm nay/ }).click();
-  await page.waitForURL((url) => url.pathname === "/visits");
-  assert.equal(await page.locator(".app-shell").getAttribute("data-shell-section"), "session");
-  await page.locator("[data-app-top-bar]").getByText("Đi tuyến hôm nay", { exact: true }).waitFor({ state: "visible" });
+  await page.waitForURL((url) => url.pathname === "/mcp");
+  assert.equal(await page.locator(".app-shell").getAttribute("data-shell-section"), "business");
+  await page.locator("[data-app-top-bar]").getByText("MCP", { exact: true }).waitFor({ state: "visible" });
 
   await page.goto(`${appBase}/visits?routeId=route-active&date=2099-12-30`, { waitUntil: "networkidle" });
   assert.equal(await page.locator(".app-shell").getAttribute("data-shell-section"), "session");
+  await page.locator("[data-app-top-bar]").getByText("Đi tuyến hôm nay", { exact: true }).waitFor({ state: "visible" });
   const customer = page.locator("article").filter({ hasText: "UI Existing Customer" }).first();
   await customer.getByRole("button", { name: "Test", exact: true }).click();
   const form = page.getByRole("dialog", { name: "Ghi kết quả thử sản phẩm", exact: true });
@@ -86,7 +87,7 @@ try {
   await screenshot(page, "14-business-form-theme");
 
   result.F05_APP_SHELL_THEME_SMOKE = "PASS";
-  result.sections = ["routes", "session"];
+  result.sections = ["routes", "business", "session"];
   result.topBar = "PASS";
   result.expandedMenu = "PASS";
   result.businessFormTheme = "PASS";
