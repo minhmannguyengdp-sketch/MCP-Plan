@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
-import { PageHeaderActionsPortal } from "@/ui/layout/PageHeaderActionsPortal";
+import { useRegisterMobileAppMenu } from "@/ui/shell/MobileAppMenu";
 import type { McpDayData } from "@/features/mcp-day/mcp-day.types";
 import styles from "./VisitsSessionActionMenu.module.css";
 
@@ -27,7 +27,7 @@ type Summary = {
 };
 
 type ApiPayload = { data?: Summary; error?: string };
-type PanelMode = "menu" | "report" | "export" | null;
+type PanelMode = "report" | "export" | null;
 
 function money(value: number) {
   return `${Math.round(value || 0).toLocaleString("vi-VN")}đ`;
@@ -77,7 +77,8 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const query = useMemo(() => buildQuery(mcpDayData), [mcpDayData]);
   const reportUrl = `/api/mcp-session-report${query ? `?${query}` : ""}`;
   const checklistHref = `/api/backend/exports/mcp-sessions.csv${query ? `?${query}` : ""}`;
@@ -94,11 +95,11 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
         if (!response.ok) throw new Error(payload.error || `report_summary_${response.status}`);
         if (active) {
           setSummary(payload.data || null);
-          setError(null);
+          setReportError(null);
         }
       })
       .catch((err) => {
-        if (active) setError(err instanceof Error ? err.message : "Không tải được BC phiên");
+        if (active) setReportError(err instanceof Error ? err.message : "Không tải được BC phiên");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -108,17 +109,21 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
     };
   }, [loading, mode, reportUrl, summary]);
 
-  function openReport() {
+  const openReport = useCallback(() => {
     setSummary(null);
-    setError(null);
+    setReportError(null);
     setMode("report");
-  }
+  }, []);
 
-  async function closeSession() {
-    if (!mcpDayData.run.id || closing) return;
-    if (!window.confirm("Chốt phiên và lưu BC phiên chính thức?")) return;
+  const openExport = useCallback(() => {
+    setMode("export");
+  }, []);
+
+  const closeSession = useCallback(async () => {
+    if (!mcpDayData.run.id || closing) return false;
+    if (!window.confirm("Chốt phiên và lưu BC phiên chính thức?")) return false;
     setClosing(true);
-    setError(null);
+    setCloseError(null);
     try {
       const response = await fetch(`/api/backend/mcp-session-actions/${encodeURIComponent(mcpDayData.run.id)}`, {
         method: "PATCH",
@@ -131,48 +136,51 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
       setSummary(null);
       setMode(null);
       router.refresh();
+      return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không chốt được phiên");
-      setMode("menu");
+      setCloseError(err instanceof Error ? err.message : "Không chốt được phiên");
+      return false;
     } finally {
       setClosing(false);
     }
-  }
+  }, [closing, mcpDayData.run.date, mcpDayData.run.id, router]);
+
+  const menuRegistration = useMemo(() => ({
+    title: "Menu phiên",
+    description,
+    message: closeError,
+    items: [
+      {
+        id: "session-report",
+        label: "Xem báo cáo phiên",
+        description: "Tổng hợp lượt ghé, đơn hàng, test và follow-up.",
+        icon: "▥",
+        onSelect: openReport
+      },
+      {
+        id: "session-export",
+        label: "Xuất dữ liệu",
+        description: "Tải báo cáo PDF hoặc checklist Excel.",
+        icon: "⇩",
+        onSelect: openExport
+      },
+      {
+        id: "session-close",
+        label: closing ? "Đang chốt phiên..." : "Chốt phiên",
+        description: "Khóa phiên và lưu báo cáo chính thức.",
+        icon: "✓",
+        tone: "danger" as const,
+        disabled: closing,
+        keepOpen: true,
+        onSelect: closeSession
+      }
+    ]
+  }), [closeError, closeSession, closing, description, openExport, openReport]);
+
+  useRegisterMobileAppMenu(menuRegistration);
 
   return <>
-    <PageHeaderActionsPortal>
-      <div className={`session-header-actions ${styles.headerActions}`}>
-        <span className={styles.statusPill}>Đang hoạt động</span>
-        <button className={styles.trigger} type="button" aria-label="Mở menu tác vụ phiên" aria-expanded={mode === "menu"} onClick={() => setMode("menu")}>
-          <span className={styles.triggerIcon} aria-hidden="true">⋮</span>
-          <span className={styles.triggerLabel}>Tác vụ</span>
-        </button>
-      </div>
-    </PageHeaderActionsPortal>
-
-    <BottomSheet open={mode === "menu"} onClose={() => setMode(null)} title="Tác vụ phiên" description={description}>
-      <div className={styles.menuList}>
-        <button className={styles.menuItem} type="button" onClick={openReport}>
-          <span className={styles.menuIcon} aria-hidden="true">▥</span>
-          <span className={styles.menuCopy}><strong>Xem báo cáo phiên</strong><small>Tổng hợp lượt ghé, đơn hàng, test và follow-up.</small></span>
-          <span className={styles.menuChevron} aria-hidden="true">›</span>
-        </button>
-        <button className={styles.menuItem} type="button" onClick={() => { setError(null); setMode("export"); }}>
-          <span className={styles.menuIcon} aria-hidden="true">⇩</span>
-          <span className={styles.menuCopy}><strong>Xuất dữ liệu</strong><small>Tải báo cáo PDF hoặc checklist Excel.</small></span>
-          <span className={styles.menuChevron} aria-hidden="true">›</span>
-        </button>
-        <div className={styles.divider} />
-        <button className={`${styles.menuItem} ${styles.danger}`} type="button" disabled={closing} onClick={closeSession}>
-          <span className={styles.menuIcon} aria-hidden="true">✓</span>
-          <span className={styles.menuCopy}><strong>{closing ? "Đang chốt phiên..." : "Chốt phiên"}</strong><small>Khóa phiên và lưu báo cáo chính thức.</small></span>
-          <span className={styles.menuChevron} aria-hidden="true">›</span>
-        </button>
-        {error ? <p className={styles.error}>{error}</p> : null}
-      </div>
-    </BottomSheet>
-
-    <BottomSheet open={mode === "export"} onClose={() => setMode(null)} title="Xuất dữ liệu phiên" description={description} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={() => setMode("menu")}>Quay lại</button><button className="button" type="button" onClick={() => setMode(null)}>Đóng</button></div>}>
+    <BottomSheet open={mode === "export"} onClose={() => setMode(null)} title="Xuất dữ liệu phiên" description={description} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={() => setMode(null)}>Đóng</button></div>}>
       <div className={styles.menuList}>
         <a className={styles.exportItem} href={pdfHref} onClick={() => setMode(null)}>
           <span className={styles.menuIcon} aria-hidden="true">PDF</span>
@@ -187,9 +195,9 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
       </div>
     </BottomSheet>
 
-    <BottomSheet open={mode === "report"} onClose={() => setMode(null)} title="BC phiên" description={description} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={() => setMode("menu")}>Quay lại</button><button className="button primary" type="button" onClick={() => { setSummary(null); setError(null); }}>Tải lại</button><button className="button" type="button" onClick={() => setMode(null)}>Đóng</button></div>}>
+    <BottomSheet open={mode === "report"} onClose={() => setMode(null)} title="BC phiên" description={description} footer={<div className="sheet-action-grid"><button className="button primary" type="button" onClick={() => { setSummary(null); setReportError(null); }}>Tải lại</button><button className="button" type="button" onClick={() => setMode(null)}>Đóng</button></div>}>
       {loading ? <p className="page-subtitle">Đang tổng hợp dữ liệu phiên...</p> : null}
-      {error ? <p className="page-subtitle order-message">{error}</p> : null}
+      {reportError ? <p className="page-subtitle order-message">{reportError}</p> : null}
       {summary ? <div className="grid">
         <section className="grid cards">{summary.kpis.map((item) => <article className="card" key={item.label}><div className="card-label">{item.label}</div><div className="card-value">{item.value}</div><p className="card-hint">{item.hint}</p></article>)}</section>
         <section className="card"><h2 className="panel-title">Tổng quan phiên</h2><div className="grid"><div className="metric-row"><span>Khách kế hoạch</span><strong>{summary.sections.overview.planned}</strong></div><div className="metric-row"><span>Đã ghé / Chờ / Bỏ qua</span><strong>{summary.sections.overview.visited}/{summary.sections.overview.pending}/{summary.sections.overview.skipped}</strong></div><div className="metric-row"><span>Quan sát / Đơn / Test / Follow-up</span><strong>{summary.sections.overview.observations}/{summary.sections.overview.orders}/{summary.sections.overview.tests}/{summary.sections.overview.followups}</strong></div></div></section>
