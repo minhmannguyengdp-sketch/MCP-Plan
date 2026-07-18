@@ -1,7 +1,7 @@
 /* AppShell owns the fixed chrome, scroll region and state feedback for every screen. */
 :root {
-  --app-bottom-nav-bar-height: 60px;
-  --app-bottom-nav-link-height: 48px;
+  --app-bottom-nav-bar-height: 54px;
+  --app-bottom-nav-link-height: 44px;
 }
 
 .app-content-shell {
@@ -75,9 +75,9 @@
     min-height: 0;
     overflow-y: auto;
     padding-top: 14px;
-    padding-bottom: 14px;
+    padding-bottom: 12px;
     scroll-padding-top: 12px;
-    scroll-padding-bottom: 12px;
+    scroll-padding-bottom: 10px;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -89,15 +89,15 @@
     max-width: none;
     height: calc(var(--app-bottom-nav-bar-height) + env(safe-area-inset-bottom));
     min-height: calc(var(--app-bottom-nav-bar-height) + env(safe-area-inset-bottom));
-    margin: 0 8px 6px;
+    margin: 0 8px 2px;
     box-sizing: border-box;
     align-items: stretch;
     gap: 4px;
     border: 1px solid color-mix(in srgb, var(--npp-color-border) 82%, #ffffff);
-    border-radius: 20px;
+    border-radius: 18px;
     background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 12px 28px rgba(75, 47, 31, 0.15);
-    padding: 5px 6px calc(5px + env(safe-area-inset-bottom));
+    box-shadow: 0 10px 24px rgba(75, 47, 31, 0.14);
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom));
     -webkit-backdrop-filter: blur(18px) saturate(1.2);
     backdrop-filter: blur(18px) saturate(1.2);
   }
@@ -107,7 +107,7 @@
     min-height: var(--app-bottom-nav-link-height);
     align-content: center;
     box-sizing: border-box;
-    padding: 4px 2px;
+    padding: 3px 2px;
   }
 }
 
