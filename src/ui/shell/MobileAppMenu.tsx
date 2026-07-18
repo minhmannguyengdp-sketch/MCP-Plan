@@ -11,6 +11,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
+import { APP_MENU_GROUPS, navItemForHref } from "./navigation";
 import styles from "./MobileAppMenu.module.css";
 
 export type MobileAppMenuItem = {
@@ -33,6 +34,7 @@ export type MobileAppMenuRegistration = {
 
 type MobileAppMenuContextValue = {
   register: (registration: MobileAppMenuRegistration) => () => void;
+  openMenu: () => void;
 };
 
 const MobileAppMenuContext = createContext<MobileAppMenuContextValue | null>(null);
@@ -50,6 +52,33 @@ export function MobileAppMenuProvider({ children }: { children: ReactNode }) {
   return <MobileAppMenuRoot>{children}</MobileAppMenuRoot>;
 }
 
+export function AppTopBar({ activeHref }: { activeHref: string }) {
+  const context = useContext(MobileAppMenuContext);
+  if (!context) throw new Error("AppTopBar must be used inside MobileAppMenuProvider");
+  const current = navItemForHref(activeHref);
+
+  return (
+    <header className={styles.topBar} data-app-top-bar>
+      <div className={styles.topBarIdentity}>
+        <span className={styles.topBarMark} aria-hidden="true">HP</span>
+        <span className={styles.topBarCopy}>
+          <small>MCP-Plan</small>
+          <strong>{current.label}</strong>
+        </span>
+      </div>
+      <button
+        aria-haspopup="dialog"
+        aria-label="Mở menu ứng dụng"
+        className={styles.trigger}
+        type="button"
+        onClick={context.openMenu}
+      >
+        <span aria-hidden="true">☰</span>
+      </button>
+    </header>
+  );
+}
+
 function MobileAppMenuRoot({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -62,8 +91,8 @@ function MobileAppMenuRoot({ children }: { children: ReactNode }) {
       setRegistration((current) => (current === next ? null : current));
     };
   }, []);
-
-  const contextValue = useMemo(() => ({ register }), [register]);
+  const openMenu = useCallback(() => setOpen(true), []);
+  const contextValue = useMemo(() => ({ register, openMenu }), [register, openMenu]);
   const isSettings = pathname === "/settings";
 
   useEffect(() => {
@@ -77,6 +106,11 @@ function MobileAppMenuRoot({ children }: { children: ReactNode }) {
     if (item.keepOpen && result === true) setOpen(false);
   }
 
+  function navigate(href: string) {
+    setOpen(false);
+    router.push(href);
+  }
+
   function handleSettings() {
     setOpen(false);
     if (isSettings) {
@@ -87,46 +121,69 @@ function MobileAppMenuRoot({ children }: { children: ReactNode }) {
     router.push("/settings");
   }
 
+  function isActive(href: string) {
+    return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+  }
+
   const contextualItems = registration?.items || [];
-  const title = registration?.title || "Menu ứng dụng";
-  const description = registration?.description || "Tác vụ nhanh và cài đặt.";
+  const title = registration?.title || "Menu MCP";
+  const description = registration?.description || "Chuyển phân hệ, mở tác vụ màn hình và cấu hình ứng dụng.";
 
   return (
     <MobileAppMenuContext.Provider value={contextValue}>
       {children}
-      <button
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label="Mở menu ứng dụng"
-        className={`${styles.trigger} ${open || isSettings ? styles.triggerActive : ""}`}
-        type="button"
-        onClick={() => setOpen(true)}
-      >
-        <span aria-hidden="true">☰</span>
-      </button>
-
       <BottomSheet open={open} onClose={() => setOpen(false)} title={title} description={description}>
         <div className={styles.menuList}>
-          {contextualItems.map((item) => (
-            <button
-              className={`${styles.menuItem} ${item.tone === "danger" ? styles.danger : ""}`}
-              disabled={item.disabled}
-              key={item.id}
-              type="button"
-              onClick={() => void handleItem(item)}
-            >
-              <span className={styles.menuIcon} aria-hidden="true">{item.icon}</span>
-              <span className={styles.menuCopy}>
-                <strong>{item.label}</strong>
-                {item.description ? <small>{item.description}</small> : null}
-              </span>
-              <span className={styles.menuChevron} aria-hidden="true">›</span>
-            </button>
+          {contextualItems.length ? (
+            <section className={styles.menuSection} aria-label="Tác vụ màn hình">
+              <div className={styles.sectionHeading}>
+                <strong>Tác vụ màn hình</strong>
+                <small>Áp dụng cho nội dung đang mở</small>
+              </div>
+              {contextualItems.map((item) => (
+                <button
+                  className={`${styles.menuItem} ${item.tone === "danger" ? styles.danger : ""}`}
+                  disabled={item.disabled}
+                  key={item.id}
+                  type="button"
+                  onClick={() => void handleItem(item)}
+                >
+                  <span className={styles.menuIcon} aria-hidden="true">{item.icon}</span>
+                  <span className={styles.menuCopy}>
+                    <strong>{item.label}</strong>
+                    {item.description ? <small>{item.description}</small> : null}
+                  </span>
+                  <span className={styles.menuChevron} aria-hidden="true">›</span>
+                </button>
+              ))}
+            </section>
+          ) : null}
+
+          {APP_MENU_GROUPS.map((group) => (
+            <section className={styles.menuSection} aria-label={group.label} key={group.id}>
+              <div className={styles.sectionHeading}><strong>{group.label}</strong></div>
+              <div className={styles.navigationGrid}>
+                {group.items.map((item) => (
+                  <button
+                    aria-current={isActive(item.href) ? "page" : undefined}
+                    className={`${styles.navItem} ${isActive(item.href) ? styles.navItemActive : ""}`}
+                    key={item.href}
+                    type="button"
+                    onClick={() => navigate(item.href)}
+                  >
+                    <span className={styles.navIcon} aria-hidden="true">{item.icon}</span>
+                    <span className={styles.navCopy}>
+                      <strong>{item.label}</strong>
+                      <small>{item.description}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
           ))}
 
-          {contextualItems.length ? <div className={styles.divider} /> : null}
-
-          <button className={styles.menuItem} type="button" onClick={handleSettings}>
+          <div className={styles.divider} />
+          <button className={`${styles.menuItem} ${isSettings ? styles.menuItemActive : ""}`} type="button" onClick={handleSettings}>
             <span className={styles.menuIcon} aria-hidden="true">⚙</span>
             <span className={styles.menuCopy}>
               <strong>{isSettings ? "Đóng cài đặt" : "Cài đặt ứng dụng"}</strong>
