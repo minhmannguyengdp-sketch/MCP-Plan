@@ -23,18 +23,23 @@ test("AppShell owns one menu trigger, one scroll region and at most five bottom 
   assert.match(appShell, /<main[\s\S]*?<NavLinks activeHref=\{activeHref\} items=\{BOTTOM_NAV_ITEMS\} mode="bottom" \/>[\s\S]*?<\/div>/);
 });
 
-test("AppShell owns compact stable top, scroll and bottom rows without viewport-fixed bottom navigation", () => {
+test("AppShell owns a flat native bottom strip without a floating card shell", () => {
   assert.match(layout, /import "\.\/app-shell-contract\.css"/);
   assert.doesNotMatch(layout, /mobile-nav-tune\.css/);
   assert.doesNotMatch(layout, /safe-area\.css/);
   assert.match(shellCss, /grid-template-rows: auto minmax\(0, 1fr\) auto/);
   assert.match(shellCss, /\[data-app-scroll-region\] \{[\s\S]*?overflow-y: auto/);
   assert.match(shellCss, /\[data-app-top-bar\] \{[\s\S]*?position: sticky/);
-  assert.match(shellCss, /--app-bottom-nav-bar-height: 54px/);
+  assert.match(shellCss, /--app-bottom-nav-bar-height: 50px/);
   assert.match(shellCss, /--app-bottom-nav-link-height: 44px/);
   assert.match(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: relative/);
   assert.match(shellCss, /height: calc\(var\(--app-bottom-nav-bar-height\) \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(shellCss, /padding: 4px 6px calc\(4px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shellCss, /margin: 0/);
+  assert.match(shellCss, /border-radius: 0/);
+  assert.match(shellCss, /border-top: 1px solid/);
+  assert.match(shellCss, /padding: 3px 8px calc\(3px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?background: color-mix/);
+  assert.doesNotMatch(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?linear-gradient/);
   assert.doesNotMatch(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: fixed/);
 });
 
@@ -53,7 +58,11 @@ test("browser gate locks mobile and desktop layout, contrast, pressed, loading a
   for (const phrase of [
     "exactly one menu trigger",
     "bottom navigation must contain at most five items",
-    "bottom nav visual height must stay compact at 54px",
+    "bottom nav visual height must stay compact at 50px",
+    "bottom nav must attach directly to the viewport bottom edge",
+    "bottom nav shell must not render as a rounded floating card",
+    "bottom nav must not have floating outer margins",
+    "active bottom item must not use the old gradient pill",
     "bottom nav height must stay constant when mobile browser chrome changes viewport height",
     "top bar must remain fixed while main scrolls",
     "desktop top bar must remain sticky at viewport top",
