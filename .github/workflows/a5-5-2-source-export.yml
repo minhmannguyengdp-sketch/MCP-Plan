@@ -1,0 +1,31 @@
+name: A5.5.2 Source Export
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/a5-5-2-source-export.yml"
+      - "apps/backend/**"
+      - "src/features/mcp/**"
+      - "src/lib/api/**"
+      - "supabase/migrations/**"
+      - "test/**"
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a5-5-2-source-snapshot
+          path: |
+            apps/backend/server.js
+            apps/backend/package.json
+            apps/backend/foundation/transitional-api.js
+            src/features/mcp/McpSessionCompactViewFinal2.tsx
+            src/lib/api/idempotent-fetch.ts
+            CURRENT_PROGRESS.md
+          if-no-files-found: error
