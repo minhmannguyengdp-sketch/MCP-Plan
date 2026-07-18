@@ -47,13 +47,17 @@ async function shellMetrics(page) {
     const bottomNode = document.querySelector('[data-bottom-navigation="true"]');
     const sidebarNode = document.querySelector(".sidebar");
     const contentNode = document.querySelector("[data-app-content-shell]");
+    const firstBottomLink = bottomNode?.querySelector(".bottom-nav-link");
+    const activeBottomLink = bottomNode?.querySelector(".bottom-nav-link.active");
     const top = topNode?.getBoundingClientRect();
     const main = mainNode?.getBoundingClientRect();
     const bottom = bottomNode?.getBoundingClientRect();
     const sidebar = sidebarNode?.getBoundingClientRect();
     const content = contentNode?.getBoundingClientRect();
+    const firstBottomLinkRect = firstBottomLink?.getBoundingClientRect();
     const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
     const bottomStyle = bottomNode ? getComputedStyle(bottomNode) : null;
+    const activeBottomStyle = activeBottomLink ? getComputedStyle(activeBottomLink) : null;
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       top: top ? { top: top.top, right: top.right, bottom: top.bottom, left: top.left, width: top.width, height: top.height } : null,
@@ -61,9 +65,24 @@ async function shellMetrics(page) {
       bottom: bottom ? { top: bottom.top, right: bottom.right, bottom: bottom.bottom, left: bottom.left, width: bottom.width, height: bottom.height } : null,
       sidebar: sidebar ? { top: sidebar.top, right: sidebar.right, bottom: sidebar.bottom, left: sidebar.left, width: sidebar.width, height: sidebar.height } : null,
       content: content ? { top: content.top, right: content.right, bottom: content.bottom, left: content.left, width: content.width, height: content.height } : null,
+      firstBottomLinkHeight: firstBottomLinkRect?.height || 0,
       mainPaddingBottom: mainStyle ? Number.parseFloat(mainStyle.paddingBottom) : 0,
       bottomPosition: bottomStyle?.position || null,
-      bottomParentIsShell: bottomNode?.parentElement?.hasAttribute("data-app-content-shell") || false
+      bottomParentIsShell: bottomNode?.parentElement?.hasAttribute("data-app-content-shell") || false,
+      bottomAppearance: bottomStyle ? {
+        borderRadius: Number.parseFloat(bottomStyle.borderTopLeftRadius),
+        borderTopWidth: Number.parseFloat(bottomStyle.borderTopWidth),
+        marginTop: Number.parseFloat(bottomStyle.marginTop),
+        marginRight: Number.parseFloat(bottomStyle.marginRight),
+        marginBottom: Number.parseFloat(bottomStyle.marginBottom),
+        marginLeft: Number.parseFloat(bottomStyle.marginLeft),
+        boxShadow: bottomStyle.boxShadow
+      } : null,
+      activeBottomAppearance: activeBottomStyle ? {
+        backgroundImage: activeBottomStyle.backgroundImage,
+        backgroundColor: activeBottomStyle.backgroundColor,
+        boxShadow: activeBottomStyle.boxShadow
+      } : null
     };
   });
 }
@@ -110,16 +129,31 @@ async function verifyMobile(browser) {
   const bottomItemCount = await bottomItems.count();
   assert.ok(bottomItemCount <= 5, "bottom navigation must contain at most five items");
   assert.equal(Number(await bottomNav.getAttribute("data-navigation-item-count")), bottomItemCount);
+  await page.evaluate(() => {
+    const links = Array.from(document.querySelectorAll('[data-bottom-navigation="true"] .bottom-nav-link'));
+    links.forEach((link) => link.classList.remove("active"));
+    links.at(-1)?.classList.add("active");
+  });
 
   const before = await shellMetrics(page);
   assert.ok(before.top && before.main && before.bottom, "mobile shell regions must exist");
   assert.ok(before.top.bottom <= before.main.top + 1, "top bar must not overlap the scroll region");
   assert.ok(before.main.bottom <= before.bottom.top + 1, "scroll region must not overlap bottom navigation");
   assert.ok(before.bottom.left >= 0 && before.bottom.right <= before.viewport.width, "bottom nav must stay inside viewport width");
-  assert.ok(before.bottom.bottom <= before.viewport.height + 1, "bottom nav must stay inside viewport height");
+  assert.ok(Math.abs(before.bottom.bottom - before.viewport.height) <= 1, "bottom nav must attach directly to the viewport bottom edge");
   assert.equal(before.bottomPosition, "relative", "bottom navigation must be an AppShell row, not a fixed viewport overlay");
   assert.equal(before.bottomParentIsShell, true, "bottom navigation must be owned by app-content-shell");
-  assert.ok(Math.abs(before.bottom.height - 54) <= 1, "bottom nav visual height must stay compact at 54px");
+  assert.ok(Math.abs(before.bottom.height - 50) <= 1, "bottom nav visual height must stay compact at 50px");
+  assert.ok(before.firstBottomLinkHeight >= 44 && before.firstBottomLinkHeight <= 45, "bottom nav shortcuts must keep a 44px touch target");
+  assert.ok(before.bottomAppearance, "bottom navigation appearance must be measurable");
+  assert.ok(before.bottomAppearance.borderRadius <= 0.1, "bottom nav shell must not render as a rounded floating card");
+  assert.ok(before.bottomAppearance.borderTopWidth >= 1, "bottom nav must use a subtle top divider");
+  for (const margin of [before.bottomAppearance.marginTop, before.bottomAppearance.marginRight, before.bottomAppearance.marginBottom, before.bottomAppearance.marginLeft]) {
+    assert.ok(Math.abs(margin) <= 0.1, "bottom nav must not have floating outer margins");
+  }
+  assert.ok(before.activeBottomAppearance, "active bottom navigation item must be measurable");
+  assert.equal(before.activeBottomAppearance.backgroundImage, "none", "active bottom item must not use the old gradient pill");
+  assert.equal(before.activeBottomAppearance.boxShadow, "none", "active bottom item must not use an oversized floating shadow");
 
   await page.evaluate(() => {
     const main = document.querySelector("[data-app-scroll-region]");
@@ -140,7 +174,7 @@ async function verifyMobile(browser) {
   const afterViewportResize = await shellMetrics(page);
   assert.equal(Math.round(afterViewportResize.bottom.height), Math.round(before.bottom.height), "bottom nav height must stay constant when mobile browser chrome changes viewport height");
   assert.ok(afterViewportResize.main.bottom <= afterViewportResize.bottom.top + 1, "resized scroll region must not overlap bottom navigation");
-  assert.ok(afterViewportResize.bottom.bottom <= afterViewportResize.viewport.height + 1, "resized bottom nav must remain inside viewport");
+  assert.ok(Math.abs(afterViewportResize.bottom.bottom - afterViewportResize.viewport.height) <= 1, "resized bottom nav must remain attached to the viewport bottom edge");
 
   await trigger.waitFor({ state: "visible" });
   const triggerBox = await trigger.boundingBox();
@@ -176,7 +210,14 @@ async function verifyMobile(browser) {
   const contrast = await verifyContrast(page);
   await page.screenshot({ path: `${resultsDir}/16-app-shell-mobile-acceptance.png`, fullPage: true });
   await context.close();
-  return { bottomItems: bottomItemCount, bottomHeight: before.bottom.height, contrast, menuAppearance };
+  return {
+    bottomItems: bottomItemCount,
+    bottomHeight: before.bottom.height,
+    bottomAppearance: before.bottomAppearance,
+    activeBottomAppearance: before.activeBottomAppearance,
+    contrast,
+    menuAppearance
+  };
 }
 
 async function verifyDesktop(browser) {
@@ -221,7 +262,7 @@ try {
   result.desktop = await verifyDesktop(browser);
   result.singleMenuTrigger = "PASS";
   result.bottomNavigationLimit = "PASS";
-  result.compactBottomNavigation = "PASS";
+  result.flatNativeBottomNavigation = "PASS";
   result.stableBottomNavigation = "PASS";
   result.noOverlap = "PASS";
   result.fixedTopBar = "PASS";
