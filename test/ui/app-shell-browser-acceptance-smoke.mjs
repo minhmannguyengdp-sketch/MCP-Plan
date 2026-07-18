@@ -119,6 +119,7 @@ async function verifyMobile(browser) {
   assert.ok(before.bottom.bottom <= before.viewport.height + 1, "bottom nav must stay inside viewport height");
   assert.equal(before.bottomPosition, "relative", "bottom navigation must be an AppShell row, not a fixed viewport overlay");
   assert.equal(before.bottomParentIsShell, true, "bottom navigation must be owned by app-content-shell");
+  assert.ok(Math.abs(before.bottom.height - 54) <= 1, "bottom nav visual height must stay compact at 54px");
 
   await page.evaluate(() => {
     const main = document.querySelector("[data-app-scroll-region]");
@@ -220,6 +221,7 @@ try {
   result.desktop = await verifyDesktop(browser);
   result.singleMenuTrigger = "PASS";
   result.bottomNavigationLimit = "PASS";
+  result.compactBottomNavigation = "PASS";
   result.stableBottomNavigation = "PASS";
   result.noOverlap = "PASS";
   result.fixedTopBar = "PASS";
