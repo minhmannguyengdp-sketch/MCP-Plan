@@ -42,6 +42,14 @@ try {
   await topBar.getByText("Tuyến bán hàng", { exact: true }).waitFor({ state: "visible" });
   const trigger = topBar.getByRole("button", { name: "Mở menu ứng dụng", exact: true });
   assert.equal(await trigger.count(), 1, "top bar must own exactly one menu trigger");
+  assert.equal(await page.locator("body > .card").count(), 0, "route export must not render as a detached card before AppShell");
+  const exportTrigger = topBar.locator('summary[aria-label="Mở xuất dữ liệu tuyến"]');
+  await exportTrigger.waitFor({ state: "visible" });
+  await exportTrigger.click();
+  await topBar.getByRole("link", { name: "Xuất khách tuyến", exact: true }).waitFor({ state: "visible" });
+  await topBar.getByRole("link", { name: "Xuất khách cần GPS", exact: true }).waitFor({ state: "visible" });
+  await exportTrigger.click();
+
   const positions = await page.evaluate(() => {
     const bar = document.querySelector("[data-app-top-bar]");
     const button = bar?.querySelector('button[aria-label="Mở menu ứng dụng"]');
@@ -89,6 +97,7 @@ try {
   result.F05_APP_SHELL_THEME_SMOKE = "PASS";
   result.sections = ["routes", "business", "session"];
   result.topBar = "PASS";
+  result.routeExportOwnership = "PASS";
   result.expandedMenu = "PASS";
   result.businessFormTheme = "PASS";
 } catch (error) {
