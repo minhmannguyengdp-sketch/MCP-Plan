@@ -3,24 +3,19 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật: **2026-07-18**  
 > Master plan: **Phase A / NPP-F05 / A5.5**  
-> Trạng thái: **NPP-F05 PASS — A5.5.2 BACKEND COVERAGE 13/30 PASS — FRONTEND REDEPLOY PENDING**
+> Trạng thái: **NPP-F05 PASS — A5.5.2 BACKEND 13/30 PASS — SESSION ACTION UI CALLER FIX + WARM THEME IN REVIEW**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Merge evidence runtime của PR #41 vào main.
-2. Commit evidence này dùng để kích lại Vercel production đúng một lần.
-3. Chỉ khi current main deploy READY mới chạy live UI smoke cho:
-   - tạo đơn;
-   - lưu kết quả test;
-   - lưu báo cáo thị trường;
-   - tạo follow-up.
-4. Xác nhận request có Idempotency-Key và UI không lỗi 400.
-5. Sau frontend production PASS mới bắt đầu slice A5.5.2 kế tiếp:
-   - open-session;
-   - session-customer status;
-   - PATCH/DELETE session;
-   - destructive route/session mutations theo inventory.
+1. Hoàn tất slice UI caller + warm theme foundation:
+   - sửa bốn action về canonical `/api/backend/mcp-day/session-customer/*`;
+   - Chromium click order/test/report/follow-up và kiểm `Idempotency-Key`;
+   - khóa token kem/nâu/xanh olive ở một theme layer.
+2. Chỉ merge khi Foundation + MCP Session Actions Browser Smoke PASS.
+3. Vercel current main phải SUCCESS.
+4. Chạy một lượt mobile production click thật cho bốn action và ghi evidence.
+5. Sau live production UI PASS mới tiếp A5.5.2 open-session/status/destructive mutations.
 
 KHÔNG bắt đầu NPP-F06.
 KHÔNG bắt đầu Order Core.
@@ -53,7 +48,7 @@ Browser workflow:    #31 PASS
 Migration:           a5_5_2_session_action_idempotency — APPLIED
 VPS pullmcp:         PASS
 Backend runtime:     PASS
-Frontend Vercel:     PENDING — build-rate-limit on merge SHA
+Frontend Vercel:     SUCCESS — PR #42 merge SHA `1beb9fc0cd78ae602e08fc29e50160e219cd3add`
 Evidence:            docs/npp-plan/A5_5_2_SESSION_ACTION_RUNTIME_PASS.md
 ```
 

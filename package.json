@@ -23,7 +23,8 @@
     "smoke:a5-5-2-session-actions": "node test/runtime/smoke-a5-5-2-session-actions.mjs",
     "test:foundation": "npm --prefix apps/backend test",
     "verify:copy": "npm run audit:copy && npm run typecheck",
-    "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run test:direct-rest-retirement && npm run test:idempotency && npm run test:production-hygiene && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:foundation && npm run typecheck"
+    "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run test:direct-rest-retirement && npm run test:idempotency && npm run test:production-hygiene && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:foundation && npm run typecheck && npm run test:theme-contract",
+    "test:theme-contract": "node --test test/mcp-warm-theme-contract.test.mjs test/a5-5-2-session-action-live-caller-contract.test.mjs"
   },
   "dependencies": {
     "next": "^14.2.35",

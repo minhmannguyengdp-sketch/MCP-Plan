@@ -23,6 +23,7 @@ import "./mcp-session-add-customer.css";
 import "./mcp-order-main-final.css";
 import "./mcp-scroll-restore.css";
 import "./export-menu-fix.css";
+import "./npp-theme.css";
 
 export const metadata: Metadata = {
   title: "MCP-Plan",
@@ -49,7 +50,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#101828"
+  themeColor: "#5A3A24"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

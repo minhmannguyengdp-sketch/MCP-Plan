@@ -1,0 +1,81 @@
+:root {
+  color-scheme: light;
+  --npp-color-canvas: #f7f3ed;
+  --npp-color-surface: #ffffff;
+  --npp-color-surface-soft: #fbf8f4;
+  --npp-color-header: #5a3a24;
+  --npp-color-header-strong: #4b2f1f;
+  --npp-color-primary: #4f7a3a;
+  --npp-color-primary-strong: #42662f;
+  --npp-color-primary-soft: #edf4e8;
+  --npp-color-accent: #c89b5b;
+  --npp-color-text: #2b211b;
+  --npp-color-text-muted: #6f685f;
+  --npp-color-border: #e8ded2;
+  --npp-color-danger: #b42318;
+  --npp-color-warning: #9a5b13;
+  --npp-color-success: #3f6f32;
+  --npp-color-on-header: #ffffff;
+  --npp-shadow-card: 0 1px 2px rgba(75, 47, 31, 0.05), 0 14px 34px rgba(75, 47, 31, 0.07);
+
+  /* Compatibility aliases: existing screens consume one token source. */
+  --bg: var(--npp-color-canvas);
+  --panel: var(--npp-color-surface);
+  --panel-soft: var(--npp-color-surface-soft);
+  --text: var(--npp-color-text);
+  --muted: var(--npp-color-text-muted);
+  --line: var(--npp-color-border);
+  --brand: var(--npp-color-primary);
+  --brand-strong: var(--npp-color-primary-strong);
+  --brand-soft: var(--npp-color-primary-soft);
+  --accent: var(--npp-color-accent);
+  --success: var(--npp-color-success);
+  --warning: var(--npp-color-warning);
+  --danger: var(--npp-color-danger);
+  --shadow: var(--npp-shadow-card);
+}
+
+body {
+  background: var(--npp-color-canvas);
+}
+
+.sidebar {
+  background: linear-gradient(180deg, var(--npp-color-header-strong), var(--npp-color-header));
+  color: var(--npp-color-on-header);
+}
+
+.sidebar-subtitle,
+.sidebar-footer {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.sidebar-link {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.sidebar-link.active,
+.sidebar-link:hover {
+  background: var(--npp-color-primary);
+  color: var(--npp-color-on-header);
+}
+
+.card,
+.filter-bar,
+.bottom-sheet {
+  box-shadow: var(--npp-shadow-card);
+}
+
+.button.primary {
+  background: var(--npp-color-primary);
+  border-color: var(--npp-color-primary);
+}
+
+.button.primary:hover:not(:disabled) {
+  background: var(--npp-color-primary-strong);
+  border-color: var(--npp-color-primary-strong);
+}
+
+::selection {
+  background: var(--npp-color-primary-soft);
+  color: var(--npp-color-text);
+}

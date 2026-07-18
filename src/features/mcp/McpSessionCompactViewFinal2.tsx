@@ -108,10 +108,10 @@ function addDays(days: number) {
 }
 
 function mutationOperation(path: string) {
-  if (path === "/api/mcp-day/session-customer/order") return "session-customer.order.create";
-  if (path === "/api/mcp-day/session-customer/test") return "session-customer.test.create";
-  if (path === "/api/mcp-day/session-customer/report") return "session-customer.report.create";
-  if (path === "/api/mcp-day/session-customer/followup") return "session-customer.followup.create";
+  if (path === "/api/backend/mcp-day/session-customer/order") return "session-customer.order.create";
+  if (path === "/api/backend/mcp-day/session-customer/test") return "session-customer.test.create";
+  if (path === "/api/backend/mcp-day/session-customer/report") return "session-customer.report.create";
+  if (path === "/api/backend/mcp-day/session-customer/followup") return "session-customer.followup.create";
   if (path === "/api/backend/mcp-day/session-customer/status") return "session-customer.status.update";
   throw new Error(`unsupported_mutation_operation:${path}`);
 }
@@ -120,8 +120,9 @@ async function postJson(path: string, body: unknown) {
   const response = await idempotentMutationFetch(path, { method: "POST", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) }, { operation: mutationOperation(path) });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const err = payload as { error?: string; detail?: string };
-    throw new Error(err.error || err.detail || "Không lưu được hành động MCP");
+    const err = payload as { error?: string | { message?: string }; detail?: string };
+    const errorMessage = typeof err.error === "string" ? err.error : err.error?.message;
+    throw new Error(errorMessage || err.detail || "Không lưu được hành động MCP");
   }
   return payload;
 }
@@ -341,7 +342,7 @@ export function McpSessionCompactView({ activeHref = "/visits", mcpDayData }: { 
           setMessage(null);
           if (selectedAction.action === "order") {
             if (orderItems.length === 0) throw new Error("Cần thêm ít nhất 1 sản phẩm vào đơn");
-            await postJson("/api/mcp-orders/from-session-customer", { sessionCustomerId, items: orderItems.map((item) => ({ productId: item.productId, variantId: item.variantId, productName: item.name, sku: item.sku, unit: item.unit, quantity: item.quantity, unitPrice: item.unitPrice, note: variantLabel(item) })), note: draft.note, status: "confirmed" });
+            await postJson("/api/backend/mcp-day/session-customer/order", { sessionCustomerId, items: orderItems.map((item) => ({ productId: item.productId, variantId: item.variantId, productName: item.name, sku: item.sku, unit: item.unit, quantity: item.quantity, unitPrice: item.unitPrice, note: variantLabel(item) })), note: draft.note, status: "confirmed" });
           } else if (selectedAction.action === "test") {
             if (!draft.productName.trim()) throw new Error("Cần chọn hoặc nhập sản phẩm test");
             await postJson("/api/backend/mcp-day/session-customer/test", { sessionCustomerId, fileTitle: "Kết quả thử sản phẩm trong phiên", results: [{ productName: draft.productName, status: draft.testStatus || "tested", note: draft.note }], note: draft.note, customerStatus: "tested" });
