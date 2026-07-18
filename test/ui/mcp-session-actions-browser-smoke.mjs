@@ -40,7 +40,7 @@ try {
   await card(page).getByRole("button", { name: "Test", exact: true }).click();
   const testDialog = page.getByRole("dialog", { name: "Ghi kết quả thử sản phẩm", exact: true });
   await testDialog.getByPlaceholder("Nhập tên sản phẩm").fill("Trà UI Smoke");
-  await testDialog.getByRole("button", { name: "Đạt", exact: true }).click();
+  await testDialog.getByRole("button", { name: "Đạt", exact: true }).first().click();
   await saveAndWait(page, "Ghi kết quả thử sản phẩm", "Lưu kết quả thử");
 
   await card(page).getByRole("button", { name: "Quan sát", exact: true }).click();
