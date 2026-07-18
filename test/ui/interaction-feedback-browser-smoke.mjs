@@ -40,6 +40,7 @@ try {
   });
   const webPage = await webContext.newPage();
   await webPage.goto(`${appBase}/settings`, { waitUntil: "networkidle" });
+  await webPage.locator("[data-app-top-bar]").getByText("Cài đặt ứng dụng", { exact: true }).waitFor({ state: "visible" });
 
   const feedbackSwitch = webPage.getByRole("switch", { name: "Phản hồi rung", exact: true });
   await feedbackSwitch.waitFor({ state: "visible" });
@@ -107,6 +108,7 @@ try {
   await nativeContext.close();
 
   result.INTERACTION_FEEDBACK_BROWSER_SMOKE = "PASS";
+  result.settingsTopBar = "PASS";
   result.webPreference = "PASS";
   result.persistedSetting = "PASS";
   result.capacitorPriority = "PASS";
