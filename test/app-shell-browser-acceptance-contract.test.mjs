@@ -38,7 +38,8 @@ test("AppShell owns a flat native bottom strip without a floating card shell", (
   assert.match(shellCss, /border-radius: 0/);
   assert.match(shellCss, /border-top: 1px solid/);
   assert.match(shellCss, /padding: 3px 8px calc\(3px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?background: color-mix/);
+  assert.match(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?background: rgba\(79, 122, 58, 0\.10\)/);
+  assert.match(shellCss, /\.bottom-nav-link\.active \.nav-icon \{[\s\S]*?background: rgba\(79, 122, 58, 0\.14\)/);
   assert.doesNotMatch(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?linear-gradient/);
   assert.doesNotMatch(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: fixed/);
 });
