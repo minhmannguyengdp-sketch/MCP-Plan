@@ -107,8 +107,17 @@ function addDays(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function mutationOperation(path: string) {
+  if (path === "/api/mcp-day/session-customer/order") return "session-customer.order.create";
+  if (path === "/api/mcp-day/session-customer/test") return "session-customer.test.create";
+  if (path === "/api/mcp-day/session-customer/report") return "session-customer.report.create";
+  if (path === "/api/mcp-day/session-customer/followup") return "session-customer.followup.create";
+  if (path === "/api/backend/mcp-day/session-customer/status") return "session-customer.status.update";
+  throw new Error(`unsupported_mutation_operation:${path}`);
+}
+
 async function postJson(path: string, body: unknown) {
-  const response = await fetch(path, { method: "POST", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const response = await idempotentMutationFetch(path, { method: "POST", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) }, { operation: mutationOperation(path) });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const err = payload as { error?: string; detail?: string };
