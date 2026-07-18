@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { InteractionFeedbackProvider } from "@/ui/feedback/InteractionFeedbackProvider";
 import "./globals.css";
 import "./mobile.css";
 import "./order-popups.css";
@@ -54,5 +55,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="vi"><body>{children}</body></html>;
+  return <html lang="vi"><body><InteractionFeedbackProvider>{children}</InteractionFeedbackProvider></body></html>;
 }
