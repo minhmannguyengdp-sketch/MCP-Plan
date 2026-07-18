@@ -1,13 +1,14 @@
 # A5.5.2 — Session action idempotency slice
 
 > Cập nhật: **2026-07-18**  
-> PR: **#41**  
+> PR: **#41 — MERGED**  
 > Phạm vi: **order / test / market report / follow-up từ khách trong phiên**  
-> Trạng thái: **CODE READY FOR CI — PRODUCTION MIGRATION/RUNTIME PENDING**
+> Trạng thái backend: **PRODUCTION RUNTIME PASS**  
+> Frontend production: **REDEPLOY PENDING — Vercel build-rate-limit**
 
 ## Root cause
 
-Bốn thao tác nghiệp vụ rủi ro cao vẫn đi qua legacy proxy và gọi business RPC trực tiếp. Caller dùng `fetch()` thường nên không có stable `Idempotency-Key`; retry có thể tạo thêm đơn, kết quả test hoặc follow-up, còn report có thể chạy update lại mà không có replay contract.
+Bốn thao tác nghiệp vụ rủi ro cao từng đi qua legacy proxy và gọi business RPC trực tiếp. Caller dùng `fetch()` thường nên không có stable `Idempotency-Key`; retry có thể tạo thêm đơn, kết quả test hoặc follow-up, còn report có thể chạy update lại mà không có replay contract.
 
 ## Kiến trúc slice
 
@@ -58,30 +59,45 @@ Bốn provider call site được đăng ký bằng fingerprint cụ thể trong
 
 ```text
 A5.5.1 verified: 9/30
-Slice target:      +4
-Target after production runtime evidence: 13/30
+PR #41 verified:  +4
+Current backend:  13/30
 Legacy remaining: 17
 ```
 
-Không ghi 13/30 PASS cho đến khi migration production, VPS deploy và authenticated Gateway smoke execute/replay/conflict/audit/cleanup đều PASS.
+Coverage 13/30 được ghi sau khi migration production, VPS deploy và authenticated Gateway smoke execute/replay/conflict/audit/context/cleanup đều PASS.
 
-## Test gates
+## Code và CI
 
-- mutation unit test kiểm RPC args + trusted context;
-- migration contract kiểm 4 begin/complete/replay wrapper;
-- transitional API test chứng minh route không rơi xuống legacy proxy;
-- caller contract cấm quay lại `fetch()` thường;
-- direct-DB scanner chỉ chấp nhận bốn exact fingerprints;
-- Foundation scanner, backend verify, TypeScript và Next build;
-- browser regression hiện hữu.
+```text
+PR #41:              MERGED
+Final head:          709fdc8e1ea1d2d21594f8ba55d6eba7e49b2c8c
+Merge SHA:           73d26b95d74b51627449d3bddb169114c097358e
+Foundation F0.2:     #379 PASS
+F05 browser smoke:   #31 PASS
+Migration:           a5_5_2_session_action_idempotency — APPLIED
+```
 
-## Runtime gate sau merge
+## Production runtime gate
 
-1. Apply migration từ source `main`.
-2. `pullmcp` trên VPS.
-3. Tạo fixture riêng và chạy từng operation qua Gateway `127.0.0.1:3001`.
-4. Với mỗi operation kiểm execute, replay, same-key/different-payload conflict và audit.
-5. Rollback/dọn fixture; không để đơn/test/report/follow-up test trong production.
-6. Chỉ khi cleanup PASS mới cập nhật coverage thành 13/30.
+```text
+Runtime backup: /var/www/mcp-plan-backend.backup.20260718-121507
+Gateway:        http://127.0.0.1:3001
+Health:         PASS
+Envelope:       PASS
+Fixture cleanup PASS
+```
+
+```text
+order     execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
+test      execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
+report    execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
+follow-up execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
+```
+
+Chi tiết evidence: `docs/npp-plan/A5_5_2_SESSION_ACTION_RUNTIME_PASS.md`.
+
+## Frontend production gate còn lại
+
+Caller stable-key đã nằm trong `main`, nhưng Vercel status của merge SHA PR #41 thất bại do `build-rate-limit`. Backend mới bắt buộc key, vì vậy không chạy live UI bốn thao tác trên bản frontend cũ. Commit evidence sau runtime được dùng để kích lại production deploy đúng một lần; chỉ khi deployment READY mới chạy live UI smoke rồi chuyển sang slice tiếp theo.
 
 Không đụng `milktea-backend` port `3002`.
