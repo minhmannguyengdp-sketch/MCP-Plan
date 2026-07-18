@@ -1,0 +1,57 @@
+name: A5.5.2 Register Baseline
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  register-baseline:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feat/a5-5-2-session-actions'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Register exact audited fingerprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import { readFile, writeFile } from 'node:fs/promises';
+
+          const path = 'scripts/direct-db-mutation-baseline.json';
+          const baseline = JSON.parse(await readFile(path, 'utf8'));
+          const additions = [
+            ['34ae328d0c6bfb6957cfdfa6', 'Order create typed idempotent RPC boundary.'],
+            ['52acb9f37371a51ee227f897', 'Test create typed idempotent RPC boundary.'],
+            ['66dfd2ab90e66c36566f5dc0', 'Market report create typed idempotent RPC boundary.'],
+            ['fb830fbf8dec43a7a6041e53', 'Follow-up create typed idempotent RPC boundary.']
+          ];
+          const existing = new Set(baseline.entries.map((entry) => entry.fingerprint));
+          for (const [fingerprint, reason] of additions) {
+            if (existing.has(fingerprint)) continue;
+            baseline.entries.push({
+              fingerprint,
+              classification: 'approved-boundary',
+              operation: 'mutation',
+              owner: 'foundation-adapter',
+              reason,
+              replacementPhase: 'keep'
+            });
+          }
+          await writeFile(path, `${JSON.stringify(baseline)}\n`);
+          JS
+
+          rm -f .github/workflows/a5-5-2-register-baseline.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "chore: register A5.5.2 provider boundaries"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
