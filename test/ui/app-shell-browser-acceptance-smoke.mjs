@@ -133,7 +133,6 @@ async function verifyMobile(browser) {
   assert.notEqual(pressedTransform, "none", "pressed state must provide visible transform feedback");
   await page.mouse.up();
 
-  await trigger.click();
   const menu = page.getByRole("dialog").last();
   await menu.waitFor({ state: "visible" });
   const menuBox = await menu.boundingBox();
