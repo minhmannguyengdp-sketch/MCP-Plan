@@ -1,0 +1,75 @@
+name: A5.5.2 Finalize Source
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-source:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feat/a5-5-2-session-actions'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Replace caller boundary and remove bootstrap files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/features/mcp/McpSessionCompactViewFinal2.tsx')
+          source = path.read_text()
+
+          old_days = '''function addDays(days: number) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            return date.toISOString().slice(0, 10);
+          }
+
+          async function postJson(path: string, body: unknown) {
+            const response = await fetch(path, { method: "POST", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+          '''
+          new_days = '''function addDays(days: number) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            return date.toISOString().slice(0, 10);
+          }
+
+          function mutationOperation(path: string) {
+            if (path === "/api/mcp-day/session-customer/order") return "session-customer.order.create";
+            if (path === "/api/mcp-day/session-customer/test") return "session-customer.test.create";
+            if (path === "/api/mcp-day/session-customer/report") return "session-customer.report.create";
+            if (path === "/api/mcp-day/session-customer/followup") return "session-customer.followup.create";
+            if (path === "/api/backend/mcp-day/session-customer/status") return "session-customer.status.update";
+            throw new Error(`unsupported_mutation_operation:${path}`);
+          }
+
+          async function postJson(path: string, body: unknown) {
+            const response = await idempotentMutationFetch(path, { method: "POST", cache: "no-store", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) }, { operation: mutationOperation(path) });
+          '''
+
+          if old_days not in source:
+              raise SystemExit('expected postJson source block not found')
+          source = source.replace(old_days, new_days, 1)
+          path.write_text(source)
+          PY
+
+          rm -rf .github/a5-5-2-patch
+          rm -f .github/workflows/a5-5-2-source-export.yml
+          rm -f .github/workflows/a5-5-2-apply.yml
+          rm -f .github/workflows/a5-5-2-finalize-source.yml
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat: finalize A5.5.2 session action caller"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
