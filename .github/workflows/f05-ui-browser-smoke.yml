@@ -5,7 +5,11 @@ on:
     paths:
       - ".github/workflows/f05-ui-browser-smoke.yml"
       - "src/features/mcp/**"
+      - "src/features/dashboard/**"
       - "src/ui/layout/**"
+      - "src/ui/shell/**"
+      - "src/app/npp-theme.css"
+      - "src/app/page.tsx"
       - "src/app/routes/**"
       - "src/app/visits/**"
       - "src/app/api/**"
@@ -68,6 +72,7 @@ jobs:
           trap cleanup EXIT
           node test/ui/f05-ui-browser-smoke.mjs | tee test-results/f05-ui-smoke/browser-smoke.log
           node test/ui/f05-ui-session-action-menu-smoke.mjs | tee test-results/f05-ui-smoke/session-action-menu-smoke.log
+          node test/ui/f05-ui-app-shell-theme-smoke.mjs | tee test-results/f05-ui-smoke/app-shell-theme-smoke.log
 
       - name: Upload browser smoke evidence
         if: always()
