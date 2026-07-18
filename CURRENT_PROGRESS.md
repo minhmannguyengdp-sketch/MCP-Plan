@@ -3,26 +3,33 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật: **2026-07-18**  
 > Master plan: **Phase A / NPP-F05 / A5.5**  
-> Trạng thái: **NPP-F05 PASS — A5.5.2 BACKEND 13/30 PASS — SESSION ACTION UI CALLER FIX + WARM THEME IN REVIEW**
+> Trạng thái: **NPP-F05 PASS — A5.5.2 BACKEND 13/30 PASS — PR #44 WARM THEME + SESSION ACTION CALLERS DEPLOYED — LIVE PHONE ACTION SMOKE PENDING**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Hoàn tất slice UI caller + warm theme foundation:
-   - sửa bốn action về canonical `/api/backend/mcp-day/session-customer/*`;
-   - Chromium click order/test/report/follow-up và kiểm `Idempotency-Key`;
-   - khóa token kem/nâu/xanh olive ở một theme layer.
-2. Chỉ merge khi Foundation + MCP Session Actions Browser Smoke PASS.
-3. Vercel current main phải SUCCESS.
-4. Chạy một lượt mobile production click thật cho bốn action và ghi evidence.
-5. Sau live production UI PASS mới tiếp A5.5.2 open-session/status/destructive mutations.
+1. Trên mobile production chạy bốn thao tác thật từ màn Phiên:
+   - tạo đơn hàng;
+   - lưu kết quả test;
+   - lưu quan sát thị trường;
+   - tạo follow-up.
+2. Xác nhận cả bốn thao tác lưu thành công, không có:
+   - unsupported_mutation_operation;
+   - idempotency_key_required;
+   - lỗi 400 do caller path/key.
+3. Ghi live evidence vào repo.
+4. Sau live production UI PASS mới tiếp A5.5.2 với:
+   - open-session;
+   - session-customer status;
+   - PATCH/DELETE session;
+   - destructive route/session mutations theo inventory.
 
 KHÔNG bắt đầu NPP-F06.
 KHÔNG bắt đầu Order Core.
 KHÔNG đụng milktea-backend port 3002.
 ```
 
-Lý do chưa chuyển ngay sang slice kế tiếp: backend PR #41 đã chạy production, nhưng Vercel status của merge SHA bị `build-rate-limit`. Frontend production cũ có thể chưa gửi stable `Idempotency-Key`, trong khi Gateway mới đã bắt buộc key cho bốn route.
+Automated Chromium đã click đủ bốn action trên Next production build và stateful mock, nhưng không được ghi thay cho lượt click dữ liệu production bằng điện thoại thật.
 
 ## 2. Vị trí master plan
 
@@ -35,11 +42,71 @@ Verified coverage: 13/30
 Remaining:         17 mutation routes
 ```
 
-## 3. PR #41 — session action idempotency slice
+## 3. PR #44 — session action UI caller gate + warm theme foundation
+
+```text
+PR:                         #44 — MERGED
+Branch:                     ui/mcp-warm-theme-live-actions
+Final head:                 8d64301f63e43c7be36526b9700d011f044e32e7
+Merge SHA:                  86bc600be9fe4bb33d437121627692a3172a9a9a
+Foundation F0.2:            #394 PASS
+F05 UI Browser Smoke:       #38 PASS
+Session Actions UI Smoke:   #5 PASS
+Vercel production:          SUCCESS
+Backend/schema change:      NONE
+VPS pullmcp:                NOT REQUIRED
+Evidence:                   docs/npp-plan/MCP_WARM_THEME_AND_SESSION_ACTION_UI_GATE.md
+```
+
+### Root cause đã sửa
+
+Backend typed owner/runtime của order/test/report/follow-up đã PASS nhưng UI dùng đường dẫn không đồng nhất với `mutationOperation()`. Operation được resolve trước `fetch`, nên UI có thể ném `unsupported_mutation_operation` mà chưa gửi request.
+
+Bốn caller đã khóa về cùng canonical frontend proxy:
+
+```text
+/api/backend/mcp-day/session-customer/order
+/api/backend/mcp-day/session-customer/test
+/api/backend/mcp-day/session-customer/report
+/api/backend/mcp-day/session-customer/followup
+```
+
+Browser evidence:
+
+```text
+MCP_SESSION_ACTION_UI_SMOKE  PASS
+actions                      order / test / report / followup
+Idempotency-Key              PASS cho cả bốn request
+aggregate count              1 / 1 / 1 / 1
+```
+
+Artifact:
+
+```text
+name:    mcp-session-actions-browser-evidence
+id:      8430119462
+digest:  sha256:ad0afb3a69ee1aca22f0ca8ef4b923efca4dd99d758e36979548ae6f49a7f49f
+```
+
+### Warm theme foundation
+
+```text
+canvas         #F7F3ED  kem nhẹ
+surface        #FFFFFF  trắng
+surface soft   #FBF8F4
+header         #5A3A24  nâu
+primary        #4F7A3A  xanh olive
+accent         #C89B5B  vàng đất
+text           #2B211B
+border         #E8DED2
+```
+
+Token ownership nằm tại `src/app/npp-theme.css`, import cuối và map về alias CSS cũ. Không rải màu theo từng màn hình. Chưa mở rộng menu ☰ và chưa thêm haptic/rung trong slice này.
+
+## 4. PR #41 — A5.5.2 backend session-action slice
 
 ```text
 PR:                  #41 — MERGED
-Branch:              feat/a5-5-2-session-actions
 Final head:          709fdc8e1ea1d2d21594f8ba55d6eba7e49b2c8c
 Merge SHA:           73d26b95d74b51627449d3bddb169114c097358e
 Scope:               order / test / report / follow-up
@@ -48,67 +115,19 @@ Browser workflow:    #31 PASS
 Migration:           a5_5_2_session_action_idempotency — APPLIED
 VPS pullmcp:         PASS
 Backend runtime:     PASS
-Frontend Vercel:     SUCCESS — PR #42 merge SHA `1beb9fc0cd78ae602e08fc29e50160e219cd3add`
+Coverage:            9/30 -> 13/30
 Evidence:            docs/npp-plan/A5_5_2_SESSION_ACTION_RUNTIME_PASS.md
 ```
 
-Kiến trúc:
+Production runtime:
 
 ```text
-UI user intent
--> idempotentMutationFetch với stable key
--> Next backend proxy
--> Foundation Gateway typed owner
--> typed idempotent wrapper RPC
--> existing business RPC
--> mutation + audit + completed response trong cùng transaction
+order     execute/replay/conflict/audit/context PASS
+test      execute/replay/conflict/audit/context PASS
+report    execute/replay/conflict/audit/context PASS
+follow-up execute/replay/conflict/audit/context PASS
+fixture cleanup                              PASS
 ```
-
-Bốn route đã retire khỏi legacy proxy ownership:
-
-```text
-POST /api/mcp-day/session-customer/order
-POST /api/mcp-day/session-customer/test
-POST /api/mcp-day/session-customer/report
-POST /api/mcp-day/session-customer/followup
-```
-
-Operation inventory:
-
-```text
-session-customer.order.create
-session-customer.test.create
-session-customer.report.create
-session-customer.followup.create
-```
-
-## 4. Production runtime evidence PR #41
-
-```text
-Runtime backup: /var/www/mcp-plan-backend.backup.20260718-121507
-Gateway:        http://127.0.0.1:3001
-Health:         PASS
-Envelope:       PASS
-Fixture cleanup PASS
-```
-
-```text
-order     execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
-test      execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
-report    execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
-follow-up execute PASS / replay PASS / conflict PASS / audit PASS / context PASS
-```
-
-Aggregate smoke IDs đã được cleanup:
-
-```text
-order_4f5d32899bee497da60426d58e0be416
-test_result_e8f2302328e74e24add0932b16bc4569
-report_5030dc60f2d745a8926513682db58371
-mcf_4a7f7e817c634d9a9377c601de171e21
-```
-
-Kết luận: backend coverage A5.5 tăng từ **9/30 lên 13/30**. Không còn điều kiện chờ migration/VPS/runtime cho bốn operation này.
 
 ## 5. Gate NPP-F05
 
@@ -141,9 +160,9 @@ NPP-F05 đã đóng. Không mở lại trừ regression có bằng chứng.
 ## 6. Mobile UI architecture đã khóa
 
 ```text
-Bottom navigation = chuyển phân hệ
-Mobile ☰         = một menu dùng chung toàn app
-Screen feature   = đăng ký action vào menu chung
+Bottom navigation = shortcut cho các phân hệ dùng thường xuyên
+Mobile ☰         = một menu dùng chung toàn app, có thể mở rộng
+Screen feature   = đăng ký action ngữ cảnh vào menu chung
 Settings         = một item trong menu chung
 ```
 
@@ -157,41 +176,30 @@ cụm BC phiên / Xuất / Chốt phiên fixed
 
 PR #39 merge SHA `72ab29e37f55d94545c80de0cb91b48ad1fdc543`; evidence `docs/npp-plan/SESSION_ACTION_MENU_UI_RELEASE.md`.
 
-## 7. Foundation/A5.5 nền đã xác minh
+## 7. App surfaces/subdomain đã khóa
 
 ```text
-A5.5.1 PR:             #25 — MERGED
-A5.5.1 coverage:       9/30
-A5.5.2 first slice:    +4
-Current verified:      13/30
-Remaining:             17
-Idempotency core DB:   PASS
-Append-only audit:     PASS
-Gateway runtime:       PASS
-F05 runtime closure:   PASS
+sales.<domain>       Sale mobile / MCP
+admin.<domain>       Điều hành và cấu hình
+operations.<domain>  Kho + giao nhận
+accounting.<domain>  Kế toán + công nợ
+portal.<domain>      Cổng khách hàng — làm sau
+api.<domain>         Backend — không tính giao diện
 ```
 
-Route/customer active-session sync:
-
-```text
-0 active session  -> thêm route master, không prompt
-1 active session  -> hỏi hai lựa chọn
->1 active session -> từ chối trạng thái mơ hồ
-```
-
-Single-active invariant production: `max_active_per_route=1`, `ambiguous_routes=0`.
+Kho và giao nhận chung app nhưng tách domain/quyền/nguồn sự thật. Kế toán là app riêng. Evidence `docs/npp-plan/APP_SURFACE_SUBDOMAIN_DECISION.md`.
 
 ## 8. Runtime và deploy
 
 ```text
-VPS source:          /var/www/mcp-plan-source
-VPS runtime:         /var/www/mcp-plan-backend
-PM2:                 mcp-plan-backend
-Gateway:             127.0.0.1:3001
-Legacy internal:     127.0.0.1:3102
-Milktea backend:     3002 — KHÔNG ĐỤNG
-Frontend current UI: Vercel production
-PR #41 frontend:     PENDING REDEPLOY due build-rate-limit
+VPS source:             /var/www/mcp-plan-source
+VPS runtime:            /var/www/mcp-plan-backend
+PM2:                    mcp-plan-backend
+Gateway:                127.0.0.1:3001
+Legacy internal:        127.0.0.1:3102
+Milktea backend:        3002 — KHÔNG ĐỤNG
+Frontend production:    Vercel SUCCESS
+Current frontend SHA:   86bc600be9fe4bb33d437121627692a3172a9a9a
 ```
 
 Không chỉ ghi trạng thái trong chat.
