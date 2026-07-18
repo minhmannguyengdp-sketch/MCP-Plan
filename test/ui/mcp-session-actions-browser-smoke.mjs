@@ -42,7 +42,20 @@ try {
   result.loadingState = "PASS";
 
   await picker.getByRole("button", { name: /Trà UI Smoke/ }).first().waitFor({ state: "visible" });
-  await behavior({ productError: "Không tải được danh mục thử nghiệm" });
+  const productSearchPattern = "**/api/products/search?*";
+  await page.route(productSearchPattern, async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("q") !== "kiểm tra lỗi") return route.continue();
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json; charset=utf-8",
+      body: JSON.stringify({
+        error: { code: "UPSTREAM_UNAVAILABLE", message: "Không tải được danh mục thử nghiệm", details: {}, retryable: true },
+        receivedAt: new Date().toISOString(),
+        requestId: "req_ui_error_state"
+      })
+    });
+  });
   const searchInput = picker.getByPlaceholder("Tìm tên sản phẩm, vị, SKU");
   await searchInput.fill("kiểm tra lỗi");
   await picker.getByRole("button", { name: "Lọc", exact: true }).click();
@@ -51,6 +64,7 @@ try {
   const errorStyle = await errorMessage.evaluate((node) => ({ color: getComputedStyle(node).color, background: getComputedStyle(node).backgroundColor }));
   assert.notEqual(errorStyle.color, "rgb(111, 104, 95)", "error state must not use muted text styling");
   result.errorState = "PASS";
+  await page.unroute(productSearchPattern);
 
   await picker.getByRole("button", { name: "Lọc", exact: true }).click();
   await picker.getByRole("button", { name: /Trà UI Smoke/ }).first().waitFor({ state: "visible" });
