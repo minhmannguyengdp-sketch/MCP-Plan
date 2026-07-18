@@ -13,7 +13,9 @@ assert.match(appMenu, /aria-label="Mở menu ứng dụng"/, "mobile app must ex
 assert.equal((appMenu.match(/aria-label="Mở menu ứng dụng"/g) || []).length, 1, "there must be one mobile menu trigger");
 assert.match(appMenu, /Cài đặt ứng dụng/, "settings must live inside the shared menu");
 assert.match(appMenu, /MobileAppMenuContext/, "screen actions must register into the shared menu instead of adding buttons");
+assert.match(appMenu, /if \(parent\) return/, "nested app shells must reuse the existing provider instead of rendering another trigger");
 
+assert.match(wrapper, /<MobileAppMenuProvider>[\s\S]*<VisitsSessionReportPanel/, "session action owner must be inside the provider boundary");
 assert.match(owner, /useRegisterMobileAppMenu/, "session screen must register contextual actions");
 assert.match(owner, /Xem báo cáo phiên/, "report action must live in the shared menu");
 assert.match(owner, /Xuất dữ liệu/, "export action must live in the shared menu");
