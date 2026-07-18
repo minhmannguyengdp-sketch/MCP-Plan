@@ -7,6 +7,7 @@ const mobileMenu = await readFile("src/ui/shell/MobileAppMenu.tsx", "utf8");
 const menuCss = await readFile("src/ui/shell/MobileAppMenu.module.css", "utf8");
 const navigation = await readFile("src/ui/shell/navigation.ts", "utf8");
 const theme = await readFile("src/app/npp-theme.css", "utf8");
+const routeExport = await readFile("src/features/mcp/RouteCustomerExportMenu.tsx", "utf8");
 
 test("AppShell owns one sticky top bar and exposes semantic screen sections", () => {
   assert.match(appShell, /<AppTopBar activeHref=\{activeHref\}/);
@@ -15,6 +16,10 @@ test("AppShell owns one sticky top bar and exposes semantic screen sections", ()
   assert.match(navigation, /"overview" \| "routes" \| "session" \| "business"/);
   assert.match(menuCss, /\.topBar \{[\s\S]*?position: sticky;/);
   assert.doesNotMatch(menuCss, /\.trigger \{[\s\S]*?position: fixed;/);
+  assert.match(mobileMenu, /data-app-top-bar-tools/);
+  assert.match(routeExport, /createPortal\(/);
+  assert.match(routeExport, /\[data-app-top-bar-tools\]/);
+  assert.doesNotMatch(routeExport, /<div className="card"/);
 });
 
 test("expanded menu contains operational navigation and keeps contextual actions first", () => {
