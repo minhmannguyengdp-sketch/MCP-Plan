@@ -20,6 +20,14 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   PRIMARY_NAV_ITEMS[2], PRIMARY_NAV_ITEMS[3], PRIMARY_NAV_ITEMS[4]
 ];
 
+export const SETTINGS_NAV_ITEM: NavItem = {
+  label: "Cài đặt ứng dụng",
+  shortLabel: "Cài đặt",
+  href: "/settings",
+  description: "Cài ứng dụng và cấu hình hành vi trên thiết bị",
+  icon: "⚙"
+};
+
 export const APP_MENU_GROUPS: AppMenuGroup[] = [
   {
     id: "today",
@@ -41,7 +49,7 @@ export const APP_MENU_GROUPS: AppMenuGroup[] = [
 export const NAV_ITEMS = SIDEBAR_NAV_ITEMS;
 
 export function navItemForHref(href: string) {
-  return [...SIDEBAR_NAV_ITEMS]
+  return [...SIDEBAR_NAV_ITEMS, SETTINGS_NAV_ITEM]
     .sort((a, b) => b.href.length - a.href.length)
     .find((item) => item.href === href || (item.href !== "/" && href.startsWith(`${item.href}/`))) || PRIMARY_NAV_ITEMS[0];
 }
