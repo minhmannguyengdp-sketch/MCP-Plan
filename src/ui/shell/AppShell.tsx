@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { PRIMARY_NAV_ITEMS, SIDEBAR_NAV_ITEMS, type NavItem } from "./navigation";
-import { MobileAppMenuProvider } from "./MobileAppMenu";
+import { PRIMARY_NAV_ITEMS, SIDEBAR_NAV_ITEMS, shellSectionForHref, type NavItem } from "./navigation";
+import { AppTopBar, MobileAppMenuProvider } from "./MobileAppMenu";
 
 type AppShellProps = { children: ReactNode; activeHref?: string };
 
@@ -17,14 +17,18 @@ function NavLinks({ activeHref, items, mode }: { activeHref: string; items: NavI
 }
 
 export function AppShell({ children, activeHref = "/" }: AppShellProps) {
-  return <MobileAppMenuProvider><div className="app-shell">
+  const section = shellSectionForHref(activeHref);
+  return <MobileAppMenuProvider><div className="app-shell" data-shell-section={section} data-active-href={activeHref}>
     <aside className="sidebar">
       <div className="sidebar-brand"><div className="sidebar-title">MCP-Plan</div><div className="sidebar-subtitle">Quản lý tuyến bán hàng, điểm bán, đơn hàng và công việc.</div></div>
       <NavLinks activeHref={activeHref} items={SIDEBAR_NAV_ITEMS} mode="sidebar" />
       <Link className={activeHref === "/settings" ? "sidebar-link active utility-link" : "sidebar-link utility-link"} href="/settings" prefetch><span className="nav-icon" aria-hidden="true">⚙</span><span>Cài đặt ứng dụng</span></Link>
       <div className="sidebar-footer">MCP-Plan · Quản lý phân phối</div>
     </aside>
-    <main className="main">{children}</main>
+    <div className="app-content-shell">
+      <AppTopBar activeHref={activeHref} />
+      <main className="main">{children}</main>
+    </div>
     <NavLinks activeHref={activeHref} items={PRIMARY_NAV_ITEMS} mode="bottom" />
   </div></MobileAppMenuProvider>;
 }
