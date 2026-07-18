@@ -7,9 +7,9 @@ const provider = await readFile("src/ui/feedback/InteractionFeedbackProvider.tsx
 const settings = await readFile("src/features/settings/InteractionFeedbackCard.tsx", "utf8");
 const layout = await readFile("src/app/layout.tsx", "utf8");
 
- test("one shared feedback adapter owns Capacitor, web fallback and preference", () => {
+test("one shared feedback adapter owns Capacitor, web fallback and preference", () => {
   assert.match(adapter, /INTERACTION_FEEDBACK_STORAGE_KEY = "mcp-plan:interaction-feedback-enabled"/);
-  assert.match(adapter, /window\.Capacitor/);
+  assert.match(adapter, /Capacitor\?: CapacitorBridge/);
   assert.match(adapter, /Plugins\?\.Haptics/);
   assert.match(adapter, /navigator\.vibrate/);
   assert.match(adapter, /if \(!options\.force && !readInteractionFeedbackEnabled\(\)\) return "none"/);
