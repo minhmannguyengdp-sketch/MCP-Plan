@@ -6,15 +6,21 @@ on:
       - ".github/workflows/f05-ui-browser-smoke.yml"
       - "src/features/mcp/**"
       - "src/features/dashboard/**"
+      - "src/features/settings/**"
       - "src/ui/layout/**"
       - "src/ui/shell/**"
+      - "src/ui/feedback/**"
+      - "src/lib/interaction/**"
+      - "src/app/layout.tsx"
       - "src/app/npp-theme.css"
       - "src/app/page.tsx"
+      - "src/app/settings/**"
       - "src/app/routes/**"
       - "src/app/visits/**"
       - "src/app/api/**"
       - "src/lib/api/**"
       - "test/ui/f05-ui-**"
+      - "test/ui/interaction-feedback-**"
   workflow_dispatch:
 
 permissions:
@@ -73,6 +79,7 @@ jobs:
           node test/ui/f05-ui-browser-smoke.mjs | tee test-results/f05-ui-smoke/browser-smoke.log
           node test/ui/f05-ui-session-action-menu-smoke.mjs | tee test-results/f05-ui-smoke/session-action-menu-smoke.log
           node test/ui/f05-ui-app-shell-theme-smoke.mjs | tee test-results/f05-ui-smoke/app-shell-theme-smoke.log
+          node test/ui/interaction-feedback-browser-smoke.mjs | tee test-results/f05-ui-smoke/interaction-feedback-smoke.log
 
       - name: Upload browser smoke evidence
         if: always()
