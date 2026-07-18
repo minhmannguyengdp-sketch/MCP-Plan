@@ -5,12 +5,15 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
+  useRef,
   useState,
+  type MouseEvent,
   type ReactNode
 } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
-import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { APP_MENU_GROUPS, navItemForHref } from "./navigation";
 import styles from "./MobileAppMenu.module.css";
 
@@ -35,6 +38,7 @@ export type MobileAppMenuRegistration = {
 type MobileAppMenuContextValue = {
   register: (registration: MobileAppMenuRegistration) => () => void;
   openMenu: () => void;
+  menuOpen: boolean;
 };
 
 const MobileAppMenuContext = createContext<MobileAppMenuContextValue | null>(null);
@@ -69,6 +73,7 @@ export function AppTopBar({ activeHref }: { activeHref: string }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
         <div data-app-top-bar-tools style={{ display: "flex", alignItems: "center", gap: 8 }} />
         <button
+          aria-expanded={context.menuOpen}
           aria-haspopup="dialog"
           aria-label="Mở menu ứng dụng"
           className={styles.trigger}
@@ -79,6 +84,81 @@ export function AppTopBar({ activeHref }: { activeHref: string }) {
         </button>
       </div>
     </header>
+  );
+}
+
+type TopMenuPanelProps = {
+  children: ReactNode;
+  description: string;
+  onClose: () => void;
+  open: boolean;
+  title: string;
+};
+
+function TopMenuPanel({ children, description, onClose, open, title }: TopMenuPanelProps) {
+  const [mounted, setMounted] = useState(false);
+  const titleId = useId();
+  const descriptionId = useId();
+  const panelRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef(onClose);
+
+  useEffect(() => setMounted(true), []);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    if (!open || !mounted) return;
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+    const previousOverscroll = body.style.overscrollBehavior;
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "contain";
+
+    const focusFrame = window.requestAnimationFrame(() => panelRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeRef.current();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      body.style.overflow = previousOverflow;
+      body.style.overscrollBehavior = previousOverscroll;
+    };
+  }, [mounted, open]);
+
+  if (!mounted || !open) return null;
+
+  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) closeRef.current();
+  }
+
+  return createPortal(
+    <div className={styles.menuBackdrop} role="presentation" onClick={handleBackdropClick}>
+      <section
+        ref={panelRef}
+        className={styles.menuPanel}
+        data-app-menu-panel="true"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        tabIndex={-1}
+      >
+        <header className={styles.panelHeader}>
+          <div className={styles.panelTitle}>
+            <span className={styles.panelMark} aria-hidden="true">HP</span>
+            <div>
+              <h2 id={titleId}>{title}</h2>
+              <p id={descriptionId}>{description}</p>
+            </div>
+          </div>
+          <button className={styles.panelClose} type="button" aria-label="Đóng" onClick={() => closeRef.current()}>×</button>
+        </header>
+        <div className={styles.panelBody}>{children}</div>
+      </section>
+    </div>,
+    document.body
   );
 }
 
@@ -95,7 +175,7 @@ function MobileAppMenuRoot({ children }: { children: ReactNode }) {
     };
   }, []);
   const openMenu = useCallback(() => setOpen(true), []);
-  const contextValue = useMemo(() => ({ register, openMenu }), [register, openMenu]);
+  const contextValue = useMemo(() => ({ register, openMenu, menuOpen: open }), [register, openMenu, open]);
   const isSettings = pathname === "/settings";
 
   useEffect(() => {
@@ -135,7 +215,7 @@ function MobileAppMenuRoot({ children }: { children: ReactNode }) {
   return (
     <MobileAppMenuContext.Provider value={contextValue}>
       {children}
-      <BottomSheet open={open} onClose={() => setOpen(false)} title={title} description={description}>
+      <TopMenuPanel open={open} onClose={() => setOpen(false)} title={title} description={description}>
         <div className={styles.menuList}>
           {contextualItems.length ? (
             <section className={styles.menuSection} aria-label="Tác vụ màn hình">
@@ -197,7 +277,7 @@ function MobileAppMenuRoot({ children }: { children: ReactNode }) {
 
           {registration?.message ? <p className={styles.error}>{registration.message}</p> : null}
         </div>
-      </BottomSheet>
+      </TopMenuPanel>
     </MobileAppMenuContext.Provider>
   );
 }
