@@ -37,7 +37,7 @@ export function AppShell({ children, activeHref = "/" }: AppShellProps) {
     <div className="app-content-shell" data-app-content-shell>
       <AppTopBar activeHref={activeHref} />
       <main className="main" data-app-scroll-region>{children}</main>
+      <NavLinks activeHref={activeHref} items={BOTTOM_NAV_ITEMS} mode="bottom" />
     </div>
-    <NavLinks activeHref={activeHref} items={BOTTOM_NAV_ITEMS} mode="bottom" />
   </div></MobileAppMenuProvider>;
 }

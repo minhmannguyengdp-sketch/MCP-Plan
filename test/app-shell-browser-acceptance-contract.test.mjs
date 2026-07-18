@@ -5,6 +5,8 @@ import { readFile } from "node:fs/promises";
 const appShell = await readFile("src/ui/shell/AppShell.tsx", "utf8");
 const shellCss = await readFile("src/app/app-shell-contract.css", "utf8");
 const layout = await readFile("src/app/layout.tsx", "utf8");
+const mobileMenu = await readFile("src/ui/shell/MobileAppMenu.tsx", "utf8");
+const mobileMenuCss = await readFile("src/ui/shell/MobileAppMenu.module.css", "utf8");
 const sessionView = await readFile("src/features/mcp/McpSessionCompactViewFinal2.tsx", "utf8");
 const browserSmoke = await readFile("test/ui/app-shell-browser-acceptance-smoke.mjs", "utf8");
 const actionSmoke = await readFile("test/ui/mcp-session-actions-browser-smoke.mjs", "utf8");
@@ -18,24 +20,44 @@ test("AppShell owns one menu trigger, one scroll region and at most five bottom 
   assert.match(appShell, /data-navigation-item-count/);
   assert.match(appShell, /data-app-scroll-region/);
   assert.match(appShell, /<AppTopBar activeHref=\{activeHref\} \/>/);
+  assert.match(appShell, /<main[\s\S]*?<NavLinks activeHref=\{activeHref\} items=\{BOTTOM_NAV_ITEMS\} mode="bottom" \/>[\s\S]*?<\/div>/);
 });
 
-test("AppShell layout fixes the top bar outside the only mobile scroll region", () => {
+test("AppShell owns stable top, scroll and bottom rows without viewport-fixed bottom navigation", () => {
   assert.match(layout, /import "\.\/app-shell-contract\.css"/);
-  assert.match(shellCss, /\.app-content-shell \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\)/);
+  assert.doesNotMatch(layout, /mobile-nav-tune\.css/);
+  assert.doesNotMatch(layout, /safe-area\.css/);
+  assert.match(shellCss, /grid-template-rows: auto minmax\(0, 1fr\) auto/);
   assert.match(shellCss, /\[data-app-scroll-region\] \{[\s\S]*?overflow-y: auto/);
   assert.match(shellCss, /\[data-app-top-bar\] \{[\s\S]*?position: sticky/);
-  assert.match(shellCss, /--app-bottom-nav-clearance: 84px/);
-  assert.match(shellCss, /padding-bottom: calc\(var\(--app-bottom-nav-clearance\) \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shellCss, /--app-bottom-nav-bar-height: 60px/);
+  assert.match(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: relative/);
+  assert.match(shellCss, /height: calc\(var\(--app-bottom-nav-bar-height\) \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shellCss, /padding: 5px 6px calc\(5px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.doesNotMatch(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: fixed/);
+});
+
+test("expanded app menu drops from the top in the brown and white design system", () => {
+  assert.doesNotMatch(mobileMenu, /BottomSheet/);
+  assert.match(mobileMenu, /function TopMenuPanel/);
+  assert.match(mobileMenu, /data-app-menu-panel="true"/);
+  assert.match(mobileMenu, /aria-expanded=\{context\.menuOpen\}/);
+  assert.match(mobileMenuCss, /\.menuPanel \{[\s\S]*?var\(--npp-color-header-strong\)[\s\S]*?var\(--npp-color-header\)/);
+  assert.match(mobileMenuCss, /color: #ffffff/);
+  assert.match(mobileMenuCss, /animation: menuDropIn/);
+  assert.match(mobileMenuCss, /@keyframes menuDropIn[\s\S]*?translateY\(-100%\)[\s\S]*?translateY\(0\)/);
 });
 
 test("browser gate locks mobile and desktop layout, contrast, pressed, loading and error states", () => {
   for (const phrase of [
     "exactly one menu trigger",
     "bottom navigation must contain at most five items",
+    "bottom nav height must stay constant when mobile browser chrome changes viewport height",
     "top bar must remain fixed while main scrolls",
     "desktop top bar must remain sticky at viewport top",
     "must not overlap",
+    "top menu text must be white",
+    "top menu must use the brown gradient theme",
     "contrast",
     "pressed state must provide visible transform feedback"
   ]) assert.match(browserSmoke, new RegExp(phrase));

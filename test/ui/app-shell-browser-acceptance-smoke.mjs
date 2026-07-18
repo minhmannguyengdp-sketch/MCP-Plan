@@ -42,13 +42,18 @@ function contrastRatio(foreground, background) {
 
 async function shellMetrics(page) {
   return page.evaluate(() => {
-    const top = document.querySelector("[data-app-top-bar]")?.getBoundingClientRect();
-    const main = document.querySelector("[data-app-scroll-region]")?.getBoundingClientRect();
-    const bottom = document.querySelector('[data-bottom-navigation="true"]')?.getBoundingClientRect();
-    const sidebar = document.querySelector(".sidebar")?.getBoundingClientRect();
-    const content = document.querySelector("[data-app-content-shell]")?.getBoundingClientRect();
+    const topNode = document.querySelector("[data-app-top-bar]");
     const mainNode = document.querySelector("[data-app-scroll-region]");
+    const bottomNode = document.querySelector('[data-bottom-navigation="true"]');
+    const sidebarNode = document.querySelector(".sidebar");
+    const contentNode = document.querySelector("[data-app-content-shell]");
+    const top = topNode?.getBoundingClientRect();
+    const main = mainNode?.getBoundingClientRect();
+    const bottom = bottomNode?.getBoundingClientRect();
+    const sidebar = sidebarNode?.getBoundingClientRect();
+    const content = contentNode?.getBoundingClientRect();
     const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
+    const bottomStyle = bottomNode ? getComputedStyle(bottomNode) : null;
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       top: top ? { top: top.top, right: top.right, bottom: top.bottom, left: top.left, width: top.width, height: top.height } : null,
@@ -56,7 +61,9 @@ async function shellMetrics(page) {
       bottom: bottom ? { top: bottom.top, right: bottom.right, bottom: bottom.bottom, left: bottom.left, width: bottom.width, height: bottom.height } : null,
       sidebar: sidebar ? { top: sidebar.top, right: sidebar.right, bottom: sidebar.bottom, left: sidebar.left, width: sidebar.width, height: sidebar.height } : null,
       content: content ? { top: content.top, right: content.right, bottom: content.bottom, left: content.left, width: content.width, height: content.height } : null,
-      mainPaddingBottom: mainStyle ? Number.parseFloat(mainStyle.paddingBottom) : 0
+      mainPaddingBottom: mainStyle ? Number.parseFloat(mainStyle.paddingBottom) : 0,
+      bottomPosition: bottomStyle?.position || null,
+      bottomParentIsShell: bottomNode?.parentElement?.hasAttribute("data-app-content-shell") || false
     };
   });
 }
@@ -107,9 +114,11 @@ async function verifyMobile(browser) {
   const before = await shellMetrics(page);
   assert.ok(before.top && before.main && before.bottom, "mobile shell regions must exist");
   assert.ok(before.top.bottom <= before.main.top + 1, "top bar must not overlap the scroll region");
+  assert.ok(before.main.bottom <= before.bottom.top + 1, "scroll region must not overlap bottom navigation");
   assert.ok(before.bottom.left >= 0 && before.bottom.right <= before.viewport.width, "bottom nav must stay inside viewport width");
   assert.ok(before.bottom.bottom <= before.viewport.height + 1, "bottom nav must stay inside viewport height");
-  assert.ok(before.mainPaddingBottom >= before.bottom.height + 12, "scroll region must reserve clearance for bottom navigation");
+  assert.equal(before.bottomPosition, "relative", "bottom navigation must be an AppShell row, not a fixed viewport overlay");
+  assert.equal(before.bottomParentIsShell, true, "bottom navigation must be owned by app-content-shell");
 
   await page.evaluate(() => {
     const main = document.querySelector("[data-app-scroll-region]");
@@ -120,11 +129,19 @@ async function verifyMobile(browser) {
     if (main instanceof HTMLElement) main.scrollTop = main.scrollHeight;
   });
   await page.waitForTimeout(80);
-  const after = await shellMetrics(page);
-  assert.equal(Math.round(after.top.top), Math.round(before.top.top), "top bar must remain fixed while main scrolls");
-  assert.equal(Math.round(after.bottom.top), Math.round(before.bottom.top), "bottom nav must remain fixed while main scrolls");
-  await trigger.waitFor({ state: "visible" });
+  const afterScroll = await shellMetrics(page);
+  assert.equal(Math.round(afterScroll.top.top), Math.round(before.top.top), "top bar must remain fixed while main scrolls");
+  assert.equal(Math.round(afterScroll.bottom.top), Math.round(before.bottom.top), "bottom nav height and position must remain stable while main scrolls");
+  assert.equal(Math.round(afterScroll.bottom.height), Math.round(before.bottom.height), "bottom nav height must not change while main scrolls");
 
+  await page.setViewportSize({ width: 390, height: 720 });
+  await page.waitForTimeout(120);
+  const afterViewportResize = await shellMetrics(page);
+  assert.equal(Math.round(afterViewportResize.bottom.height), Math.round(before.bottom.height), "bottom nav height must stay constant when mobile browser chrome changes viewport height");
+  assert.ok(afterViewportResize.main.bottom <= afterViewportResize.bottom.top + 1, "resized scroll region must not overlap bottom navigation");
+  assert.ok(afterViewportResize.bottom.bottom <= afterViewportResize.viewport.height + 1, "resized bottom nav must remain inside viewport");
+
+  await trigger.waitFor({ state: "visible" });
   const triggerBox = await trigger.boundingBox();
   assert.ok(triggerBox, "menu trigger must have a box");
   await page.mouse.move(triggerBox.x + triggerBox.width / 2, triggerBox.y + triggerBox.height / 2);
@@ -133,15 +150,32 @@ async function verifyMobile(browser) {
   assert.notEqual(pressedTransform, "none", "pressed state must provide visible transform feedback");
   await page.mouse.up();
 
-  const menu = page.getByRole("dialog").last();
+  const menu = page.locator('[data-app-menu-panel="true"]');
   await menu.waitFor({ state: "visible" });
+  const menuStartBox = await menu.boundingBox();
+  assert.ok(menuStartBox && menuStartBox.y <= 1, "top menu animation must enter from above the top edge");
+  await page.waitForTimeout(260);
   const menuBox = await menu.boundingBox();
-  assert.ok(menuBox && menuBox.y >= 0 && menuBox.y + menuBox.height <= 845, "expanded menu must fit the mobile viewport");
+  assert.ok(menuBox && Math.abs(menuBox.y) <= 1, "expanded menu must settle at the top edge");
+  assert.ok(menuBox && menuBox.y + menuBox.height <= afterViewportResize.viewport.height + 1, "expanded menu must fit the mobile viewport");
+  const menuAppearance = await menu.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      color: style.color,
+      backgroundImage: style.backgroundImage,
+      animationName: style.animationName,
+      borderBottomLeftRadius: style.borderBottomLeftRadius
+    };
+  });
+  assert.equal(menuAppearance.color, "rgb(255, 255, 255)", "top menu text must be white");
+  assert.match(menuAppearance.backgroundImage, /linear-gradient/, "top menu must use the brown gradient theme");
+  assert.notEqual(menuAppearance.animationName, "none", "top menu must animate down from the top");
+  assert.ok(Number.parseFloat(menuAppearance.borderBottomLeftRadius) >= 20, "top menu must use a soft rounded lower edge");
 
   const contrast = await verifyContrast(page);
   await page.screenshot({ path: `${resultsDir}/16-app-shell-mobile-acceptance.png`, fullPage: true });
   await context.close();
-  return { bottomItems: bottomItemCount, contrast };
+  return { bottomItems: bottomItemCount, bottomHeight: before.bottom.height, contrast, menuAppearance };
 }
 
 async function verifyDesktop(browser) {
@@ -186,8 +220,10 @@ try {
   result.desktop = await verifyDesktop(browser);
   result.singleMenuTrigger = "PASS";
   result.bottomNavigationLimit = "PASS";
+  result.stableBottomNavigation = "PASS";
   result.noOverlap = "PASS";
   result.fixedTopBar = "PASS";
+  result.topDownMenuTheme = "PASS";
   result.contrast = "PASS";
   result.pressedState = "PASS";
   result.APP_SHELL_BROWSER_ACCEPTANCE = "PASS";
