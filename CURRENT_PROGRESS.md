@@ -3,27 +3,22 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật: **2026-07-18**  
 > Master plan: **Phase A / NPP-F05 / A5.5**  
-> Trạng thái: **RUNTIME PASS + BROWSER PASS + UNIFIED MOBILE MENU DEPLOYED — LIVE PRODUCTION UI SMOKE PENDING**
+> Trạng thái: **NPP-F05 LIVE UI PASS — A5.5.2 SESSION ACTION SLICE IN PROGRESS**
 > Production UI: **PR #39 / merge SHA `72ab29e37f55d94545c80de0cb91b48ad1fdc543` / Vercel SUCCESS.**
 
 ## 1. Điểm tiếp tục duy nhất
 
 ```text
-1. Trên mobile production xác nhận UI chỉ có đúng một nút ☰ ở góc trên.
-2. Bấm ☰ và xác nhận menu Phiên có:
-   - Xem báo cáo phiên;
-   - Xuất dữ liệu;
-   - Chốt phiên;
-   - Cài đặt ứng dụng.
-3. Xác nhận không còn nút bánh răng riêng và không còn nút ⋮ riêng của Phiên.
-4. Xác nhận PDF / Excel mở đúng và Chốt phiên vẫn hỏi xác nhận.
-5. Hoàn tất live F05 functional smoke:
-   - tuyến không có active session: lưu thẳng, không prompt;
-   - tuyến có đúng một active session: thử cả hai lựa chọn;
-   - regression Thêm khách trong Phiên;
-   - manual check-in và undo.
-6. Cập nhật live evidence.
-7. Chỉ sau live UI gate mới bắt đầu A5.5.2.
+1. Hoàn tất PR #41 — A5.5.2 slice order/test/report/follow-up:
+   - stable Idempotency-Key từ caller;
+   - Foundation typed owner;
+   - persisted replay/conflict/audit;
+   - migration + contract/runtime tests.
+2. Chỉ merge khi Foundation CI + browser smoke PASS.
+3. Apply migration production từ source main.
+4. VPS pullmcp và chạy authenticated Gateway smoke execute/replay/conflict/audit/cleanup cho 4 operation.
+5. Cập nhật coverage từ 9/30 lên 13/30 khi runtime evidence PASS.
+6. Tiếp A5.5.2 với open-session/status và destructive route/session mutations.
 
 KHÔNG bắt đầu NPP-F06.
 KHÔNG bắt đầu Order Core.
@@ -36,7 +31,7 @@ KHÔNG đụng milktea-backend port 3002.
 Plan:              ke-hoach-app-van-hanh-npp.md
 Phase:             Phase A — Foundation portability
 Current milestone: NPP-F05 / A5.5
-Next subphase:     A5.5.2 — BLOCKED BY LIVE UI SMOKE
+Current subphase:  A5.5.2 — IN PROGRESS (first slice targets 13/30)
 ```
 
 UI architecture được ưu tiên hoàn thiện trước A5.5.2 để nghiệp vụ mới đăng ký vào một action surface duy nhất, có thể test lặp lại và không tiếp tục sinh nút riêng trên mobile.
@@ -65,12 +60,26 @@ Standalone session menu button removed                             PASS
 Menu report / export / close / settings                            PASS
 PDF / Excel canonical links                                        PASS
 Vercel deployment / PR #39 merge SHA                               PASS
-Live Vercel production click smoke                                  PENDING
+Live Vercel production click smoke                                  PASS — user confirmed
 ```
 
 Automated browser smoke không được ghi thay cho live-production click smoke. Nó chứng minh UI/request contract trên Next production build bằng Chromium và stateful mock Gateway, không ghi dữ liệu production.
 
-## 4. PR #39 — unified mobile app menu
+## 4. PR #41 — A5.5.2 session action slice
+
+```text
+PR:                  #41 — DRAFT / IN PROGRESS
+Branch:              feat/a5-5-2-session-actions
+Scope:               order / test / report / follow-up
+Coverage before:     9/30
+Coverage target:     13/30 after production runtime smoke
+Migration:           20260718120000_a5_5_2_session_action_idempotency.sql
+Runtime deploy:      PENDING
+```
+
+Kiến trúc: bốn route được Foundation Gateway intercept trước legacy proxy và gọi typed RPC trực tiếp. Không thêm trusted-header parsing vào `server.js` cho route đã được retire khỏi legacy ownership. Existing business RPC vẫn là owner của mutation; wrapper chỉ sở hữu canonical payload hash, replay/conflict, append-only audit và trusted context persistence.
+
+## 5. PR #39 — unified mobile app menu
 
 ```text
 PR:                  #39 — MERGED
@@ -156,7 +165,7 @@ AppShell lồng bên trong tái sử dụng provider hiện có
 
 Lượt sau, smoke tổng đã PASS nhưng dedicated regression cũ vẫn tìm hai nút cũ. Regression được cập nhật sang contract một nút thay vì xóa gate.
 
-## 5. PR #35 — repeatable F05 UI browser smoke
+## 6. PR #35 — repeatable F05 UI browser smoke
 
 ```text
 PR:                  #35 — MERGED
@@ -177,7 +186,7 @@ sessionAddCustomer
 manualCheckin
 ```
 
-## 6. Route master -> active session explicit sync
+## 7. Route master -> active session explicit sync
 
 ```text
 PR:                    #29 — MERGED
@@ -185,7 +194,7 @@ Merge SHA:             5276abc8abe1c860b9b13d83cc567a2483a47f60
 Supabase migrations:   APPLIED + VERIFIED
 DB smoke:              ROUTE_ACTIVE_SESSION_DB_SMOKE=PASS
 VPS Foundation:        F0.2_VPS_SMOKE=PASS
-Live functional smoke: PENDING
+Live functional smoke: PASS — user confirmed
 Evidence:              docs/npp-plan/ROUTE_ACTIVE_SESSION_SYNC_RELEASE.md
 ```
 
@@ -197,7 +206,7 @@ Hành vi:
 >1 active session -> từ chối trạng thái mơ hồ
 ```
 
-## 7. Single-active route-session lifecycle
+## 8. Single-active route-session lifecycle
 
 ```text
 PR:                    #31 — MERGED
@@ -220,7 +229,7 @@ Production tuyến `Thứ 6` sau repair:
 
 Dữ liệu visit, session customer, order và follow-up cũ được giữ nguyên.
 
-## 8. Runtime closure và A5.5.1
+## 9. Runtime closure và A5.5.1
 
 ```text
 VPS ports:                 3001 LISTEN / 3102 LISTEN
@@ -242,10 +251,10 @@ Scope:             9/30 Foundation mutation routes
 Code/CI/DB/VPS:    PASS
 Gateway runtime:   PASS
 Full release:      VERIFIED
-Legacy remaining: 21 — A5.5.2 NOT STARTED
+Legacy remaining: 21 — A5.5.2 IN PROGRESS
 ```
 
-## 9. Runtime và deploy
+## 10. Runtime và deploy
 
 ```text
 VPS source:          /var/www/mcp-plan-source
@@ -258,6 +267,6 @@ Vercel production:   merge SHA 72ab29e37f55d94545c80de0cb91b48ad1fdc543
 Vercel status:       SUCCESS
 ```
 
-PR #39 chỉ đổi frontend UI architecture và tests; không cần `pullmcp`. Live mobile click confirmation vẫn là gate trước A5.5.2.
+PR #39 chỉ đổi frontend UI architecture và tests; không cần `pullmcp`. Live mobile click confirmation đã PASS; A5.5.2 đang triển khai theo vertical slice.
 
 Không chỉ ghi trạng thái trong chat.
