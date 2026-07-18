@@ -3,7 +3,7 @@
 > Cập nhật: **2026-07-18**  
 > PR: **#41**  
 > Phạm vi: **order / test / market report / follow-up từ khách trong phiên**  
-> Trạng thái: **CODE IN PROGRESS — PRODUCTION MIGRATION/RUNTIME PENDING**
+> Trạng thái: **CODE READY FOR CI — PRODUCTION MIGRATION/RUNTIME PENDING**
 
 ## Root cause
 
@@ -52,6 +52,8 @@ Mỗi wrapper:
 - lưu trusted `foundation_context` vào aggregate row;
 - complete idempotency record và append audit trong cùng transaction.
 
+Bốn provider call site được đăng ký bằng fingerprint cụ thể trong direct-DB mutation baseline với owner `foundation-adapter`. Không có wildcard exemption; literal provider URL trong test đã được loại khỏi source test thay vì whitelist.
+
 ## Coverage
 
 ```text
@@ -69,6 +71,7 @@ Không ghi 13/30 PASS cho đến khi migration production, VPS deploy và authen
 - migration contract kiểm 4 begin/complete/replay wrapper;
 - transitional API test chứng minh route không rơi xuống legacy proxy;
 - caller contract cấm quay lại `fetch()` thường;
+- direct-DB scanner chỉ chấp nhận bốn exact fingerprints;
 - Foundation scanner, backend verify, TypeScript và Next build;
 - browser regression hiện hữu.
 
