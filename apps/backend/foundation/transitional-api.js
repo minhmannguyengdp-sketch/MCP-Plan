@@ -17,6 +17,12 @@ import {
   updateReportSettingItem
 } from "./report-setting-mutations.js";
 import { updateFieldCheckResult } from "./field-check-mutations.js";
+import {
+  createSessionCustomerFollowup,
+  createSessionCustomerOrder,
+  createSessionCustomerReport,
+  createSessionCustomerTest
+} from "./session-customer-action-mutations.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -95,6 +101,30 @@ async function saveAddedRouteCustomer(req, context, config, fetchImpl) {
 async function saveSessionCustomerCheckin(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   const data = await setSessionCustomerCheckin(body, context, config, { fetchImpl });
+  return mutationResponse(data);
+}
+
+async function saveSessionCustomerOrder(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await createSessionCustomerOrder(body, context, config, { fetchImpl });
+  return mutationResponse(data);
+}
+
+async function saveSessionCustomerTest(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await createSessionCustomerTest(body, context, config, { fetchImpl });
+  return mutationResponse(data);
+}
+
+async function saveSessionCustomerReport(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await createSessionCustomerReport(body, context, config, { fetchImpl });
+  return mutationResponse(data);
+}
+
+async function saveSessionCustomerFollowup(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  const data = await createSessionCustomerFollowup(body, context, config, { fetchImpl });
   return mutationResponse(data);
 }
 
@@ -214,6 +244,18 @@ export async function handleTransitionalApi(
   }
   if (method === "POST" && pathname === "/api/mcp-day/session-customer/checkin") {
     return saveSessionCustomerCheckin(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/order") {
+    return saveSessionCustomerOrder(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/test") {
+    return saveSessionCustomerTest(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/report") {
+    return saveSessionCustomerReport(req, context, config, fetchImpl);
+  }
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/followup") {
+    return saveSessionCustomerFollowup(req, context, config, fetchImpl);
   }
   if (method === "POST" && pathname === "/api/mcp-session-report") {
     return saveSessionReportSnapshot(req, context, config, fetchImpl);
