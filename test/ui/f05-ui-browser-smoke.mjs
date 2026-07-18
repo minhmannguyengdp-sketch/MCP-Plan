@@ -220,6 +220,51 @@ async function sessionAddCustomer(browser) {
   return "PASS";
 }
 
+async function unifiedMobileMenu(browser) {
+  await resetMock();
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.goto(`${appBase}/visits?routeId=route-active&date=2099-12-30`, { waitUntil: "networkidle" });
+
+  const appMenuTrigger = page.getByRole("button", { name: "Mở menu ứng dụng", exact: true });
+  await appMenuTrigger.waitFor({ state: "visible" });
+  assert.equal(await appMenuTrigger.count(), 1, "mobile must render exactly one top menu trigger");
+  assert.equal(await page.getByRole("button", { name: "Cài đặt", exact: true }).count(), 0, "standalone settings gear must be removed");
+  assert.equal(await page.getByRole("button", { name: "Mở menu tác vụ phiên", exact: true }).count(), 0, "session header must not add a second menu trigger");
+  assert.equal(await page.locator("[data-page-header-actions] button").count(), 0, "session header action slot must not contain another button");
+  await screenshot(page, "09-unified-mobile-menu-trigger");
+
+  await appMenuTrigger.click();
+  const menu = page.getByRole("dialog", { name: "Menu phiên", exact: true });
+  await menu.waitFor({ state: "visible" });
+  await menu.getByRole("button", { name: /Xem báo cáo phiên/ }).waitFor({ state: "visible" });
+  await menu.getByRole("button", { name: /Xuất dữ liệu/ }).waitFor({ state: "visible" });
+  const closeAction = menu.getByRole("button", { name: /Chốt phiên/ });
+  await closeAction.waitFor({ state: "visible" });
+  await menu.getByRole("button", { name: /Cài đặt ứng dụng/ }).waitFor({ state: "visible" });
+  assert.match(String(await closeAction.getAttribute("class")), /danger/, "close session must remain destructive in unified menu");
+  await screenshot(page, "10-unified-mobile-app-menu");
+
+  await menu.getByRole("button", { name: /Xuất dữ liệu/ }).click();
+  const exportDialog = page.getByRole("dialog", { name: "Xuất dữ liệu phiên", exact: true });
+  await exportDialog.waitFor({ state: "visible" });
+  const pdf = exportDialog.getByRole("link", { name: /Báo cáo phiên PDF/ });
+  const excel = exportDialog.getByRole("link", { name: /Checklist khách Excel/ });
+  assert.match(String(await pdf.getAttribute("href")), /^\/api\/pdf\/session-day\?/, "PDF export must keep canonical route");
+  assert.match(String(await excel.getAttribute("href")), /^\/api\/backend\/exports\/mcp-sessions\.csv\?/, "Excel export must keep canonical route");
+  await screenshot(page, "11-unified-mobile-export-menu");
+
+  await context.close();
+  return {
+    status: "PASS",
+    triggerCount: 1,
+    standaloneSettingsButton: false,
+    sessionHeaderMenuButton: false,
+    actions: ["report", "export", "close", "settings"],
+    exportLinks: "PASS"
+  };
+}
+
 async function manualCheckin(browser) {
   await resetMock();
   const context = await browser.newContext({
@@ -266,6 +311,7 @@ try {
   results.routeActiveRouteOnly = await routeWithActiveSessionRouteOnly(browser);
   results.duplicateReuse = await reusedCustomerCopy(browser);
   results.sessionAddCustomer = await sessionAddCustomer(browser);
+  results.unifiedMobileMenu = await unifiedMobileMenu(browser);
   results.manualCheckin = await manualCheckin(browser);
   results.F05_UI_BROWSER_SMOKE = "PASS";
 } catch (error) {

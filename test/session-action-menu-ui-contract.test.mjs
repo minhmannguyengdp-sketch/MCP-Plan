@@ -1,28 +1,31 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const header = await readFile("src/ui/layout/PageHeader.tsx", "utf8");
-const portal = await readFile("src/ui/layout/PageHeaderActionsPortal.tsx", "utf8");
+const appShell = await readFile("src/ui/shell/AppShell.tsx", "utf8");
+const appMenu = await readFile("src/ui/shell/MobileAppMenu.tsx", "utf8");
+const appMenuStyles = await readFile("src/ui/shell/MobileAppMenu.module.css", "utf8");
 const owner = await readFile("src/features/mcp/VisitsSessionReportPanel.tsx", "utf8");
 const wrapper = await readFile("src/features/mcp/McpSessionCompactView.tsx", "utf8");
-const styles = await readFile("src/features/mcp/VisitsSessionActionMenu.module.css", "utf8");
 
-assert.match(header, /data-page-header-actions/, "PageHeader must expose one owned action slot");
-assert.match(header, /page-header-copy/, "PageHeader must separate copy from actions");
-assert.match(portal, /createPortal/, "session actions must render into the header slot");
-assert.match(portal, /\[data-page-header-actions\]/, "portal must target the owned header action slot");
+assert.match(appShell, /MobileAppMenuProvider/, "AppShell must own one shared mobile menu provider");
+assert.doesNotMatch(appShell, /SettingsQuickButton/, "standalone settings trigger must not return");
+assert.match(appMenu, /aria-label="Mở menu ứng dụng"/, "mobile app must expose exactly one menu trigger");
+assert.equal((appMenu.match(/aria-label="Mở menu ứng dụng"/g) || []).length, 1, "there must be one mobile menu trigger");
+assert.match(appMenu, /Cài đặt ứng dụng/, "settings must live inside the shared menu");
+assert.match(appMenu, /MobileAppMenuContext/, "screen actions must register into the shared menu instead of adding buttons");
+assert.match(appMenu, /if \(parent\) return/, "nested app shells must reuse the existing provider instead of rendering another trigger");
 
-assert.match(owner, /aria-label="Mở menu tác vụ phiên"/, "mobile session action trigger must be accessible");
-assert.match(owner, /title="Tác vụ phiên"/, "session actions must open one bottom sheet");
-assert.match(owner, /Xem báo cáo phiên/, "report action must live in the session menu");
-assert.match(owner, /Xuất dữ liệu/, "export action must live in the session menu");
-assert.match(owner, /Chốt phiên/, "close action must live in the session menu");
-assert.match(owner, /styles\.danger/, "close session must remain visually destructive");
-assert.doesNotMatch(owner, /position:\s*"fixed"/, "feature owner must not use fixed action controls");
-assert.doesNotMatch(wrapper, /VisitsExportMenu/, "legacy inline export trigger must be removed from the session header");
+assert.match(wrapper, /<MobileAppMenuProvider>[\s\S]*<VisitsSessionReportPanel/, "session action owner must be inside the provider boundary");
+assert.match(owner, /useRegisterMobileAppMenu/, "session screen must register contextual actions");
+assert.match(owner, /Xem báo cáo phiên/, "report action must live in the shared menu");
+assert.match(owner, /Xuất dữ liệu/, "export action must live in the shared menu");
+assert.match(owner, /Chốt phiên/, "close action must live in the shared menu");
+assert.match(owner, /tone:\s*"danger"/, "close session must remain destructive");
+assert.doesNotMatch(owner, /PageHeaderActionsPortal/, "session screen must not add a second header menu button");
+assert.doesNotMatch(owner, /Mở menu tác vụ phiên/, "legacy session menu trigger must be removed");
+assert.doesNotMatch(wrapper, /VisitsExportMenu/, "legacy inline export trigger must remain removed");
 
-assert.match(styles, /page-header\):has\(\.headerActions\)/, "mobile header must reserve an action column through local ownership");
-assert.match(styles, /\.triggerLabel\s*\{\s*display:\s*none/, "mobile trigger must collapse to one menu icon");
-assert.match(styles, /grid-template-columns:\s*42px minmax\(0, 1fr\) auto/, "menu items must keep a scalable icon-copy-chevron layout");
+assert.match(appMenuStyles, /position:\s*fixed/, "one shared mobile trigger must own the top-right surface");
+assert.match(appMenuStyles, /grid-template-columns:\s*42px minmax\(0, 1fr\) auto/, "menu items must keep a scalable icon-copy-chevron layout");
 
-console.log("SESSION_ACTION_MENU_UI_CONTRACT=PASS");
+console.log("UNIFIED_MOBILE_APP_MENU_CONTRACT=PASS");
