@@ -21,7 +21,7 @@ assert.match(owner, /styles\.danger/, "close session must remain visually destru
 assert.doesNotMatch(owner, /position:\s*"fixed"/, "feature owner must not use fixed action controls");
 assert.doesNotMatch(wrapper, /VisitsExportMenu/, "legacy inline export trigger must be removed from the session header");
 
-assert.match(styles, /page-header:has\(\.session-header-actions\)/, "mobile header must reserve an action column");
+assert.match(styles, /page-header\):has\(\.headerActions\)/, "mobile header must reserve an action column through local ownership");
 assert.match(styles, /\.triggerLabel\s*\{\s*display:\s*none/, "mobile trigger must collapse to one menu icon");
 assert.match(styles, /grid-template-columns:\s*42px minmax\(0, 1fr\) auto/, "menu items must keep a scalable icon-copy-chevron layout");
 
