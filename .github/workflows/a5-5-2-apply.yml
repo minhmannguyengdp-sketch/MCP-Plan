@@ -2,7 +2,7 @@ name: A5.5.2 Apply Patch
 
 on:
   pull_request:
-    types: [reopened]
+    types: [synchronize]
 
 permissions:
   contents: write
