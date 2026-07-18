@@ -45,6 +45,12 @@ export function useRegisterMobileAppMenu(registration: MobileAppMenuRegistration
 }
 
 export function MobileAppMenuProvider({ children }: { children: ReactNode }) {
+  const parent = useContext(MobileAppMenuContext);
+  if (parent) return <>{children}</>;
+  return <MobileAppMenuRoot>{children}</MobileAppMenuRoot>;
+}
+
+function MobileAppMenuRoot({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
