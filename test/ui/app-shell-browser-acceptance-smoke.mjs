@@ -152,8 +152,11 @@ async function verifyMobile(browser) {
 
   const menu = page.locator('[data-app-menu-panel="true"]');
   await menu.waitFor({ state: "visible" });
+  const menuStartBox = await menu.boundingBox();
+  assert.ok(menuStartBox && menuStartBox.y <= 1, "top menu animation must enter from above the top edge");
+  await page.waitForTimeout(260);
   const menuBox = await menu.boundingBox();
-  assert.ok(menuBox && Math.abs(menuBox.y) <= 1, "expanded menu must drop from the top edge");
+  assert.ok(menuBox && Math.abs(menuBox.y) <= 1, "expanded menu must settle at the top edge");
   assert.ok(menuBox && menuBox.y + menuBox.height <= afterViewportResize.viewport.height + 1, "expanded menu must fit the mobile viewport");
   const menuAppearance = await menu.evaluate((node) => {
     const style = getComputedStyle(node);
