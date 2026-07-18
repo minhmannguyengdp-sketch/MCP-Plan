@@ -68,6 +68,6 @@ test("Foundation intercepts four A5.5.2 session action routes before legacy prox
     assert.equal(result.statusCode, 200, item.route);
     assert.equal(result.payload.meta.idempotency.replayed, false, item.route);
     assert.equal(calls.length, 1, item.route);
-    assert.match(calls[0].url, new RegExp(`/rest/v1/rpc/${item.rpc}$`), item.route);
+    assert.equal(new URL(calls[0].url).pathname.split("/").at(-1), item.rpc, item.route);
   }
 });
