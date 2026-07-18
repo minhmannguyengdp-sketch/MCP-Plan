@@ -23,15 +23,6 @@ async function waitForHttp(url, timeoutMs = 120_000) {
   throw lastError || new Error(`timeout_waiting_for_${url}`);
 }
 
-function overlaps(first, second) {
-  return !(
-    first.x + first.width <= second.x ||
-    second.x + second.width <= first.x ||
-    first.y + first.height <= second.y ||
-    second.y + second.height <= first.y
-  );
-}
-
 await waitForHttp(`${appBase}/visits?routeId=route-active&date=2099-12-30`);
 
 const browser = await chromium.launch({ headless: true });
@@ -41,27 +32,31 @@ const page = await context.newPage();
 try {
   await page.goto(`${appBase}/visits?routeId=route-active&date=2099-12-30`, { waitUntil: "networkidle" });
 
-  const settingsButton = page.getByRole("button", { name: "Cài đặt", exact: true });
-  const actionButton = page.getByRole("button", { name: "Mở menu tác vụ phiên", exact: true });
-  await settingsButton.waitFor({ state: "visible" });
-  await actionButton.waitFor({ state: "visible" });
+  const appMenuButton = page.getByRole("button", { name: "Mở menu ứng dụng", exact: true });
+  await appMenuButton.waitFor({ state: "visible" });
+  assert.equal(await appMenuButton.count(), 1, "mobile must have exactly one top menu button");
+  assert.equal(await page.getByRole("button", { name: "Cài đặt", exact: true }).count(), 0, "standalone settings button must be removed");
+  assert.equal(await page.getByRole("button", { name: "Mở menu tác vụ phiên", exact: true }).count(), 0, "standalone session action button must be removed");
+  assert.equal(await page.locator("[data-page-header-actions] button").count(), 0, "page header must not contain a second menu button");
 
-  const [settingsBox, actionBox] = await Promise.all([settingsButton.boundingBox(), actionButton.boundingBox()]);
-  assert.ok(settingsBox, "settings button must have a mobile bounding box");
-  assert.ok(actionBox, "session action button must have a mobile bounding box");
-  assert.equal(overlaps(settingsBox, actionBox), false, `session action and settings controls overlap: ${JSON.stringify({ settingsBox, actionBox })}`);
+  const triggerBox = await appMenuButton.boundingBox();
+  assert.ok(triggerBox, "unified menu button must have a mobile bounding box");
+  assert.ok(triggerBox.x >= 0 && triggerBox.x + triggerBox.width <= 390, `unified menu button must stay inside viewport: ${JSON.stringify(triggerBox)}`);
 
-  await actionButton.click();
-  const menu = page.getByRole("dialog", { name: "Tác vụ phiên", exact: true });
+  await page.screenshot({ path: `${resultsDir}/12-unified-menu-trigger-mobile.png`, fullPage: true });
+  await appMenuButton.click();
+
+  const menu = page.getByRole("dialog", { name: "Menu phiên", exact: true });
   await menu.waitFor({ state: "visible" });
   await menu.getByRole("button", { name: /Xem báo cáo phiên/ }).waitFor({ state: "visible" });
   const exportButton = menu.getByRole("button", { name: /Xuất dữ liệu/ });
   await exportButton.waitFor({ state: "visible" });
   const closeSessionButton = menu.getByRole("button", { name: /Chốt phiên/ });
   await closeSessionButton.waitFor({ state: "visible" });
+  await menu.getByRole("button", { name: /Cài đặt ứng dụng/ }).waitFor({ state: "visible" });
   assert.match(String(await closeSessionButton.getAttribute("class")), /danger/, "close session must remain a destructive menu item");
 
-  await page.screenshot({ path: `${resultsDir}/09-session-action-menu-mobile.png`, fullPage: true });
+  await page.screenshot({ path: `${resultsDir}/13-unified-app-menu-mobile.png`, fullPage: true });
   await exportButton.click();
 
   const exportSheet = page.getByRole("dialog", { name: "Xuất dữ liệu phiên", exact: true });
@@ -70,13 +65,15 @@ try {
   const excelLink = exportSheet.getByRole("link", { name: /Checklist khách Excel/ });
   assert.match(String(await pdfLink.getAttribute("href")), /^\/api\/pdf\/session-day\?/);
   assert.match(String(await excelLink.getAttribute("href")), /^\/api\/backend\/exports\/mcp-sessions\.csv\?/);
-  await page.screenshot({ path: `${resultsDir}/10-session-export-menu-mobile.png`, fullPage: true });
+  await page.screenshot({ path: `${resultsDir}/14-unified-export-menu-mobile.png`, fullPage: true });
 
   console.log(JSON.stringify({
-    F05_SESSION_ACTION_MENU_SMOKE: "PASS",
+    F05_UNIFIED_MOBILE_MENU_SMOKE: "PASS",
     viewport: "390x844",
-    headerCollision: false,
-    actions: ["report", "export", "close"],
+    triggerCount: 1,
+    standaloneSettingsButton: false,
+    standaloneSessionButton: false,
+    actions: ["report", "export", "close", "settings"],
     exportLinks: "PASS"
   }, null, 2));
 } finally {
