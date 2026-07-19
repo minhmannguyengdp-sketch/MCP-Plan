@@ -81,25 +81,21 @@ function normalizeMutationError(error) {
   return error;
 }
 
-async function callLifecycleRpc(config, name, args, options) {
-  try {
-    return await supabaseRpc(config, name, args, { fetchImpl: options?.fetchImpl || fetch });
-  } catch (error) {
-    throw normalizeMutationError(error);
-  }
-}
-
 export async function openRouteSession(body, context, config, options) {
   const routeId = text(body.routeId || body.route_id);
   const sessionDate = dateOnly(body.sessionDate || body.session_date || body.date, { required: true });
   if (!routeId) badRequest("route_id_required");
 
-  return callLifecycleRpc(config, "mcp_idempotent_open_route_session", {
-    p_route_id: routeId,
-    p_session_date: sessionDate,
-    p_owner: text(body.owner || body.sales || body.salesOwner || body.sales_owner),
-    p_context: foundationContext(context)
-  }, options);
+  try {
+    return await supabaseRpc(config, "mcp_idempotent_open_route_session", {
+      p_route_id: routeId,
+      p_session_date: sessionDate,
+      p_owner: text(body.owner || body.sales || body.salesOwner || body.sales_owner),
+      p_context: foundationContext(context)
+    }, { fetchImpl: options?.fetchImpl || fetch });
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
 }
 
 export async function setSessionCustomerStatus(body, context, config, options) {
@@ -112,34 +108,46 @@ export async function setSessionCustomerStatus(body, context, config, options) {
     badRequest("status_reason_required");
   }
 
-  return callLifecycleRpc(config, "mcp_idempotent_set_session_customer_status", {
-    p_session_customer_id: sessionCustomerId,
-    p_visit_status: visitStatus,
-    p_status_reason: statusReason,
-    p_note: text(body.note),
-    p_context: foundationContext(context)
-  }, options);
+  try {
+    return await supabaseRpc(config, "mcp_idempotent_set_session_customer_status", {
+      p_session_customer_id: sessionCustomerId,
+      p_visit_status: visitStatus,
+      p_status_reason: statusReason,
+      p_note: text(body.note),
+      p_context: foundationContext(context)
+    }, { fetchImpl: options?.fetchImpl || fetch });
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
 }
 
 export async function updateRouteSession(sessionIdInput, body, context, config, options) {
   const sessionId = text(sessionIdInput || body.sessionId || body.session_id);
   if (!sessionId) badRequest("session_id_required");
 
-  return callLifecycleRpc(config, "mcp_idempotent_update_route_session", {
-    p_session_id: sessionId,
-    p_session_date: dateOnly(body.sessionDate || body.session_date),
-    p_status: normalizedSessionStatus(body.status),
-    p_note: body.note === undefined ? null : text(body.note),
-    p_context: foundationContext(context)
-  }, options);
+  try {
+    return await supabaseRpc(config, "mcp_idempotent_update_route_session", {
+      p_session_id: sessionId,
+      p_session_date: dateOnly(body.sessionDate || body.session_date),
+      p_status: normalizedSessionStatus(body.status),
+      p_note: body.note === undefined ? null : text(body.note),
+      p_context: foundationContext(context)
+    }, { fetchImpl: options?.fetchImpl || fetch });
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
 }
 
 export async function deleteEmptyRouteSession(sessionIdInput, context, config, options) {
   const sessionId = text(sessionIdInput);
   if (!sessionId) badRequest("session_id_required");
 
-  return callLifecycleRpc(config, "mcp_idempotent_delete_empty_route_session", {
-    p_session_id: sessionId,
-    p_context: foundationContext(context)
-  }, options);
+  try {
+    return await supabaseRpc(config, "mcp_idempotent_delete_empty_route_session", {
+      p_session_id: sessionId,
+      p_context: foundationContext(context)
+    }, { fetchImpl: options?.fetchImpl || fetch });
+  } catch (error) {
+    throw normalizeMutationError(error);
+  }
 }
