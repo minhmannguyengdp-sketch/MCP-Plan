@@ -726,33 +726,6 @@ async function createMcpSessionCustomerFollowup(body) {
   });
 }
 
-function normalizeMcpOrderTemplateItems(items) {
-  if (!Array.isArray(items) || items.length === 0) throw badRequest("template_items_required");
-
-  return items.map((item) => {
-    const productName = String(item.productName || item.product_name || "").trim();
-    const quantity = Number(item.quantity || 0);
-    const unitPrice = Number(item.unitPrice ?? item.unit_price ?? 0);
-    const discount = Number(item.discount || 0);
-
-    if (!productName) throw badRequest("product_name_required");
-    if (!Number.isFinite(quantity) || quantity <= 0) throw badRequest("quantity_required");
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) throw badRequest("invalid_unit_price");
-    if (!Number.isFinite(discount) || discount < 0) throw badRequest("invalid_discount");
-
-    return {
-      productId: String(item.productId || item.product_id || "").trim() || null,
-      productName,
-      sku: String(item.sku || "").trim() || null,
-      unit: String(item.unit || "").trim() || null,
-      quantity,
-      unitPrice,
-      discount,
-      note: String(item.note || "").trim() || null
-    };
-  });
-}
-
 async function loadMcpOrderTemplateSettings(url) {
   const routes = await loadRoutes();
   const routeId = String(url.searchParams.get("routeId") || routes[0]?.id || "").trim();
@@ -808,32 +781,6 @@ async function loadMcpOrderTemplateSettings(url) {
   };
 }
 
-async function saveMcpOrderTemplateSettings(body) {
-  const routeId = String(body.routeId || body.route_id || "").trim();
-  if (!routeId) throw badRequest("route_id_required");
-
-  const title = String(body.title || "").trim();
-  const note = String(body.note || "").trim();
-  const items = normalizeMcpOrderTemplateItems(body.items);
-
-  return supabaseRpc("mcp_save_route_order_template", {
-    p_route_id: routeId,
-    p_title: title || "Mau don hang",
-    p_note: note || null,
-    p_items: items
-  });
-}
-
-
-function normalizeMcpTestTemplateItems(items) {
-  if (!Array.isArray(items) || items.length === 0) throw badRequest("test_template_items_required");
-  return items.map((item) => {
-    const productName = String(item.productName || item.product_name || "").trim();
-    const defaultStatus = String(item.defaultStatus || item.default_status || "tested").trim() || "tested";
-    if (!productName) throw badRequest("product_name_required");
-    return { productId: String(item.productId || item.product_id || "").trim() || null, productName, defaultStatus, note: String(item.note || "").trim() || null };
-  });
-}
 
 function emptyOrderTemplate(routeId) {
   return { routeId, title: "Mẫu đơn hàng", note: "", items: [{ productName: "", quantity: "1", unitPrice: "0", unit: "", note: "" }] };
@@ -893,48 +840,6 @@ async function loadMcpTemplatesSettings(url) {
   }
 
   return { routes: routes.map((route) => ({ id: route.id, name: route.name, area: route.area, salesOwner: route.salesOwner, status: route.status })), selectedRouteId: routeId, orderTemplate, testTemplate, reportTemplate, followupTemplate };
-}
-
-async function saveMcpTestTemplateSettings(body) {
-  const routeId = String(body.routeId || body.route_id || "").trim();
-  if (!routeId) throw badRequest("route_id_required");
-  const items = normalizeMcpTestTemplateItems(body.items);
-  return supabaseRpc("mcp_save_route_test_template", { p_route_id: routeId, p_title: String(body.title || "").trim() || "Mau test san pham", p_note: String(body.note || "").trim() || null, p_items: items });
-}
-
-async function saveMcpReportTemplateSettings(body) {
-  const routeId = String(body.routeId || body.route_id || "").trim();
-  if (!routeId) throw badRequest("route_id_required");
-  const reportType = normalizeReportType(body.reportType || body.report_type || "price");
-  return supabaseRpc("mcp_save_route_report_template", { p_route_id: routeId, p_title: String(body.title || "").trim() || "Mau bao cao thi truong", p_report_type: reportType, p_content: String(body.content || "").trim() || null, p_price_summary: String(body.priceSummary || body.price_summary || "").trim() || null, p_competitor_summary: String(body.competitorSummary || body.competitor_summary || "").trim() || null, p_display_summary: String(body.displaySummary || body.display_summary || "").trim() || null, p_stock_summary: String(body.stockSummary || body.stock_summary || "").trim() || null, p_demand_summary: String(body.demandSummary || body.demand_summary || "").trim() || null, p_opportunity_summary: String(body.opportunitySummary || body.opportunity_summary || "").trim() || null, p_risk_summary: String(body.riskSummary || body.risk_summary || "").trim() || null, p_next_action: String(body.nextAction || body.next_action || "").trim() || null, p_note: String(body.note || "").trim() || null });
-}
-
-async function saveMcpFollowupTemplateSettings(body) {
-  const routeId = String(body.routeId || body.route_id || "").trim();
-  if (!routeId) throw badRequest("route_id_required");
-  const dueDaysValue = String(body.dueDays ?? body.due_days ?? "").trim();
-  const dueDays = dueDaysValue ? Number(dueDaysValue) : null;
-  if (dueDays !== null && (!Number.isFinite(dueDays) || dueDays < 0)) throw badRequest("invalid_due_days");
-  const priority = normalizeFollowupPriority(body.priority);
-  return supabaseRpc("mcp_save_route_followup_template", { p_route_id: routeId, p_title: String(body.title || "").trim() || "Mau follow-up", p_due_days: dueDays, p_priority: priority, p_owner: String(body.owner || "").trim() || null, p_note: String(body.note || "").trim() || null, p_followup_type: String(body.followupType || body.followup_type || "general").trim() || "general" });
-}
-
-function normalizeMcpSkipReasonItems(items) {
-  if (!Array.isArray(items) || items.length === 0) throw badRequest("skip_reason_items_required");
-
-  return items.map((item) => {
-    const reasonType = String(item.reasonType || item.reason_type || "skip").trim().toLowerCase() || "skip";
-    const reasonText = String(item.reasonText || item.reason_text || "").trim();
-
-    if (!["skip", "no_buy"].includes(reasonType)) throw badRequest("invalid_reason_type");
-    if (!reasonText) throw badRequest("reason_text_required");
-
-    return {
-      reasonType,
-      reasonText,
-      note: String(item.note || "").trim() || null
-    };
-  });
 }
 
 function emptySkipReasonTemplate(routeId) {
@@ -998,26 +903,6 @@ async function loadMcpSkipReasonTemplateSettings(url) {
   };
 }
 
-async function saveMcpSkipReasonTemplateSettings(body) {
-  const routeId = String(body.routeId || body.route_id || "").trim();
-  if (!routeId) throw badRequest("route_id_required");
-
-  const items = normalizeMcpSkipReasonItems(body.items);
-
-  return supabaseRpc("mcp_save_route_skip_reason_template", {
-    p_route_id: routeId,
-    p_title: String(body.title || "").trim() || "Mau ly do bo qua khong mua",
-    p_note: String(body.note || "").trim() || null,
-    p_items: items
-  });
-}
-
-function normalizeMcpCustomerAddMode(value) {
-  const addMode = String(value || "session_only").trim().toLowerCase() || "session_only";
-  if (!["session_only", "route_only", "both"].includes(addMode)) throw badRequest("invalid_add_mode");
-  return addMode;
-}
-
 function emptyCustomerAddRule(routeId) {
   return {
     routeId,
@@ -1060,26 +945,6 @@ async function loadMcpCustomerAddRuleSettings(url) {
   };
 }
 
-async function saveMcpCustomerAddRuleSettings(body) {
-  const routeId = String(body.routeId || body.route_id || "").trim();
-  if (!routeId) throw badRequest("route_id_required");
-
-  const addMode = normalizeMcpCustomerAddMode(body.addMode || body.add_mode);
-  const note = String(body.note || "").trim();
-
-  return supabaseRpc("mcp_save_route_customer_add_rule", {
-    p_route_id: routeId,
-    p_add_mode: addMode,
-    p_note: note || null
-  });
-}
-
-function normalizeMcpRouteSessionStatus(value) {
-  const status = String(value || "active").trim().toLowerCase() || "active";
-  if (!["active", "done", "cancelled"].includes(status)) throw badRequest("invalid_session_status");
-  return status;
-}
-
 async function loadMcpRouteSessionStatusSettings(url) {
   const routes = await loadRoutes();
   const routeId = String(url.searchParams.get("routeId") || routes[0]?.id || "").trim();
@@ -1114,24 +979,6 @@ async function loadMcpRouteSessionStatusSettings(url) {
       visitedCustomers: Number(session.visited_customers || 0)
     }))
   };
-}
-
-async function saveMcpRouteSessionStatusSettings(body) {
-  const routeId = String(body.routeId || body.route_id || "").trim();
-  if (!routeId) throw badRequest("route_id_required");
-
-  const sessionDate = String(body.sessionDate || body.session_date || "").trim();
-  if (!sessionDate) throw badRequest("session_date_required");
-
-  const status = normalizeMcpRouteSessionStatus(body.status);
-  const note = String(body.note || "").trim();
-
-  return supabaseRpc("mcp_set_route_session_status", {
-    p_route_id: routeId,
-    p_session_date: sessionDate,
-    p_status: status,
-    p_note: note || null
-  });
 }
 
 function randomId(prefix) {
@@ -1614,13 +1461,6 @@ async function handlePost(req, url) {
   if (url.pathname === "/api/mcp-day/session-customer/test") return wrap(await createMcpSessionCustomerTestV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/report") return wrap(await createMcpSessionCustomerReportV1(await readJsonBody(req)));
   if (url.pathname === "/api/mcp-day/session-customer/followup") return wrap(await createMcpSessionCustomerFollowupV1(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-settings/order-template") return wrap(await saveMcpOrderTemplateSettings(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-settings/test-template") return wrap(await saveMcpTestTemplateSettings(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-settings/report-template") return wrap(await saveMcpReportTemplateSettings(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-settings/followup-template") return wrap(await saveMcpFollowupTemplateSettings(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-settings/skip-reason-template") return wrap(await saveMcpSkipReasonTemplateSettings(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-settings/customer-add-rule") return wrap(await saveMcpCustomerAddRuleSettings(await readJsonBody(req)));
-  if (url.pathname === "/api/mcp-settings/session-status") return wrap(await saveMcpRouteSessionStatusSettings(await readJsonBody(req)));
   const error = new Error("not_found");
   error.statusCode = 404;
   throw error;
