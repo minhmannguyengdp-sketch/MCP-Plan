@@ -1,0 +1,5 @@
+{"schemaVersion":1,"entries":[
+  {"fingerprint":"610a55a51cc64c62e6f65d35","classification":"approved-boundary","operation":"mutation","owner":"foundation-outlet-media","reason":"Foundation-owned RPC prepares an outlet media record after validating route and active session ownership.","replacementPhase":"keep"},
+  {"fingerprint":"f21a849d9bc7c4a903103cf9","classification":"approved-boundary","operation":"mutation","owner":"foundation-outlet-media","reason":"Foundation-owned RPC finalizes verified R2 object metadata.","replacementPhase":"keep"},
+  {"fingerprint":"dc051a0a686f631245b52135","classification":"approved-boundary","operation":"read","owner":"foundation-outlet-media","reason":"Foundation reads one installation-scoped pending media record before signed R2 HEAD verification.","replacementPhase":"keep"}
+]}
