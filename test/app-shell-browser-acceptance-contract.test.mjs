@@ -5,9 +5,13 @@ import { readFile } from "node:fs/promises";
 const appShell = await readFile("src/ui/shell/AppShell.tsx", "utf8");
 const shellCss = await readFile("src/app/app-shell-contract.css", "utf8");
 const layout = await readFile("src/app/layout.tsx", "utf8");
+const manifest = await readFile("src/app/manifest.ts", "utf8");
 const mobileMenu = await readFile("src/ui/shell/MobileAppMenu.tsx", "utf8");
 const mobileMenuCss = await readFile("src/ui/shell/MobileAppMenu.module.css", "utf8");
 const sessionView = await readFile("src/features/mcp/McpSessionCompactViewFinal2.tsx", "utf8");
+const settingsRoute = await readFile("src/app/mcp-setting/page.tsx", "utf8");
+const settingsPage = await readFile("src/features/mcp-settings/McpReportSettingsPage.tsx", "utf8");
+const settingsCss = await readFile("src/features/mcp-settings/McpReportSettingsPage.module.css", "utf8");
 const browserSmoke = await readFile("test/ui/app-shell-browser-acceptance-smoke.mjs", "utf8");
 const actionSmoke = await readFile("test/ui/mcp-session-actions-browser-smoke.mjs", "utf8");
 const actionMock = await readFile("test/ui/mcp-session-actions-mock-backend.mjs", "utf8");
@@ -23,25 +27,53 @@ test("AppShell owns one menu trigger, one scroll region and at most five bottom 
   assert.match(appShell, /<main[\s\S]*?<NavLinks activeHref=\{activeHref\} items=\{BOTTOM_NAV_ITEMS\} mode="bottom" \/>[\s\S]*?<\/div>/);
 });
 
-test("AppShell owns a flat native bottom strip without a floating card shell", () => {
+test("AppShell owns an exact 50px bottom row independent from browser chrome and safe-area changes", () => {
   assert.match(layout, /import "\.\/app-shell-contract\.css"/);
   assert.doesNotMatch(layout, /mobile-nav-tune\.css/);
   assert.doesNotMatch(layout, /safe-area\.css/);
+  assert.match(layout, /statusBarStyle: "default"/);
+  assert.match(layout, /themeColor: "#F7F3ED"/);
+  assert.match(manifest, /background_color: "#F7F3ED"/);
+  assert.match(manifest, /theme_color: "#F7F3ED"/);
   assert.match(shellCss, /grid-template-rows: auto minmax\(0, 1fr\) auto/);
+  assert.match(shellCss, /grid-template-rows: auto minmax\(0, 1fr\) var\(--app-bottom-nav-bar-height\)/);
   assert.match(shellCss, /\[data-app-scroll-region\] \{[\s\S]*?overflow-y: auto/);
   assert.match(shellCss, /\[data-app-top-bar\] \{[\s\S]*?position: sticky/);
   assert.match(shellCss, /--app-bottom-nav-bar-height: 50px/);
   assert.match(shellCss, /--app-bottom-nav-link-height: 44px/);
-  assert.match(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: relative/);
-  assert.match(shellCss, /height: calc\(var\(--app-bottom-nav-bar-height\) \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shellCss, /\.app-content-shell > \[data-bottom-navigation="true"\] \{[\s\S]*?position: relative/);
+  assert.match(shellCss, /height: var\(--app-bottom-nav-bar-height\)/);
+  assert.match(shellCss, /min-height: var\(--app-bottom-nav-bar-height\)/);
+  assert.match(shellCss, /max-height: var\(--app-bottom-nav-bar-height\)/);
   assert.match(shellCss, /margin: 0/);
   assert.match(shellCss, /border-radius: 0/);
   assert.match(shellCss, /border-top: 1px solid/);
-  assert.match(shellCss, /padding: 3px 8px calc\(3px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shellCss, /background: var\(--npp-color-surface\)/);
+  assert.match(shellCss, /padding: 3px 8px/);
+  assert.doesNotMatch(shellCss, /safe-area-inset-bottom/);
   assert.match(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?background: rgba\(79, 122, 58, 0\.10\)/);
   assert.match(shellCss, /\.bottom-nav-link\.active \.nav-icon \{[\s\S]*?background: rgba\(79, 122, 58, 0\.14\)/);
   assert.doesNotMatch(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?linear-gradient/);
   assert.doesNotMatch(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: fixed/);
+});
+
+test("MCP setting edits open in a focused dialog instead of reusing the create form", () => {
+  assert.match(settingsRoute, /McpReportSettingsPage/);
+  assert.doesNotMatch(settingsRoute, /McpReportSettingsPageInternal/);
+  assert.match(settingsPage, /McpReportSettingsPage\.module\.css/);
+  assert.match(settingsPage, /function openEditor\(item: SettingItem\)/);
+  assert.match(settingsPage, /setEditingItem\(item\)/);
+  assert.match(settingsPage, /role="dialog"/);
+  assert.match(settingsPage, /aria-modal="true"/);
+  assert.match(settingsPage, /autoFocus/);
+  assert.match(settingsPage, /function saveEditedItem\(\)/);
+  assert.match(settingsPage, /method: "PATCH"/);
+  assert.match(settingsPage, /itemId: editingItem\.id/);
+  assert.match(settingsPage, /onClick=\{\(\) => openEditor\(item\)\}/);
+  assert.doesNotMatch(settingsPage, /editId \? "Cập nhật mẫu"/);
+  assert.match(settingsCss, /place-items: center/);
+  assert.match(settingsCss, /width: min\(460px, 100%\)/);
+  assert.match(settingsCss, /max-height: min\(82dvh, 680px\)/);
 });
 
 test("expanded app menu drops from the top in the brown and white design system", () => {
