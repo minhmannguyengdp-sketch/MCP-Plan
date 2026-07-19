@@ -2,6 +2,7 @@
 
 import type { McpDayLine } from "@/features/mcp-day/mcp-day.types";
 import { type McpCustomerAction } from "./mcp-customer-actions";
+import { requestMcpCustomerProfile } from "./mcp-customer-profile-events";
 import { useMcpCustomerDirections } from "./McpRouteDirectionsContext";
 import styles from "./McpLineCard.module.css";
 
@@ -68,10 +69,15 @@ export function McpLineCard({
 }) {
   const directions = useMcpCustomerDirections(line.routeCustomerId, line.accountName, line.area);
   const checkinEnabled = typeof onToggleCheckin === "function";
+  const openLegacySheet = () => onOpen(line);
+
+  function openProfile(focus: "detail" | "media") {
+    requestMcpCustomerProfile({ line, focus, fallback: openLegacySheet });
+  }
 
   return (
     <article className={`${styles.card} ${statusClass(line.status)} ${checkinEnabled ? "" : styles.withoutCheckin}`}>
-      <button className={styles.main} type="button" onClick={() => onOpen(line)}>
+      <button className={styles.main} type="button" onClick={() => openProfile("detail")}>
         <span className={styles.index}>#{line.sortOrder || "-"}</span>
         <span className={styles.identity}>
           <span className={styles.identityHead}>
@@ -82,7 +88,7 @@ export function McpLineCard({
           <span className={styles.summary}>{resultSummary(line)}</span>
         </span>
       </button>
-      <div className={styles.actions}>
+      <div className={styles.actions} data-customer-action-rows="2">
         <a
           className={`${styles.action} ${styles.directions}`}
           href={directions.url}
@@ -91,10 +97,24 @@ export function McpLineCard({
           aria-label={directions.exact ? `Chỉ đường đến ${line.accountName}` : `Tìm ${line.accountName} trên Google Maps`}
           title={directions.exact ? "Mở chỉ đường theo GPS điểm bán đã lưu" : "Khách chưa có GPS chính xác, mở tìm kiếm Google Maps"}
         >
-          ↗ Chỉ đường
+          ↗ Đường
         </a>
+        <button
+          className={`${styles.action} ${styles.photo}`}
+          type="button"
+          onClick={() => openProfile("media")}
+          aria-label={`Xem hoặc bổ sung ảnh cho ${line.accountName}`}
+          title="Xem, chụp hoặc chọn ảnh điểm bán"
+        >
+          📷 Ảnh
+        </button>
         {actionItems().map((item) => (
-          <button className={item.tone === "primary" ? `${styles.action} button primary` : styles.action} type="button" key={item.action} onClick={() => onAction(line, item.action)}>
+          <button
+            className={item.tone === "primary" ? `${styles.action} button primary` : styles.action}
+            type="button"
+            key={item.action}
+            onClick={() => onAction(line, item.action)}
+          >
             {item.label}
           </button>
         ))}
