@@ -39,3 +39,26 @@ test("pullmcp requires the A5.2 migration in source before deploy", () => {
     /\$SOURCE\/supabase\/migrations\/20260715101500_add_atomic_session_customer_mutations\.sql/
   );
 });
+
+test("pullmcp packages cleanup runner, installer, and systemd units into runtime", () => {
+  const stageRuntime = position('cp -a "$SOURCE/apps/backend/." "$STAGE/"');
+  const installRunner = position('install -m 0750 "$SOURCE/ops/run-outlet-media-cleanup.sh" "$STAGE/ops/run-outlet-media-cleanup.sh"');
+  const installService = position('install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.service" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.service"');
+  const installTimer = position('install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.timer" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.timer"');
+  const installEnv = position('install -m 600 "$RUNTIME/.env" "$STAGE/.env"');
+
+  assert.ok(stageRuntime < installRunner, "runtime backend must be staged before operational assets");
+  assert.ok(installRunner < installService && installService < installTimer, "cleanup assets must be packaged deterministically");
+  assert.ok(installTimer < installEnv, "runtime assets must be complete before production env is attached");
+});
+
+test("pullmcp fails before verification when a required cleanup runtime asset is missing", () => {
+  const assetCheck = position('missing_runtime_asset:$SOURCE/$runtime_asset');
+  const verifySource = position('npm --prefix apps/backend run verify');
+
+  assert.ok(assetCheck < verifySource, "missing operational assets must abort before build and runtime swap");
+  assert.match(script, /ops\/install-outlet-media-cleanup-timer\.sh/);
+  assert.match(script, /ops\/run-outlet-media-cleanup\.sh/);
+  assert.match(script, /ops\/systemd\/mcp-outlet-media-cleanup\.service/);
+  assert.match(script, /ops\/systemd\/mcp-outlet-media-cleanup\.timer/);
+});
