@@ -3,7 +3,7 @@
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
 > Cập nhật: **2026-07-19**  
 > Master plan: **Phase A / NPP-F05 / A5.5.2**  
-> Trạng thái: **MASTER PLAN CONTINUES — SESSION LIFECYCLE SOURCE PASS — PRODUCTION RUNTIME PENDING**
+> Trạng thái: **MASTER PLAN CONTINUES — SESSION LIFECYCLE SOURCE MERGED — PRODUCTION RUNTIME PENDING**
 
 ## 1. Quyết định trình tự hiện tại
 
@@ -30,7 +30,7 @@ Phase:                        Phase A — Foundation portability
 Current milestone:            NPP-F05 / A5.5.2
 Corrected original baseline:  14/30
 PR #65 source slice:          +4 session lifecycle routes
-Source coverage after merge:  18/30
+Source coverage merged:       18/30
 Original routes remaining:    12
 Runtime verified now:         14/30
 ```
@@ -46,11 +46,11 @@ docs/npp-plan/A5_5_2_MUTATION_INVENTORY_AND_SESSION_LIFECYCLE.md
 ## 3. PR #65 — A5.5.2 Session Lifecycle
 
 ```text
-PR:                         #65 — OPEN / SOURCE PASS / MERGE PENDING
+PR:                         #65 — MERGED / SOURCE PASS
 Branch:                     a5-5-2-session-lifecycle
-Current head:               0b6886cbd99db0f1c570da813e62dbd241c65d86
-Foundation F0.2:            #532 PASS
-F05 UI Browser Smoke:       #130 PASS
+Merge SHA:                  f8df14acd453e7452d3542eaff2618f964a034b6
+Foundation F0.2:            #533 PASS
+F05 UI Browser Smoke:       #131 PASS
 Supabase migration applied: NO
 VPS pullmcp:                NO
 Production runtime smoke:   NO
@@ -115,11 +115,10 @@ A5.5.1 caller contract cũ từng bắt buộc `McpSessionsManagerSafe.callApi` 
 Chỉ thực hiện khi owner yêu cầu rollout production:
 
 ```text
-1. Merge PR #65 sau final CI.
-2. Apply migration 20260719200000_a5_5_2_session_lifecycle_idempotency.sql.
-3. VPS pullmcp.
-4. Verify PM2 mcp-plan-backend and HTTP health on 3001.
-5. Run guarded authenticated lifecycle smoke:
+1. Apply migration 20260719200000_a5_5_2_session_lifecycle_idempotency.sql.
+2. VPS pullmcp.
+3. Verify PM2 mcp-plan-backend and HTTP health on 3001.
+4. Run guarded authenticated lifecycle smoke:
    - execute;
    - replay;
    - conflict;
@@ -127,7 +126,7 @@ Chỉ thực hiện khi owner yêu cầu rollout production:
    - trusted context;
    - business invariant;
    - complete fixture cleanup.
-6. Chỉ sau runtime PASS mới ghi runtime coverage 18/30.
+5. Chỉ sau runtime PASS mới ghi runtime coverage 18/30.
 ```
 
 Không dùng customer/route/session production thật cho smoke. Destructive smoke chỉ dùng guarded temporary empty session.
