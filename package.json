@@ -24,7 +24,7 @@
     "test:foundation": "npm --prefix apps/backend test",
     "verify:copy": "npm run audit:copy && npm run typecheck",
     "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run test:direct-rest-retirement && npm run test:idempotency && npm run test:production-hygiene && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:foundation && npm run typecheck && npm run test:theme-contract",
-    "test:theme-contract": "node --test test/mcp-warm-theme-contract.test.mjs test/a5-5-2-session-action-live-caller-contract.test.mjs test/app-shell-expanded-menu-theme-contract.test.mjs test/interaction-feedback-contract.test.mjs test/app-shell-browser-acceptance-contract.test.mjs"
+    "test:theme-contract": "node --test test/mcp-warm-theme-contract.test.mjs test/a5-5-2-session-action-live-caller-contract.test.mjs test/app-shell-expanded-menu-theme-contract.test.mjs test/interaction-feedback-contract.test.mjs test/app-shell-browser-acceptance-contract.test.mjs test/mcp-ui-root-cause-regression.test.mjs"
   },
   "dependencies": {
     "next": "^14.2.35",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.0",
+    "@types/react-dom": "^18.3.11",
     "typescript": "^5.6.2"
   }
 }
