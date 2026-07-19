@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { userFacingError } from "@/lib/ui/user-facing-error";
@@ -50,6 +50,20 @@ function draftFor(item: SettingItem): Draft {
   };
 }
 
+function appScrollRegion() {
+  const node = document.querySelector("[data-app-scroll-region]");
+  return node instanceof HTMLElement ? node : null;
+}
+
+function restoreAppScroll(top: number) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const node = appScrollRegion();
+      if (node) node.scrollTop = top;
+    });
+  });
+}
+
 async function requestJson(path: string, init?: RequestInit) {
   const method = String(init?.method || "GET").toUpperCase();
   const requestInit = {
@@ -78,13 +92,14 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
+  const editScrollTopRef = useRef(0);
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupId) || groups[0], [groups, activeGroupId]);
   const activeItems = activeGroup?.items || [];
   const activeCount = activeItems.filter((item) => item.status === "active").length;
 
-  async function loadSettings() {
-    setLoading(true);
+  async function loadSettings({ showLoading = true }: { showLoading?: boolean } = {}) {
+    if (showLoading) setLoading(true);
     try {
       const payload = await requestJson(`${REPORT_SETTINGS_API}?groupType=market_report&includeInactive=1`);
       const nextGroups = (payload.data?.groups || []) as SettingGroup[];
@@ -93,7 +108,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
     } catch (error) {
       setMessage(userFacingError(error, "Không tải được cài đặt báo cáo. Vui lòng thử lại."));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
@@ -104,13 +119,14 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
   useEffect(() => {
     if (!editingItem) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !pending) setEditingItem(null);
+      if (event.key === "Escape" && !pending) closeEditor();
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [editingItem, pending]);
 
   function openEditor(item: SettingItem) {
+    editScrollTopRef.current = appScrollRegion()?.scrollTop || 0;
     setMessage(null);
     setEditingItem(item);
     setEditDraft(draftFor(item));
@@ -118,8 +134,10 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
 
   function closeEditor() {
     if (pending) return;
+    const scrollTop = editScrollTopRef.current;
     setEditingItem(null);
     setEditDraft(emptyDraft);
+    restoreAppScroll(scrollTop);
   }
 
   function saveNewItem() {
@@ -140,7 +158,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
             })
           });
           setCreateDraft(emptyDraft);
-          await loadSettings();
+          await loadSettings({ showLoading: false });
           setMessage("Đã thêm mẫu mới.");
         } catch (error) {
           setMessage(userFacingError(error, "Không thêm được lựa chọn. Vui lòng thử lại."));
@@ -151,6 +169,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
 
   function saveEditedItem() {
     if (!editingItem) return;
+    const scrollTop = editScrollTopRef.current;
     startTransition(() => {
       void (async () => {
         try {
@@ -166,10 +185,11 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
               sortOrder: Number(editDraft.sortOrder || 0)
             })
           });
-          await loadSettings();
+          await loadSettings({ showLoading: false });
           setEditingItem(null);
           setEditDraft(emptyDraft);
           setMessage("Đã cập nhật mẫu.");
+          restoreAppScroll(scrollTop);
         } catch (error) {
           setMessage(userFacingError(error, "Không cập nhật được lựa chọn. Vui lòng thử lại."));
         }
@@ -178,6 +198,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
   }
 
   function toggleItem(item: SettingItem) {
+    const scrollTop = appScrollRegion()?.scrollTop || 0;
     startTransition(() => {
       void (async () => {
         try {
@@ -187,8 +208,9 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
             method: "PATCH",
             body: JSON.stringify({ itemId: item.id, status: nextStatus })
           });
-          await loadSettings();
+          await loadSettings({ showLoading: false });
           setMessage(nextStatus === "active" ? "Đã bật lựa chọn." : "Đã tắt lựa chọn.");
+          restoreAppScroll(scrollTop);
         } catch (error) {
           setMessage(userFacingError(error, "Không thay đổi được trạng thái. Vui lòng thử lại."));
         }
