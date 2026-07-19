@@ -35,7 +35,10 @@ test("route archive remains outside the DB-only create update slice", () => {
 
 test("same-origin proxies forward create and update to canonical backend routes", () => {
   assert.match(createProxy, /proxyBackendRequest\(request, "\/api\/routes", "POST"\)/);
-  assert.match(updateProxy, /proxyBackendRequest\([\s\S]*?`\/api\/routes\/\$\{encodeURIComponent\(id\)\}`[\s\S]*?"PATCH"/);
+  assert.match(
+    updateProxy,
+    /proxyBackendRequest\([\s\S]*?`\/api\/routes\/\$\{encodeURIComponent\(params\.id\)\}`[\s\S]*?"PATCH"/
+  );
 });
 
 test("Gateway gives route API ownership before transitional and legacy fallback", () => {
