@@ -5,7 +5,7 @@
     {
       "phase": "A5.2",
       "completedAt": "2026-07-15",
-      "owner": "legacy-backend",
+      " owner": "legacy-backend",
       "reason": "The authenticated Gateway/RPC cutover was verified for MCP day result/add/open/status. The legacy backend-to-Edge caller and unreachable direct-table open/status implementations were removed; direct internal fallback now fails closed instead of restoring retired mutation paths.",
       "fingerprints": [
         "554f43f7c06fc8a9a4da0b21",
@@ -62,11 +62,26 @@
       "phase": "A5.4.4",
       "completedAt": "2026-07-16",
       "owner": "field-check-aggregate",
-      "reason": "Field-check updates now require an existing result and use the typed service-role-only RPC with row locking, status normalization and Foundation context. The unreachable field-check create fallback and duplicate broken market-report route were removed, and direct table mutation privileges were revoked from browser roles.",
+      "reason": "Field-check updates now require an existing result and use the typed service-role-only RPC with row locking, status normalization and Foundation context. The unreachable field-check create fallback and duplicate broken market-report route were removed, and direct table mutation privileges wererevoked from browser roles.",
       "fingerprints": [
         "474001fbfa0d1de1ed003364",
         "f70d562b03f15f08cae868e8",
         "ffb1c503e59aa8fcf8f0344f"
+      ]
+    },
+    {
+      "phase": "A5.5.2",
+      "completedAt": "2026-07-19",
+      "owner": "route-settings-retirement",
+      "reason": "Seven unused legacy route-settings POST writers were removed; required GET readers and the active typed report-settings owner remain.",
+      "fingerprints": [
+        "da7ddec2ffc4e17ec590b3e4",
+        "08a841ace1c4cef116ff9b22",
+        "1c2a5e2584dd2b500a5d1130",
+        "baccc48a7b8f071176d4626a",
+        "43c2ba9d8f446c8bf28d2dc7",
+        "61c3deb62040fe9b268388f3",
+        "589555fa88626dd16813774b"
       ]
     }
   ]
