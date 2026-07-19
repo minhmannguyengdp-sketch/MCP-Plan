@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "MCP-Plan"
   },
   other: {
@@ -49,9 +49,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  viewportFit: "cover",
-  // Browser chrome is outside AppShell ownership. Keep Safari/PWA chrome aligned
-  // with the app canvas so it cannot masquerade as a second brown bottom bar.
+  viewportFit: "auto",
   themeColor: "#F7F3ED"
 };
 

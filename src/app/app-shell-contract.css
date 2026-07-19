@@ -4,11 +4,21 @@
   --app-bottom-nav-link-height: 44px;
 }
 
+html,
+body {
+  background: var(--npp-color-canvas, #f7f3ed);
+}
+
 .app-content-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 100vh;
+}
+
+/* Bottom navigation has one owner. Legacy .bottom-nav rules cannot participate. */
+.app-content-shell > [data-bottom-navigation="true"] {
+  display: none;
 }
 
 [data-app-top-bar] {
@@ -52,6 +62,14 @@
 }
 
 @media (max-width: 820px) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   .app-shell {
     height: 100dvh;
     min-height: 100dvh;
@@ -61,6 +79,7 @@
   .app-content-shell {
     height: 100dvh;
     min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) var(--app-bottom-nav-bar-height);
     overflow: hidden;
   }
 
@@ -78,33 +97,36 @@
     padding-bottom: 10px;
     scroll-padding-top: 12px;
     scroll-padding-bottom: 8px;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Native-style bottom strip: attached to the viewport edge, never a floating card. */
-  [data-bottom-navigation="true"] {
+  /* Exact 50px AppShell row. No safe-area or browser-chrome value may resize it. */
+  .app-content-shell > [data-bottom-navigation="true"] {
     position: relative;
     inset: auto;
     z-index: 50;
+    display: grid;
     width: 100%;
     max-width: none;
-    height: calc(var(--app-bottom-nav-bar-height) + env(safe-area-inset-bottom));
-    min-height: calc(var(--app-bottom-nav-bar-height) + env(safe-area-inset-bottom));
+    height: var(--app-bottom-nav-bar-height);
+    min-height: var(--app-bottom-nav-bar-height);
+    max-height: var(--app-bottom-nav-bar-height);
     margin: 0;
     box-sizing: border-box;
-    align-items: start;
+    align-items: center;
     gap: 2px;
+    overflow: hidden;
+    contain: layout paint;
     border: 0;
     border-top: 1px solid color-mix(in srgb, var(--npp-color-border) 86%, #ffffff);
     border-radius: 0;
-    background: color-mix(in srgb, var(--npp-color-surface) 96%, var(--npp-color-canvas));
-    box-shadow: 0 -6px 18px rgba(75, 47, 31, 0.08);
-    padding: 3px 8px calc(3px + env(safe-area-inset-bottom));
-    -webkit-backdrop-filter: blur(16px) saturate(1.1);
-    backdrop-filter: blur(16px) saturate(1.1);
+    background: var(--npp-color-surface);
+    box-shadow: 0 -4px 12px rgba(75, 47, 31, 0.06);
+    padding: 3px 8px;
   }
 
-  [data-bottom-navigation="true"] .bottom-nav-link {
+  .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link {
     display: grid;
     grid-template-rows: 24px 14px;
     align-items: center;
@@ -113,6 +135,7 @@
     gap: 0;
     height: var(--app-bottom-nav-link-height);
     min-height: var(--app-bottom-nav-link-height);
+    max-height: var(--app-bottom-nav-link-height);
     box-sizing: border-box;
     border-radius: 10px;
     background: transparent;
@@ -121,9 +144,10 @@
     font-weight: 760;
     line-height: 1;
     padding: 1px 2px;
+    touch-action: manipulation;
   }
 
-  [data-bottom-navigation="true"] .bottom-nav-link .nav-icon {
+  .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link .nav-icon {
     width: 22px;
     height: 22px;
     border-radius: 7px;
@@ -133,19 +157,19 @@
     font-size: 15px;
   }
 
-  [data-bottom-navigation="true"] .bottom-nav-link.active {
+  .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link.active {
     background: rgba(79, 122, 58, 0.10);
     color: var(--npp-color-primary);
     box-shadow: none;
   }
 
-  [data-bottom-navigation="true"] .bottom-nav-link.active .nav-icon {
+  .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link.active .nav-icon {
     background: rgba(79, 122, 58, 0.14);
     color: var(--npp-color-primary);
     box-shadow: none;
   }
 
-  [data-bottom-navigation="true"] .bottom-nav-link .nav-label {
+  .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link .nav-label {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
