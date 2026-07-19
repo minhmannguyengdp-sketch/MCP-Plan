@@ -50,7 +50,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#5A3A24"
+  // Browser chrome is outside AppShell ownership. Keep Safari/PWA chrome aligned
+  // with the app canvas so it cannot masquerade as a second brown bottom bar.
+  themeColor: "#F7F3ED"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

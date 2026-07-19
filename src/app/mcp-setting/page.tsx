@@ -1,5 +1,5 @@
-import { McpReportSettingsPageInternal } from "@/features/mcp-settings/McpReportSettingsPageInternal";
+import { McpReportSettingsPage } from "@/features/mcp-settings/McpReportSettingsPage";
 
 export default function Page() {
-  return <McpReportSettingsPageInternal activeHref="/mcp-setting" />;
+  return <McpReportSettingsPage activeHref="/mcp-setting" />;
 }
