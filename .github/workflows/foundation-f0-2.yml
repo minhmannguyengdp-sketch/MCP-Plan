@@ -46,6 +46,9 @@ jobs:
       - name: Verify direct REST mutation retirement
         run: npm run test:direct-rest-retirement
 
+      - name: Verify session lifecycle caller contract
+        run: npm run test:session-lifecycle-caller
+
       - name: Verify persisted idempotency contracts
         run: npm run test:idempotency
 
