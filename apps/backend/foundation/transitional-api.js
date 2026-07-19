@@ -6,10 +6,7 @@ import {
   setSessionCustomerCheckin
 } from "./session-customer-mutations.js";
 import { addRouteCustomer } from "./route-customer-mutations.js";
-import {
-  createSessionReportSnapshot,
-  saveSessionReportAiResult
-} from "./session-report-mutations.js";
+import { createSessionReportSnapshot, saveSessionReportAiResult } from "./session-report-mutations.js";
 import {
   createReportSettingGroup,
   createReportSettingItem,
@@ -23,6 +20,7 @@ import {
   createSessionCustomerReport,
   createSessionCustomerTest
 } from "./session-customer-action-mutations.js";
+import { finalizeOutletMediaUpload, prepareOutletMediaUpload } from "./outlet-media.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -60,13 +58,7 @@ async function readJsonBody(req) {
 }
 
 function response(data, statusCode = 200) {
-  return {
-    statusCode,
-    payload: {
-      ...data,
-      receivedAt: new Date().toISOString()
-    }
-  };
+  return { statusCode, payload: { ...data, receivedAt: new Date().toISOString() } };
 }
 
 function mutationResponse(value) {
@@ -82,100 +74,91 @@ function boundedLimit(value) {
 
 async function saveSessionCustomerResult(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await recordSessionCustomerResult(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await recordSessionCustomerResult(body, context, config, { fetchImpl }));
 }
 
 async function saveAddedSessionCustomer(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await addSessionCustomer(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await addSessionCustomer(body, context, config, { fetchImpl }));
 }
 
 async function saveAddedRouteCustomer(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await addRouteCustomer(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await addRouteCustomer(body, context, config, { fetchImpl }));
 }
 
 async function saveSessionCustomerCheckin(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await setSessionCustomerCheckin(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await setSessionCustomerCheckin(body, context, config, { fetchImpl }));
 }
 
 async function saveSessionCustomerOrder(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await createSessionCustomerOrder(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await createSessionCustomerOrder(body, context, config, { fetchImpl }));
 }
 
 async function saveSessionCustomerTest(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await createSessionCustomerTest(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await createSessionCustomerTest(body, context, config, { fetchImpl }));
 }
 
 async function saveSessionCustomerReport(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await createSessionCustomerReport(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await createSessionCustomerReport(body, context, config, { fetchImpl }));
 }
 
 async function saveSessionCustomerFollowup(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await createSessionCustomerFollowup(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await createSessionCustomerFollowup(body, context, config, { fetchImpl }));
 }
 
 async function saveSessionReportSnapshot(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await createSessionReportSnapshot(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await createSessionReportSnapshot(body, context, config, { fetchImpl }));
 }
 
 async function saveSessionReportAi(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await saveSessionReportAiResult(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await saveSessionReportAiResult(body, context, config, { fetchImpl }));
 }
 
 async function saveFieldCheckResult(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await updateFieldCheckResult(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await updateFieldCheckResult(body, context, config, { fetchImpl }));
 }
 
 async function createSettingGroup(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await createReportSettingGroup(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await createReportSettingGroup(body, context, config, { fetchImpl }));
 }
 
 async function updateSettingGroup(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await updateReportSettingGroup(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await updateReportSettingGroup(body, context, config, { fetchImpl }));
 }
 
 async function createSettingItem(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await createReportSettingItem(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await createReportSettingItem(body, context, config, { fetchImpl }));
 }
 
 async function updateSettingItem(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
-  const data = await updateReportSettingItem(body, context, config, { fetchImpl });
-  return mutationResponse(data);
+  return mutationResponse(await updateReportSettingItem(body, context, config, { fetchImpl }));
+}
+
+async function prepareOutletMedia(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  return response({ data: await prepareOutletMediaUpload(body, context, config, { fetchImpl }) });
+}
+
+async function finalizeOutletMedia(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  return response({ data: await finalizeOutletMediaUpload(body, context, config, { fetchImpl }) });
 }
 
 async function loadReportTemplates(config, fetchImpl) {
-  const rows = await supabaseRest(
-    config,
-    "mcp_report_templates?select=*&status=eq.active&order=sort_order.asc,title.asc",
-    { fetchImpl }
-  );
+  const rows = await supabaseRest(config, "mcp_report_templates?select=*&status=eq.active&order=sort_order.asc,title.asc", { fetchImpl });
   const templates = (Array.isArray(rows) ? rows : []).map((row) => ({
     id: row.id,
     title: row.title,
@@ -199,91 +182,44 @@ async function loadReportTemplates(config, fetchImpl) {
 
 async function loadProductVariants(productId, config, fetchImpl) {
   if (!productId) badRequest("product_id_required");
-  const data = await supabaseRpc(
-    config,
-    "mcp_get_product_variants",
-    { p_product_id: productId },
-    { fetchImpl }
-  );
+  const data = await supabaseRpc(config, "mcp_get_product_variants", { p_product_id: productId }, { fetchImpl });
   return response({ data });
 }
 
 async function searchProducts(url, config, fetchImpl) {
-  const data = await supabaseRpc(
-    config,
-    "mcp_search_products",
-    {
-      p_q: String(url.searchParams.get("q") || "").trim(),
-      p_category: String(url.searchParams.get("category") || "").trim(),
-      p_brand: String(url.searchParams.get("brand") || "").trim(),
-      p_limit: boundedLimit(url.searchParams.get("limit"))
-    },
-    { fetchImpl }
-  );
+  const data = await supabaseRpc(config, "mcp_search_products", {
+    p_q: String(url.searchParams.get("q") || "").trim(),
+    p_category: String(url.searchParams.get("category") || "").trim(),
+    p_brand: String(url.searchParams.get("brand") || "").trim(),
+    p_limit: boundedLimit(url.searchParams.get("limit"))
+  }, { fetchImpl });
   return response({ data });
 }
 
-export async function handleTransitionalApi(
-  req,
-  url,
-  context,
-  config,
-  { fetchImpl = fetch } = {}
-) {
+export async function handleTransitionalApi(req, url, context, config, { fetchImpl = fetch } = {}) {
   const method = String(req.method || "GET").toUpperCase();
   const pathname = url.pathname;
 
-  if (method === "POST" && pathname === "/api/mcp-day/session-customer/result") {
-    return saveSessionCustomerResult(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-day/session-customer/add") {
-    return saveAddedSessionCustomer(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/route-customers") {
-    return saveAddedRouteCustomer(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-day/session-customer/checkin") {
-    return saveSessionCustomerCheckin(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-day/session-customer/order") {
-    return saveSessionCustomerOrder(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-day/session-customer/test") {
-    return saveSessionCustomerTest(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-day/session-customer/report") {
-    return saveSessionCustomerReport(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-day/session-customer/followup") {
-    return saveSessionCustomerFollowup(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-session-report") {
-    return saveSessionReportSnapshot(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-session-report/ai-result") {
-    return saveSessionReportAi(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/field-checks/result") {
-    return saveFieldCheckResult(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-report-setting-groups") {
-    return createSettingGroup(req, context, config, fetchImpl);
-  }
-  if (method === "PATCH" && pathname === "/api/mcp-report-setting-groups") {
-    return updateSettingGroup(req, context, config, fetchImpl);
-  }
-  if (method === "POST" && pathname === "/api/mcp-report-settings") {
-    return createSettingItem(req, context, config, fetchImpl);
-  }
-  if (method === "PATCH" && pathname === "/api/mcp-report-settings") {
-    return updateSettingItem(req, context, config, fetchImpl);
-  }
-  if (method === "GET" && pathname === "/api/mcp-report-templates") {
-    return loadReportTemplates(config, fetchImpl);
-  }
-  if (method === "GET" && pathname === "/api/products/search") {
-    return searchProducts(url, config, fetchImpl);
-  }
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/result") return saveSessionCustomerResult(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/add") return saveAddedSessionCustomer(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/route-customers") return saveAddedRouteCustomer(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/checkin") return saveSessionCustomerCheckin(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/order") return saveSessionCustomerOrder(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/test") return saveSessionCustomerTest(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/report") return saveSessionCustomerReport(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/followup") return saveSessionCustomerFollowup(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-session-report") return saveSessionReportSnapshot(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-session-report/ai-result") return saveSessionReportAi(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/field-checks/result") return saveFieldCheckResult(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-report-setting-groups") return createSettingGroup(req, context, config, fetchImpl);
+  if (method === "PATCH" && pathname === "/api/mcp-report-setting-groups") return updateSettingGroup(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-report-settings") return createSettingItem(req, context, config, fetchImpl);
+  if (method === "PATCH" && pathname === "/api/mcp-report-settings") return updateSettingItem(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/outlet-media/upload-init") return prepareOutletMedia(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/outlet-media/upload-finalize") return finalizeOutletMedia(req, context, config, fetchImpl);
+  if (method === "GET" && pathname === "/api/mcp-report-templates") return loadReportTemplates(config, fetchImpl);
+  if (method === "GET" && pathname === "/api/products/search") return searchProducts(url, config, fetchImpl);
+
   if (method === "GET") {
     const match = pathname.match(/^\/api\/products\/([^/]+)\/variants$/);
     if (match) {
