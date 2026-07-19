@@ -2,6 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 
 const ALGORITHM = "AWS4-HMAC-SHA256";
 const SERVICE = "s3";
+const UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -45,6 +46,35 @@ function r2ObjectUrl(config, objectKey) {
   return endpoint;
 }
 
+function signedR2ObjectRequest(config, objectKey, method, { now = new Date() } = {}) {
+  const url = r2ObjectUrl(config, objectKey);
+  const amzDate = timestamp(now);
+  const dateStamp = amzDate.slice(0, 8);
+  const scope = credentialScope(dateStamp, config.region);
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+  const canonicalRequest = [
+    method,
+    url.pathname,
+    "",
+    `host:${url.host}\nx-amz-content-sha256:${UNSIGNED_PAYLOAD}\nx-amz-date:${amzDate}\n`,
+    signedHeaders,
+    UNSIGNED_PAYLOAD
+  ].join("\n");
+  const stringToSign = [ALGORITHM, amzDate, scope, sha256(canonicalRequest)].join("\n");
+  const signature = hmac(signingKey(config.secretAccessKey, dateStamp, config.region), stringToSign, "hex");
+  return {
+    url: url.toString(),
+    init: {
+      method,
+      headers: {
+        Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+        "x-amz-content-sha256": UNSIGNED_PAYLOAD,
+        "x-amz-date": amzDate
+      }
+    }
+  };
+}
+
 export function presignR2Put(config, objectKey, contentType, { expiresSeconds = 300, now = new Date() } = {}) {
   const url = r2ObjectUrl(config, objectKey);
   const amzDate = timestamp(now);
@@ -64,7 +94,7 @@ export function presignR2Put(config, objectKey, contentType, { expiresSeconds = 
     canonicalQuery(query),
     `content-type:${contentType}\nhost:${url.host}\n`,
     signedHeaders,
-    "UNSIGNED-PAYLOAD"
+    UNSIGNED_PAYLOAD
   ].join("\n");
   const stringToSign = [ALGORITHM, amzDate, scope, sha256(canonicalRequest)].join("\n");
   const signature = hmac(signingKey(config.secretAccessKey, dateStamp, config.region), stringToSign, "hex");
@@ -77,32 +107,10 @@ export function presignR2Put(config, objectKey, contentType, { expiresSeconds = 
   };
 }
 
-export function signedR2HeadRequest(config, objectKey, { now = new Date() } = {}) {
-  const url = r2ObjectUrl(config, objectKey);
-  const amzDate = timestamp(now);
-  const dateStamp = amzDate.slice(0, 8);
-  const scope = credentialScope(dateStamp, config.region);
-  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
-  const payloadHash = "UNSIGNED-PAYLOAD";
-  const canonicalRequest = [
-    "HEAD",
-    url.pathname,
-    "",
-    `host:${url.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`,
-    signedHeaders,
-    payloadHash
-  ].join("\n");
-  const stringToSign = [ALGORITHM, amzDate, scope, sha256(canonicalRequest)].join("\n");
-  const signature = hmac(signingKey(config.secretAccessKey, dateStamp, config.region), stringToSign, "hex");
-  return {
-    url: url.toString(),
-    init: {
-      method: "HEAD",
-      headers: {
-        Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-        "x-amz-content-sha256": payloadHash,
-        "x-amz-date": amzDate
-      }
-    }
-  };
+export function signedR2HeadRequest(config, objectKey, options = {}) {
+  return signedR2ObjectRequest(config, objectKey, "HEAD", options);
+}
+
+export function signedR2DeleteRequest(config, objectKey, options = {}) {
+  return signedR2ObjectRequest(config, objectKey, "DELETE", options);
 }
