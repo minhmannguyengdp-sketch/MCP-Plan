@@ -3,7 +3,7 @@
 > Đọc file này trước khi tiếp tục.  
 > Cập nhật: **2026-07-19**  
 > Phase: **A / NPP-F05 / A5.5.2**  
-> Trạng thái: **SOURCE MERGED 21/30 — PR #68 RETIREMENT OPEN — RUNTIME 14/30**
+> Trạng thái: **SOURCE 28/30 — RUNTIME 14/30 — S2C ARCHIVE DESIGN NEXT**
 
 ## Quyết định hiện tại
 
@@ -21,41 +21,39 @@ Baseline cũ `13/30` thiếu `route-customer.add`; baseline đúng là `14/30`.
 PR #65 session lifecycle:          +4
 PR #66 route create/update:        +2
 PR #67 route-customer edit:        +1
-Source merged before PR #68:       21/30
-PR #68 retirement candidate:       +7
-Projected after PR #68 merge:      28/30
-Projected remaining original:      2
-Runtime verified now:              14/30
+PR #68 dead settings retirement:   +7
+Source merged:                     28/30
+Original routes remaining:         2
+Runtime verified:                  14/30
 ```
 
-## PR #68 — Retire dead route-settings POST mutations
-
-A full-repository source inventory found no live POST caller for:
+## PR #68 — Route-settings mutation retirement
 
 ```text
-POST /api/mcp-settings/order-template
-POST /api/mcp-settings/test-template
-POST /api/mcp-settings/report-template
-POST /api/mcp-settings/followup-template
-POST /api/mcp-settings/skip-reason-template
-POST /api/mcp-settings/customer-add-rule
-POST /api/mcp-settings/session-status
-```
-
-`/mcp-setting` uses the active `/api/mcp-report-settings` owner, already typed and persisted-idempotent. Live `session-status` references are GET reads only.
-
-PR #68 removes the seven legacy POST branches, seven save helpers and five private normalizers used only by those mutations. It preserves required GET readers and does not drop RPC/schema.
-
-```text
-PR:                    #68 OPEN
-Source transform:      PASS node --check
+PR:                    #68 MERGED / SOURCE PASS
+Merge SHA:             2fea8a36e6c1305a8de499cc2e0b740a39a406d7
+Foundation F0.2:       #564 PASS
+Browser workflow:      NOT TRIGGERED — backend/audit-only path
 Supabase migration:    NONE
 VPS pullmcp:           NO
 Vercel deploy:         NO
 Production runtime:    UNCHANGED
 ```
 
-Evidence/decision:
+A full-repository inventory found no live POST caller for seven legacy route-settings mutations. The current `/mcp-setting` screen uses `/api/mcp-report-settings`, already typed and persisted-idempotent. Live `session-status` references are GET reads only.
+
+PR #68 removed seven legacy POST branches, seven save helpers and five private normalizers. Required GET readers remain. No RPC or schema was dropped.
+
+Audit evidence:
+
+- immutable baseline remains unchanged;
+- exact retirement reclassification overlay contains seven fingerprints;
+- owner and operation cannot change during reclassification;
+- completion ledger phase is `A5.5.2`;
+- scanner PASS with `legacy_debt=0`, `forbidden=0`, `unclassified=0`;
+- 34 retired fingerprints total.
+
+Decision document:
 
 ```text
 docs/npp-plan/A5_5_2_ROUTE_SETTINGS_SLICE.md
@@ -77,7 +75,7 @@ Merge: f8df14acd453e7452d3542eaff2618f964a034b6
 Migration: 20260719200000_a5_5_2_session_lifecycle_idempotency.sql
 ```
 
-## Remaining after PR #68 merge — S2c cross-system archive
+## Remaining original 2 — S2c cross-system archive
 
 ```text
 POST /api/routes/:id/archive
@@ -86,16 +84,25 @@ POST /api/route-customers/:id/archive
 
 Existing Foundation owner already has private R2 deletion lifecycle, parent delete jobs, retry/reclaim and guarded hard-delete. Missing piece is persisted replay/conflict/audit for the public intent across an asynchronous cross-system workflow.
 
-Do not pretend PostgreSQL and R2 share one transaction. Next slice must design intent claim + job linkage + cleanup-compatible finalizer before code.
+Do not pretend PostgreSQL and R2 share one transaction. The final source slice must design:
+
+```text
+client intent claim
+-> exact target/job linkage
+-> resumable R2 deletion
+-> cleanup-compatible finalizer
+-> persisted terminal response/audit
+```
 
 ## Production debt still pending
 
-PR #64–#67 are source-only. PR #68 also changes production only after a future backend rollout. Required rollout evidence includes migration ordering where applicable, `pullmcp`, `pm2 list`, health on `127.0.0.1:3001`, execute/replay/conflict/audit/context/invariant smoke and complete fixture cleanup.
+PR #64–#68 are not production runtime evidence. Required rollout includes migrations where applicable, `pullmcp`, `pm2 list`, health on `127.0.0.1:3001`, execute/replay/conflict/audit/context/invariant smoke and complete fixture cleanup.
 
 MCP/R2/mobile test still pending: AppShell/feedback mobile, R2 create/view/delete, customer photo preview, standalone order, cleanup timer and UX issues found by the owner.
 
 ## Point to continue
 
-1. Finish PR #68 final Foundation + browser gates and merge only when green.
-2. Record real merge SHA and source `28/30` on `main`.
-3. Start S2c design from the existing delete-job lifecycle; no production rollout unless explicitly requested.
+1. Read the existing archive/delete-job transaction and retry owners.
+2. Lock S2c intent/job/finalizer invariants before code.
+3. Implement the two archive intents in one cross-system slice.
+4. No production rollout unless explicitly requested.
