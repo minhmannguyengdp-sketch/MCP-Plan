@@ -59,7 +59,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: route-settings-caller-inventory
-          path: route-settings-caller-inventory.json
+          path: |
+            route-settings-caller-inventory.json
+            apps/backend/server.js
           if-no-files-found: error
 
       - name: Verify A5.5.1 idempotency caller contract
