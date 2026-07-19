@@ -6,17 +6,21 @@ async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("session card keeps six compact actions in two rows beside a square check-in", async () => {
+test("session card keeps seven compact actions in two rows beside an independent check-in", async () => {
   const card = await source("src/features/mcp/McpLineCard.tsx");
   const css = await source("src/features/mcp/McpLineCard.module.css");
 
-  assert.match(card, /Chỉ đường/);
+  assert.match(card, /↗ Đường/);
+  assert.match(card, /📷 Ảnh/);
   for (const label of ["Đơn", "Test", "Quan sát", "Theo dõi", "Bỏ qua"]) {
     assert.match(card, new RegExp(`label: "${label}"`));
   }
-  assert.match(css, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(card, /data-customer-action-rows="2"/);
+  assert.match(css, /grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /grid-template-rows:\s*repeat\(2,\s*minmax\(28px,\s*auto\)\)/);
   assert.match(css, /grid-template-areas:[\s\S]*?"actions checkin"/);
-  assert.match(css, /\.checkin\s*\{[\s\S]*?width:\s*74px;[\s\S]*?min-height:\s*63px;/);
+  assert.match(css, /\.checkin\s*\{[\s\S]*?grid-area:\s*checkin;[\s\S]*?width:\s*74px;[\s\S]*?min-height:\s*63px;/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.checkin\s*\{[\s\S]*?width:\s*68px;[\s\S]*?min-height:\s*60px;/);
   assert.match(card, /identityHead[\s\S]*?accountName[\s\S]*?badge[\s\S]*?statusLabel/);
   assert.match(card, /aria-pressed=\{line\.checkedIn === true\}/);
   assert.match(card, /Bấm lần nữa để bỏ check-in/);
