@@ -3,6 +3,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:~+-]{7,191}$/;
 const SERVICE_ACTOR_ID_PATTERN = /^service:[A-Za-z0-9][A-Za-z0-9._:-]{2,126}$/;
+const AUTHENTICATED_PROXY_REQUEST = Symbol("authenticated-proxy-request");
 
 function headerValue(req, name) {
   const value = req.headers[name];
@@ -73,12 +74,20 @@ export function authenticateProxy(req, config) {
     error.statusCode = 401;
     throw error;
   }
+  Object.defineProperty(req, AUTHENTICATED_PROXY_REQUEST, {
+    value: true,
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
 }
 
-export function buildRequestContext(req, config, { trustedActorHeaders = false } = {}) {
+export function buildRequestContext(req, config) {
   const requestId = normalizeRequestId(headerValue(req, "x-request-id"));
   const idempotencyKey = normalizeIdempotencyKey(headerValue(req, "idempotency-key"));
-  const actor = trustedActorHeaders ? authenticatedServiceActor(req, config) : defaultActor(config);
+  const actor = req[AUTHENTICATED_PROXY_REQUEST] === true
+    ? authenticatedServiceActor(req, config)
+    : defaultActor(config);
 
   return Object.freeze({
     requestId,
@@ -89,7 +98,7 @@ export function buildRequestContext(req, config, { trustedActorHeaders = false }
     actor: Object.freeze(actor),
     auth: Object.freeze({
       mode: config.authMode,
-      authenticated: true
+      authenticated: req[AUTHENTICATED_PROXY_REQUEST] === true
     }),
     idempotencyKey,
     receivedAt: new Date().toISOString()
@@ -98,7 +107,7 @@ export function buildRequestContext(req, config, { trustedActorHeaders = false }
 
 export function authenticateRequestContext(req, config) {
   authenticateProxy(req, config);
-  return buildRequestContext(req, config, { trustedActorHeaders: true });
+  return buildRequestContext(req, config);
 }
 
 export function forwardedContextHeaders(context) {
