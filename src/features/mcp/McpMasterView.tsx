@@ -284,7 +284,7 @@ export function McpMasterView({ activeHref, routesData, routeCustomersData }: { 
         setMessage(null);
         if (customerEditorMode === "edit" && customerEditorCustomer) {
           if (!customerDraft.customerName.trim()) throw new Error("Cần nhập tên khách");
-          const response = await fetch(`/api/route-customers/${encodeURIComponent(customerEditorCustomer.id)}`, { method: "PATCH", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ ...customerDraft, geoSource: customerDraft.geoLat && customerDraft.geoLng ? "browser" : undefined }) });
+          const response = await idempotentMutationFetch(`/api/route-customers/${encodeURIComponent(customerEditorCustomer.id)}`, { method: "PATCH", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ ...customerDraft, geoSource: customerDraft.geoLat && customerDraft.geoLng ? "browser" : undefined }) }, { operation: "route-customer.update" });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(apiError(payload, "Không sửa được khách tuyến"));
         } else if (customerEditorMode === "delete" && customerEditorCustomer) {
