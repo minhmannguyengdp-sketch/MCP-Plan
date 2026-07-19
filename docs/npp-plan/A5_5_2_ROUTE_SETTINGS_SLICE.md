@@ -1,8 +1,6 @@
-# A5.5.2 — Route Settings Slice
+# A5.5.2 — Route Settings Retirement
 
-## Scope
-
-Seven original mutation routes share one closed PostgreSQL-only settings boundary:
+## Original inventory
 
 ```text
 POST /api/mcp-settings/order-template
@@ -14,50 +12,65 @@ POST /api/mcp-settings/customer-add-rule
 POST /api/mcp-settings/session-status
 ```
 
-## Why this slice precedes archive/R2
+## Root finding
 
-All seven operations delegate to one canonical PostgreSQL RPC each and have no external side effect. The remaining archive routes span PostgreSQL, private R2 and resumable delete jobs, so they require a separate cross-system intent/finalizer design.
+A full-repository source inventory found no live POST caller for any of the seven routes.
 
-## Canonical owners
+- `/mcp-setting` currently uses `/api/mcp-report-settings` through the typed persisted-idempotent report-setting owner.
+- The only live `session-status` references are GET reads used to load current session state.
+- The seven POST routes and their save helpers existed only in the legacy backend plus historical plan documents.
+
+Therefore adding seven new persisted-idempotent wrappers would preserve dead API surface and create duplicate settings ownership. The correct A5.5.2 action is source retirement.
+
+## Source change
+
+Removed from `apps/backend/server.js`:
+
+- seven POST route branches;
+- seven dead save helpers;
+- five helper normalizers used only by those save helpers.
+
+Retained:
 
 ```text
-mcp_save_route_order_template
-mcp_save_route_test_template
-mcp_save_route_report_template
-mcp_save_route_followup_template
-mcp_save_route_skip_reason_template
-mcp_save_route_customer_add_rule
-mcp_set_route_session_status
+GET /api/mcp-settings/order-template
+GET /api/mcp-settings/templates
+GET /api/mcp-settings/skip-reason-template
+GET /api/mcp-settings/customer-add-rule
+GET /api/mcp-settings/session-status
 ```
 
-Each wrapper must call exactly one literal owner and use its own exact public operation, method and route.
+Also retained the active `/api/mcp-report-settings` read/write owner and its stable idempotency operations.
 
-## Invariants
+## Runtime behavior after a future backend rollout
 
-- route must exist;
-- order/test/skip templates replace child rows atomically inside the canonical RPC transaction;
-- item arrays and item-level validation remain canonical-owner responsibilities;
-- follow-up priority and due-days validation remain unchanged;
-- customer-add mode remains one of `session_only`, `route_only`, `both`;
-- session-status remains an admin/settings intent and delegates to the canonical locked session lifecycle owner;
-- trusted Foundation context is persisted on the surviving settings/session aggregate;
-- same key and same payload replays the persisted response;
-- same key and different payload conflicts;
-- no wildcard or dynamic provider target is allowed.
+- retired POST endpoints return canonical 404 through the legacy fallback;
+- required GET readers continue to work;
+- no schema or RPC is dropped by this source slice;
+- production remains unchanged until an explicitly approved VPS rollout.
 
-## Test plan
+## Contracts
 
-1. Discover every browser caller before changing source.
-2. Add seven service-role-only persisted-idempotent wrappers.
-3. Add one typed Foundation settings owner with seven literal RPC calls.
-4. Intercept all seven exact POST routes before legacy fallback.
-5. Convert every real browser caller to a stable operation key.
-6. Lock migration, owner, route, caller and scanner contracts.
-7. Run Foundation, typecheck, production build and browser smoke.
+- all retired save symbols remain absent;
+- `handlePost` cannot claim any retired settings route;
+- required GET readers remain present;
+- current settings UI remains on `/api/mcp-report-settings`;
+- no live source caller can POST to a retired route;
+- Foundation scanner, backend tests, typecheck, production build and browser smoke must pass.
+
+## Coverage decision
+
+Retirement closes the seven original mutation-route cases without adding replacement mutations:
+
+```text
+source coverage: 21/30 -> 28/30
+runtime verified: remains 14/30 until backend rollout evidence
+remaining original routes: two cross-system R2 archive intents
+```
 
 ## Non-scope
 
-- no Supabase migration apply;
+- no Supabase migration apply or function drop;
 - no VPS pull;
 - no Vercel deploy;
 - no archive/R2 change;
