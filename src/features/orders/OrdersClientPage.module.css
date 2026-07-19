@@ -135,6 +135,25 @@
   margin-top: 16px;
 }
 
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  border-color: rgba(76, 121, 53, 0.28);
+  background: rgba(244, 249, 239, 0.96);
+}
+
+.notice strong {
+  color: var(--brand-strong);
+}
+
+.notice span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 @media (max-width: 820px) {
   .section {
     margin-top: 13px;
@@ -163,5 +182,12 @@
   .actions button {
     min-height: 30px;
     padding: 0 5px;
+  }
+}
+
+@media (max-width: 680px) {
+  .notice {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
