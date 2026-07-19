@@ -67,6 +67,17 @@ git reset --hard origin/main
 [[ -d "$SOURCE/apps/backend/foundation" ]]
 [[ -f "$SOURCE/supabase/migrations/20260715101500_add_atomic_session_customer_mutations.sql" ]]
 
+for runtime_asset in \
+  ops/install-outlet-media-cleanup-timer.sh \
+  ops/run-outlet-media-cleanup.sh \
+  ops/systemd/mcp-outlet-media-cleanup.service \
+  ops/systemd/mcp-outlet-media-cleanup.timer; do
+  if [[ ! -f "$SOURCE/$runtime_asset" ]]; then
+    echo "missing_runtime_asset:$SOURCE/$runtime_asset" >&2
+    exit 1
+  fi
+done
+
 echo "2) Verify complete source tree..."
 cd "$SOURCE"
 npm --prefix apps/backend run verify
@@ -75,6 +86,11 @@ echo "3) Stage complete backend runtime..."
 rm -rf "$STAGE"
 install -d "$STAGE"
 cp -a "$SOURCE/apps/backend/." "$STAGE/"
+install -d "$STAGE/ops/systemd"
+install -m 0750 "$SOURCE/ops/install-outlet-media-cleanup-timer.sh" "$STAGE/ops/install-outlet-media-cleanup-timer.sh"
+install -m 0750 "$SOURCE/ops/run-outlet-media-cleanup.sh" "$STAGE/ops/run-outlet-media-cleanup.sh"
+install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.service" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.service"
+install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.timer" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.timer"
 install -m 600 "$RUNTIME/.env" "$STAGE/.env"
 
 for backup_env in "$RUNTIME"/.env.backup.*; do
