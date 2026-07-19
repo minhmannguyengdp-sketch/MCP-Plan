@@ -1,4 +1,5 @@
 import { unwrapIdempotentMutationResult } from "./idempotency.js";
+import { updateRouteCustomer } from "./route-customer-update-mutations.js";
 import { createRoute, updateRoute } from "./route-mutations.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
@@ -9,13 +10,13 @@ function badRequest(code) {
   throw error;
 }
 
-function decodePathId(value) {
+function decodePathId(value, code) {
   try {
     const decoded = decodeURIComponent(value).trim();
-    if (!decoded) badRequest("invalid_route_id");
+    if (!decoded) badRequest(code);
     return decoded;
   } catch {
-    badRequest("invalid_route_id");
+    badRequest(code);
   }
 }
 
@@ -68,7 +69,21 @@ export async function handleRouteApi(req, url, context, config, { fetchImpl = fe
   if (method === "PATCH" && routeMatch) {
     return mutationResponse(
       await updateRoute(
-        decodePathId(routeMatch[1]),
+        decodePathId(routeMatch[1], "invalid_route_id"),
+        await readJsonBody(req),
+        context,
+        config,
+        { fetchImpl }
+      ),
+      200
+    );
+  }
+
+  const routeCustomerMatch = pathname.match(/^\/api\/route-customers\/([^/]+)$/);
+  if (method === "PATCH" && routeCustomerMatch) {
+    return mutationResponse(
+      await updateRouteCustomer(
+        decodePathId(routeCustomerMatch[1], "invalid_route_customer_id"),
         await readJsonBody(req),
         context,
         config,
