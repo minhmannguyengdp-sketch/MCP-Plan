@@ -5,6 +5,8 @@ import { readFile } from "node:fs/promises";
 const cardPath = new URL("../src/features/mcp/McpLineCard.tsx", import.meta.url);
 const cardCssPath = new URL("../src/features/mcp/McpLineCard.module.css", import.meta.url);
 const profilePath = new URL("../src/features/mcp/McpCustomerProfileSheet.tsx", import.meta.url);
+const masterPath = new URL("../src/features/mcp/McpMasterView.tsx", import.meta.url);
+const routePreviewPath = new URL("../src/features/mcp/RouteCustomerMediaPreview.tsx", import.meta.url);
 const readOwnerPath = new URL("../apps/backend/foundation/outlet-media-read.js", import.meta.url);
 
 test("customer card keeps seven quick actions in two rows beside an independent check-in", async () => {
@@ -52,4 +54,23 @@ test("customer profile exposes full business details and private photo managemen
   assert.match(readOwner, /status=eq\.ready/);
   assert.match(readOwner, /mediaLimit:\s*3/);
   assert.doesNotMatch(readOwner, /objectKey:\s*objectKey/);
+});
+
+test("route customer sheet previews private ready photos without owning mutations", async () => {
+  const [master, preview] = await Promise.all([
+    readFile(masterPath, "utf8"),
+    readFile(routePreviewPath, "utf8")
+  ]);
+
+  assert.match(master, /RouteCustomerMediaPreview/);
+  assert.match(master, /routeCustomerId=\{customer\.id\}/);
+  assert.match(preview, /data-route-customer-media-preview="true"/);
+  assert.match(preview, /\/api\/backend\/outlet-media\/customer-profile\?routeCustomerId=/);
+  assert.match(preview, /Ảnh điểm bán/);
+  assert.match(preview, /bấm ảnh để xem lớn/);
+  assert.match(preview, /target="_blank"/);
+  assert.match(preview, /loading="lazy"/);
+  assert.match(preview, /Tải lại ảnh/);
+  assert.doesNotMatch(preview, /uploadOutletPhoto/);
+  assert.doesNotMatch(preview, /outlet-media\/delete/);
 });
