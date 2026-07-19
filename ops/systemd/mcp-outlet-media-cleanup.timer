@@ -1,9 +1,9 @@
 [Unit]
-Description=Run MCP-Plan outlet media cleanup nightly
+Description=Run MCP-Plan outlet media cleanup hourly
 
 [Timer]
-OnCalendar=*-*-* 03:15:00
-RandomizedDelaySec=15m
+OnCalendar=hourly
+RandomizedDelaySec=5m
 Persistent=true
 Unit=mcp-outlet-media-cleanup.service
 
