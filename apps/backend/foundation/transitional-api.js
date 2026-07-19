@@ -30,6 +30,7 @@ import {
 } from "./outlet-media.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
+const OUTLET_MEDIA_CLEANUP_ACTOR = "service:mcp-plan:outlet-media-cleanup";
 
 function text(value) {
   const normalized = String(value ?? "").trim();
@@ -40,6 +41,23 @@ function badRequest(code) {
   const error = new Error(code);
   error.statusCode = 400;
   throw error;
+}
+
+function forbidden(code) {
+  const error = new Error(code);
+  error.code = code;
+  error.statusCode = 403;
+  throw error;
+}
+
+function assertCleanupActor(context) {
+  if (
+    context.actor.id !== OUTLET_MEDIA_CLEANUP_ACTOR ||
+    context.actor.type !== "service" ||
+    context.actor.authentication !== "backend-token"
+  ) {
+    forbidden("outlet_media_cleanup_forbidden");
+  }
 }
 
 function decodePathId(value, code) {
@@ -180,6 +198,7 @@ async function removeOutletMedia(req, context, config, fetchImpl) {
 }
 
 async function cleanupOutletMediaRequest(req, context, config, fetchImpl) {
+  assertCleanupActor(context);
   const body = await readJsonBody(req);
   return response({ data: await cleanupOutletMedia(body, context, config, { fetchImpl }) });
 }
@@ -257,13 +276,9 @@ export async function handleTransitionalApi(req, url, context, config, { fetchIm
 
   if (method === "POST") {
     const customerDelete = pathname.match(/^\/api\/route-customers\/([^/]+)\/archive$/);
-    if (customerDelete) {
-      return removeRouteCustomer(decodePathId(customerDelete[1], "invalid_route_customer_id"), context, config, fetchImpl);
-    }
+    if (customerDelete) return removeRouteCustomer(decodePathId(customerDelete[1], "invalid_route_customer_id"), context, config, fetchImpl);
     const routeDelete = pathname.match(/^\/api\/routes\/([^/]+)\/archive$/);
-    if (routeDelete) {
-      return removeRoute(decodePathId(routeDelete[1], "invalid_route_id"), context, config, fetchImpl);
-    }
+    if (routeDelete) return removeRoute(decodePathId(routeDelete[1], "invalid_route_id"), context, config, fetchImpl);
   }
 
   if (method === "GET" && pathname === "/api/mcp-report-templates") return loadReportTemplates(config, fetchImpl);
