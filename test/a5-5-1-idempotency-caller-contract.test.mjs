@@ -92,7 +92,10 @@ test("field-check and report-setting callers send stable mutation keys", async (
 
   assert.match(items, /idempotentMutationFetch\(/);
   assert.match(items, /operation: `report-setting-item\.\$\{method\.toLowerCase\(\)\}`/);
-  assert.match(items, /method: editId \? "PATCH" : "POST"/);
+  assert.match(items, /function saveNewItem\(\)[\s\S]*?method: "POST"/);
+  assert.match(items, /function saveEditedItem\(\)[\s\S]*?method: "PATCH"/);
+  assert.match(items, /function toggleItem\(item: SettingItem\)[\s\S]*?method: "PATCH"/);
+  assert.doesNotMatch(items, /method: editId \? "PATCH" : "POST"/);
 });
 
 test("A5.5.1 exposes exactly nine typed Foundation idempotent wrappers", async () => {
