@@ -1,35 +1,46 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
+import { authenticateRequestContext } from "./request-context.js";
 import { handleTransitionalApi } from "./transitional-api.js";
 
-function request(body = {}) {
+function request(body = {}, headers = {}) {
   const stream = Readable.from([JSON.stringify(body)]);
   stream.method = "POST";
-  stream.headers = {};
+  stream.headers = headers;
   return stream;
 }
 
 const config = {
+  backendApiToken: "0123456789abcdef0123456789abcdef",
+  installationId: "installation-a",
+  nppCode: "NPP-A",
+  legacyActorId: "service:npp-a:mcp-v1",
+  authMode: "proxy-service",
   supabaseUrl: "https://project.example.com",
   supabaseServiceRoleKey: "server-only-key"
 };
 
-const baseContext = {
-  requestId: "cleanup-auth-test",
-  installation: { id: "installation-a", nppCode: "NPP-A" }
-};
+function serviceHeaders(actorId) {
+  return {
+    "x-backend-token": config.backendApiToken,
+    "x-request-id": "cleanup_auth_request",
+    "x-actor-id": actorId,
+    "x-actor-type": "service",
+    "x-actor-authentication": "backend-token"
+  };
+}
 
 test("normal application service actor cannot invoke internal media cleanup", async () => {
   let providerCalled = false;
+  const req = request({}, serviceHeaders("service:npp-a:mcp-v1"));
+  const context = authenticateRequestContext(req, config);
+
   await assert.rejects(
     handleTransitionalApi(
-      request(),
+      req,
       new URL("http://local/api/internal/outlet-media/cleanup"),
-      {
-        ...baseContext,
-        actor: { id: "service:npp-a:mcp-v1", type: "service", authentication: "backend-token" }
-      },
+      context,
       config,
       { fetchImpl: async () => { providerCalled = true; } }
     ),
@@ -38,7 +49,7 @@ test("normal application service actor cannot invoke internal media cleanup", as
   assert.equal(providerCalled, false);
 });
 
-test("cleanup system actor reaches the cleanup owner", async () => {
+test("authenticated cleanup system actor reaches the cleanup owner", async () => {
   const calls = [];
   const fetchImpl = async (url, init) => {
     calls.push({ url: String(url), body: JSON.parse(init.body) });
@@ -47,21 +58,20 @@ test("cleanup system actor reaches the cleanup owner", async () => {
     throw new Error("unexpected_provider_call");
   };
 
+  const req = request(
+    { pendingAgeHours: 24, retryAgeMinutes: 15, limit: 10 },
+    serviceHeaders("service:mcp-plan:outlet-media-cleanup")
+  );
+  const context = authenticateRequestContext(req, config);
   const result = await handleTransitionalApi(
-    request({ pendingAgeHours: 24, retryAgeMinutes: 15, limit: 10 }),
+    req,
     new URL("http://local/api/internal/outlet-media/cleanup"),
-    {
-      ...baseContext,
-      actor: {
-        id: "service:mcp-plan:outlet-media-cleanup",
-        type: "service",
-        authentication: "backend-token"
-      }
-    },
+    context,
     config,
     { fetchImpl }
   );
 
+  assert.equal(context.actor.id, "service:mcp-plan:outlet-media-cleanup");
   assert.equal(result.statusCode, 200);
   assert.equal(result.payload.data.claimedCount, 0);
   assert.equal(result.payload.data.claimedDeleteJobCount, 0);
