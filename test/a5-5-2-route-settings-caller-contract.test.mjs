@@ -38,6 +38,5 @@ test("inventory every route-settings browser caller before onboarding", async ()
     }
   }
 
-  console.log(`A5_5_2_ROUTE_SETTINGS_CALLER_INVENTORY=${JSON.stringify(inventory)}`);
-  for (const endpoint of endpoints) assert.ok(Array.isArray(inventory[endpoint]));
+  assert.fail(`A5_5_2_ROUTE_SETTINGS_CALLER_INVENTORY=${JSON.stringify(inventory)}`);
 });
