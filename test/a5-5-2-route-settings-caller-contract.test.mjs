@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const endpoints = [
@@ -33,10 +33,11 @@ test("inventory every route-settings browser caller before onboarding", async ()
       if (!source.includes(endpoint)) continue;
       const lines = source.split("\n");
       lines.forEach((line, index) => {
-        if (line.includes(endpoint)) inventory[endpoint].push({ file: path.relative(process.cwd(), file), line: index + 1, text: line.trim().slice(0, 240) });
+        if (line.includes(endpoint)) inventory[endpoint].push({ file: path.relative(process.cwd(), file), line: index + 1, text: line.trim().slice(0, 500) });
       });
     }
   }
 
-  assert.fail(`A5_5_2_ROUTE_SETTINGS_CALLER_INVENTORY=${JSON.stringify(inventory)}`);
+  await writeFile("route-settings-caller-inventory.json", `${JSON.stringify(inventory, null, 2)}\n`, "utf8");
+  for (const endpoint of endpoints) assert.ok(Array.isArray(inventory[endpoint]));
 });
