@@ -21,6 +21,12 @@ import {
   createSessionCustomerTest
 } from "./session-customer-action-mutations.js";
 import {
+  deleteEmptyRouteSession,
+  openRouteSession,
+  setSessionCustomerStatus,
+  updateRouteSession
+} from "./session-lifecycle-mutations.js";
+import {
   cleanupOutletMedia,
   deleteOutletMedia,
   deleteRouteAndMedia,
@@ -148,6 +154,25 @@ async function saveSessionCustomerFollowup(req, context, config, fetchImpl) {
   return mutationResponse(await createSessionCustomerFollowup(body, context, config, { fetchImpl }));
 }
 
+async function saveOpenRouteSession(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  return mutationResponse(await openRouteSession(body, context, config, { fetchImpl }));
+}
+
+async function saveSessionCustomerStatus(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  return mutationResponse(await setSessionCustomerStatus(body, context, config, { fetchImpl }));
+}
+
+async function saveRouteSessionUpdate(req, sessionId, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  return mutationResponse(await updateRouteSession(sessionId, body, context, config, { fetchImpl }));
+}
+
+async function removeEmptyRouteSession(sessionId, context, config, fetchImpl) {
+  return mutationResponse(await deleteEmptyRouteSession(sessionId, context, config, { fetchImpl }));
+}
+
 async function saveSessionReportSnapshot(req, context, config, fetchImpl) {
   const body = await readJsonBody(req);
   return mutationResponse(await createSessionReportSnapshot(body, context, config, { fetchImpl }));
@@ -260,6 +285,17 @@ async function searchProducts(url, config, fetchImpl) {
 export async function handleTransitionalApi(req, url, context, config, { fetchImpl = fetch } = {}) {
   const method = String(req.method || "GET").toUpperCase();
   const pathname = url.pathname;
+
+  if (method === "POST" && pathname === "/api/mcp-day/open-session") return saveOpenRouteSession(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/mcp-day/session-customer/status") return saveSessionCustomerStatus(req, context, config, fetchImpl);
+
+  const sessionLifecycle = pathname.match(/^\/api\/mcp-sessions\/([^/]+)$/);
+  if (sessionLifecycle && method === "PATCH") {
+    return saveRouteSessionUpdate(req, decodePathId(sessionLifecycle[1], "invalid_session_id"), context, config, fetchImpl);
+  }
+  if (sessionLifecycle && method === "DELETE") {
+    return removeEmptyRouteSession(decodePathId(sessionLifecycle[1], "invalid_session_id"), context, config, fetchImpl);
+  }
 
   if (method === "POST" && pathname === "/api/mcp-day/session-customer/result") return saveSessionCustomerResult(req, context, config, fetchImpl);
   if (method === "POST" && pathname === "/api/mcp-day/session-customer/add") return saveAddedSessionCustomer(req, context, config, fetchImpl);
