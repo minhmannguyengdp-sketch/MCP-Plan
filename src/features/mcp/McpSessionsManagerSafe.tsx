@@ -105,15 +105,26 @@ async function parseApiResponse(response: Response) {
   return payload;
 }
 
+function sessionMutationOperation(methodInput: string | undefined) {
+  const method = String(methodInput || "POST").toUpperCase();
+  if (method === "PATCH") return "route-session.update";
+  if (method === "DELETE") return "route-session.delete-empty";
+  throw new Error(`unsupported_session_mutation_method:${method}`);
+}
+
 async function callApi(path: string, init: RequestInit) {
-  const response = await fetch(path, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json"
+  const response = await idempotentMutationFetch(
+    path,
+    {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      ...init
     },
-    ...init
-  });
+    { operation: sessionMutationOperation(init.method) }
+  );
   return parseApiResponse(response);
 }
 
