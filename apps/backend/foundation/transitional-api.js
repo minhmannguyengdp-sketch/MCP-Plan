@@ -20,7 +20,14 @@ import {
   createSessionCustomerReport,
   createSessionCustomerTest
 } from "./session-customer-action-mutations.js";
-import { finalizeOutletMediaUpload, prepareOutletMediaUpload } from "./outlet-media.js";
+import {
+  cleanupOutletMedia,
+  deleteOutletMedia,
+  deleteRouteAndMedia,
+  deleteRouteCustomerAndMedia,
+  finalizeOutletMediaUpload,
+  prepareOutletMediaUpload
+} from "./outlet-media.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -33,6 +40,16 @@ function badRequest(code) {
   const error = new Error(code);
   error.statusCode = 400;
   throw error;
+}
+
+function decodePathId(value, code) {
+  try {
+    const decoded = decodeURIComponent(value).trim();
+    if (!decoded) badRequest(code);
+    return decoded;
+  } catch {
+    badRequest(code);
+  }
 }
 
 async function readJsonBody(req) {
@@ -157,9 +174,27 @@ async function finalizeOutletMedia(req, context, config, fetchImpl) {
   return response({ data: await finalizeOutletMediaUpload(body, context, config, { fetchImpl }) });
 }
 
+async function removeOutletMedia(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  return response({ data: await deleteOutletMedia(body, context, config, { fetchImpl }) });
+}
+
+async function cleanupOutletMediaRequest(req, context, config, fetchImpl) {
+  const body = await readJsonBody(req);
+  return response({ data: await cleanupOutletMedia(body, context, config, { fetchImpl }) });
+}
+
+async function removeRouteCustomer(routeCustomerId, context, config, fetchImpl) {
+  return response({ data: await deleteRouteCustomerAndMedia(routeCustomerId, context, config, { fetchImpl }) });
+}
+
+async function removeRoute(routeId, context, config, fetchImpl) {
+  return response({ data: await deleteRouteAndMedia(routeId, context, config, { fetchImpl }) });
+}
+
 async function loadReportTemplates(config, fetchImpl) {
-  const rows = await supabaseRest(config, "mcp_report_templates?select=*&status=eq.active&order=sort_order.asc,title.asc", { fetchImpl });
-  const templates = (Array.isArray(rows) ? rows : []).map((row) => ({
+  const result = await supabaseRest(config, "mcp_report_templates?select=*&status=eq.active&order=sort_order.asc,title.asc", { fetchImpl });
+  const templates = (Array.isArray(result) ? result : []).map((row) => ({
     id: row.id,
     title: row.title,
     reportType: row.report_type,
@@ -217,20 +252,26 @@ export async function handleTransitionalApi(req, url, context, config, { fetchIm
   if (method === "PATCH" && pathname === "/api/mcp-report-settings") return updateSettingItem(req, context, config, fetchImpl);
   if (method === "POST" && pathname === "/api/outlet-media/upload-init") return prepareOutletMedia(req, context, config, fetchImpl);
   if (method === "POST" && pathname === "/api/outlet-media/upload-finalize") return finalizeOutletMedia(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/outlet-media/delete") return removeOutletMedia(req, context, config, fetchImpl);
+  if (method === "POST" && pathname === "/api/internal/outlet-media/cleanup") return cleanupOutletMediaRequest(req, context, config, fetchImpl);
+
+  if (method === "POST") {
+    const customerDelete = pathname.match(/^\/api\/route-customers\/([^/]+)\/archive$/);
+    if (customerDelete) {
+      return removeRouteCustomer(decodePathId(customerDelete[1], "invalid_route_customer_id"), context, config, fetchImpl);
+    }
+    const routeDelete = pathname.match(/^\/api\/routes\/([^/]+)\/archive$/);
+    if (routeDelete) {
+      return removeRoute(decodePathId(routeDelete[1], "invalid_route_id"), context, config, fetchImpl);
+    }
+  }
+
   if (method === "GET" && pathname === "/api/mcp-report-templates") return loadReportTemplates(config, fetchImpl);
   if (method === "GET" && pathname === "/api/products/search") return searchProducts(url, config, fetchImpl);
 
   if (method === "GET") {
     const match = pathname.match(/^\/api\/products\/([^/]+)\/variants$/);
-    if (match) {
-      let productId;
-      try {
-        productId = decodeURIComponent(match[1]).trim();
-      } catch {
-        badRequest("invalid_product_id");
-      }
-      return loadProductVariants(productId, config, fetchImpl);
-    }
+    if (match) return loadProductVariants(decodePathId(match[1], "invalid_product_id"), config, fetchImpl);
   }
 
   return null;
