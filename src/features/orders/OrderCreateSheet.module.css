@@ -1,0 +1,250 @@
+.content {
+  display: grid;
+  gap: 14px;
+}
+
+.section {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 12px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sectionHead strong {
+  font-size: 14px;
+}
+
+.sectionHead small,
+.hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.modeTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  border-radius: 14px;
+  background: var(--surface-subtle, #f7f4ef);
+  padding: 4px;
+}
+
+.modeTabs button {
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  min-height: 40px;
+  font-weight: 900;
+}
+
+.modeTabs .activeTab {
+  background: var(--surface, #fff);
+  color: var(--brand-strong);
+  box-shadow: var(--shadow), var(--ring-soft);
+}
+
+.customerPicker,
+.manualGrid,
+.finalGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.manualGrid,
+.finalGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.customerList,
+.productResults {
+  display: grid;
+  gap: 6px;
+  max-height: 230px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.customerList button,
+.productResults button {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.customerList button span,
+.customerList button small,
+.productResults button small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.customerList .selectedCustomer {
+  border-color: var(--brand-strong);
+  background: var(--brand-soft, #f3f7ed);
+}
+
+.searchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.searchRow > button {
+  min-height: 44px;
+}
+
+.productResults button {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.productResults button span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.productResults button b {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.productResults button em {
+  color: var(--brand-strong);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.itemList {
+  display: grid;
+  gap: 7px;
+}
+
+.itemList article {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 64px 105px auto auto;
+  align-items: end;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.itemList article > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemList article small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.itemList article label {
+  display: grid;
+  gap: 3px;
+}
+
+.itemList article input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0 7px;
+}
+
+.itemList article > b {
+  padding-bottom: 9px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.itemList article > button {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  font-weight: 800;
+}
+
+.message {
+  margin: 0;
+  border-radius: 12px;
+  background: #fff3ed;
+  color: #a63824;
+  padding: 9px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.footer > div {
+  display: grid;
+  gap: 2px;
+}
+
+.footer small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.footer strong {
+  font-size: 17px;
+}
+
+@media (max-width: 680px) {
+  .manualGrid,
+  .finalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .itemList article {
+    grid-template-columns: minmax(0, 1fr) 58px 94px;
+  }
+
+  .itemList article > b {
+    grid-column: 2 / 3;
+    padding: 0;
+  }
+
+  .itemList article > button {
+    grid-column: 3 / 4;
+  }
+
+  .footer {
+    grid-template-columns: minmax(0, 1fr) 1fr;
+  }
+
+  .footer > button:last-child {
+    grid-column: 1 / -1;
+  }
+}
