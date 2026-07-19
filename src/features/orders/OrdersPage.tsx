@@ -3,7 +3,10 @@ import { OrdersClientPage } from "./OrdersClientPage";
 
 export async function OrdersPage() {
   const api = createApiClient();
-  const ordersResult = await api.listOrders();
+  const [ordersResult, routeCustomersResult] = await Promise.all([
+    api.listOrders(),
+    api.getRouteCustomersData()
+  ]);
 
-  return <OrdersClientPage ordersResult={ordersResult} />;
+  return <OrdersClientPage ordersResult={ordersResult} customers={routeCustomersResult.data.customers} />;
 }

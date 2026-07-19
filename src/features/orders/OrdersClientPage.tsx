@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { RouteCustomerItem } from "@/features/mcp/route-customers.types";
 import type { ApiResult, OrderDto } from "@/lib/api/api.types";
 import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
 import { OperationalListCard } from "@/ui/cards/OperationalListCard";
@@ -9,6 +10,7 @@ import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
+import { OrderCreateSheet } from "./OrderCreateSheet";
 import styles from "./OrdersClientPage.module.css";
 
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
@@ -94,15 +96,27 @@ function OrderDetailSheet({ order, onClose }: { order: OrderDto | null; onClose:
   );
 }
 
-export function OrdersClientPage({ ordersResult }: { ordersResult: ApiResult<OrderDto[]> }) {
+export function OrdersClientPage({
+  ordersResult,
+  customers
+}: {
+  ordersResult: ApiResult<OrderDto[]>;
+  customers: RouteCustomerItem[];
+}) {
   const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const kpis = useMemo(() => buildOrderKpis(ordersResult.data), [ordersResult.data]);
   const openOrders = ordersResult.data.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length;
   const statusSummary = useMemo(() => orderStatusSummary(ordersResult.data), [ordersResult.data]);
 
   return (
     <AppShell activeHref="/orders">
-      <PageHeader eyebrow="Đơn hàng" title="Đơn hàng" subtitle="Quét nhanh đơn theo nguồn, điểm bán, tuyến, giá trị và trạng thái."><SourceBadge source={ordersResult.source} /></PageHeader>
+      <PageHeader eyebrow="Đơn hàng" title="Đơn hàng" subtitle="Quét nhanh đơn theo nguồn, điểm bán, tuyến, giá trị và trạng thái.">
+        <SourceBadge source={ordersResult.source} />
+        <button className="button primary" type="button" onClick={() => { setNotice(null); setCreateOpen(true); }}>+ Tạo đơn</button>
+      </PageHeader>
+      {notice ? <section className={`card ${styles.notice}`}><strong>{notice}</strong><span>Danh sách đang được làm mới từ dữ liệu live.</span></section> : null}
       <FilterBar filters={[{ label: "Ngày", value: "Gần nhất" }, { label: "Tuyến", value: "Tất cả" }, { label: "Trạng thái", value: "Tất cả" }]} />
       <CompactKpiStrip items={kpis} />
       <section className={styles.section}>
@@ -111,6 +125,15 @@ export function OrdersClientPage({ ordersResult }: { ordersResult: ApiResult<Ord
       </section>
       <section className={`card ${styles.nextCard}`}><h2 className="panel-title">Tình trạng đơn</h2><div className="grid"><div className="metric-row"><span>Nháp</span><strong>{statusSummary.draft}</strong></div><div className="metric-row"><span>Đã chốt</span><strong>{statusSummary.confirmed}</strong></div><div className="metric-row"><span>Đã giao</span><strong>{statusSummary.delivered}</strong></div><div className="metric-row"><span>Hủy</span><strong>{statusSummary.cancelled}</strong></div></div></section>
       <OrderDetailSheet order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      <OrderCreateSheet
+        open={createOpen}
+        customers={customers}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(orderCode) => {
+          setCreateOpen(false);
+          setNotice(`Đã tạo ${orderCode}.`);
+        }}
+      />
     </AppShell>
   );
 }
