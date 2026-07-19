@@ -55,6 +55,13 @@ jobs:
       - name: Inventory route settings callers
         run: node --test test/a5-5-2-route-settings-caller-contract.test.mjs
 
+      - name: Upload route settings caller inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: route-settings-caller-inventory
+          path: route-settings-caller-inventory.json
+          if-no-files-found: error
+
       - name: Verify A5.5.1 idempotency caller contract
         run: node --test test/a5-5-1-idempotency-caller-contract.test.mjs
 
