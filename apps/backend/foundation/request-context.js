@@ -54,8 +54,7 @@ function authenticatedServiceActor(req, config) {
   const authentication = headerValue(req, "x-actor-authentication");
   const presentCount = [id, type, authentication].filter(Boolean).length;
 
-  if (presentCount === 0) return defaultActor(config);
-  if (presentCount !== 3) actorContextError("incomplete_actor_context");
+  if (presentCount !== 3) return defaultActor(config);
   if (
     !SERVICE_ACTOR_ID_PATTERN.test(id) ||
     type !== "service" ||
