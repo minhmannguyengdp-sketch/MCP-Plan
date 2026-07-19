@@ -134,6 +134,13 @@ try {
   await page.screenshot({ path: `${resultsDir}/18-mcp-settings-edit-dialog.png`, fullPage: false });
   await writeFile(`${resultsDir}/mcp-settings-edit-dialog.json`, JSON.stringify({ scrollBefore, scrollWhileOpen, scrollAfter, dialogBox, mutations }, null, 2));
   console.log(JSON.stringify({ status: "PASS", scrollBefore, scrollWhileOpen, scrollAfter, dialogBox, mutations: mutations.length }, null, 2));
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error ? error.stack : null;
+  const evidence = { status: "FAIL", message, stack, mutations };
+  await writeFile(`${resultsDir}/mcp-settings-edit-dialog-error.json`, JSON.stringify(evidence, null, 2));
+  console.error(JSON.stringify(evidence, null, 2));
+  throw error;
 } finally {
   await context.close();
   await browser.close();
