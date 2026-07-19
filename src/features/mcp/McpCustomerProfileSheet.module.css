@@ -1,0 +1,269 @@
+.content {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.section {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sectionHead > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sectionHead strong {
+  color: #101828;
+  font-size: 14px;
+}
+
+.sectionHead small {
+  color: #667085;
+  font-size: 11px;
+}
+
+.readyBadge,
+.missingBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.readyBadge {
+  background: #dcfae6;
+  color: #067647;
+}
+
+.missingBadge {
+  background: #fff1e8;
+  color: #b54708;
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.profileGrid > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid #eaecf0;
+  border-radius: 11px;
+  background: #f9fafb;
+  padding: 8px 9px;
+}
+
+.profileGrid small {
+  color: #667085;
+  font-size: 10.5px;
+}
+
+.profileGrid strong,
+.profileGrid a,
+.profileGrid span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #101828;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.profileGrid a {
+  color: #175cd3;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.mapLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid #b2ccff;
+  border-radius: 10px;
+  background: #eff4ff;
+  color: #175cd3;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.mediaGrid,
+.draftGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.mediaCard,
+.draftCard {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #e4e7ec;
+  border-radius: 11px;
+  background: #f2f4f7;
+}
+
+.mediaCard a,
+.mediaCard img,
+.draftCard img {
+  display: block;
+  width: 100%;
+}
+
+.mediaCard img,
+.draftCard img {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.mediaCard figcaption,
+.draftCard figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 5px 6px;
+}
+
+.mediaCard figcaption span,
+.draftCard figcaption span {
+  min-width: 0;
+  overflow: hidden;
+  color: #667085;
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mediaCard figcaption button,
+.draftCard figcaption button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #b42318;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.mediaActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.mediaActions > button {
+  min-width: 0;
+  min-height: 34px;
+  padding-inline: 6px;
+  font-size: 11px;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70px;
+  border: 1px dashed #d0d5dd;
+  border-radius: 11px;
+  background: #f9fafb;
+  color: #667085;
+  padding: 12px;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.message {
+  margin: 0;
+  border-radius: 10px;
+  background: #fffaeb;
+  color: #93370d;
+  padding: 9px 10px;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+@media (max-width: 520px) {
+  .content {
+    gap: 9px;
+  }
+
+  .section {
+    gap: 8px;
+    border-radius: 12px;
+    padding: 9px;
+  }
+
+  .profileGrid {
+    gap: 6px;
+  }
+
+  .profileGrid > div {
+    padding: 7px;
+  }
+
+  .mediaGrid,
+  .draftGrid {
+    gap: 5px;
+  }
+
+  .mediaCard figcaption,
+  .draftCard figcaption {
+    padding: 4px;
+  }
+
+  .mediaActions {
+    gap: 5px;
+  }
+}
