@@ -28,7 +28,7 @@ test("AppShell owns one menu trigger, one scroll region and at most five bottom 
   assert.match(appShell, /<main[\s\S]*?<NavLinks activeHref=\{activeHref\} items=\{BOTTOM_NAV_ITEMS\} mode="bottom" \/>[\s\S]*?<\/div>/);
 });
 
-test("AppShell owns an exact 50px bottom row independent from browser chrome and safe-area changes", () => {
+test("AppShell owns an exact 58px bottom row independent from browser chrome and safe-area changes", () => {
   assert.match(layout, /import "\.\/app-shell-contract\.css"/);
   assert.doesNotMatch(layout, /mobile-nav-tune\.css/);
   assert.doesNotMatch(layout, /safe-area\.css/);
@@ -42,8 +42,8 @@ test("AppShell owns an exact 50px bottom row independent from browser chrome and
   assert.match(shellCss, /grid-template-rows: auto minmax\(0, 1fr\) var\(--app-bottom-nav-bar-height\)/);
   assert.match(shellCss, /\[data-app-scroll-region\] \{[\s\S]*?overflow-y: auto/);
   assert.match(shellCss, /\[data-app-top-bar\] \{[\s\S]*?position: sticky/);
-  assert.match(shellCss, /--app-bottom-nav-bar-height: 50px/);
-  assert.match(shellCss, /--app-bottom-nav-link-height: 44px/);
+  assert.match(shellCss, /--app-bottom-nav-bar-height: 58px/);
+  assert.match(shellCss, /--app-bottom-nav-link-height: 50px/);
   assert.match(shellCss, /\.app-content-shell > \[data-bottom-navigation="true"\] \{[\s\S]*?position: relative/);
   assert.match(shellCss, /height: var\(--app-bottom-nav-bar-height\)/);
   assert.match(shellCss, /min-height: var\(--app-bottom-nav-bar-height\)/);
@@ -52,7 +52,8 @@ test("AppShell owns an exact 50px bottom row independent from browser chrome and
   assert.match(shellCss, /border-radius: 0/);
   assert.match(shellCss, /border-top: 1px solid/);
   assert.match(shellCss, /background: var\(--npp-color-surface\)/);
-  assert.match(shellCss, /padding: 3px 8px/);
+  assert.match(shellCss, /padding: 4px 8px/);
+  assert.match(shellCss, /\.bottom-nav-link \.nav-icon \{[\s\S]*?width: 26px;[\s\S]*?height: 26px;/);
   assert.doesNotMatch(shellCss, /safe-area-inset-bottom/);
   assert.match(shellCss, /\.bottom-nav-link\.active \{[\s\S]*?background: rgba\(79, 122, 58, 0\.10\)/);
   assert.match(shellCss, /\.bottom-nav-link\.active \.nav-icon \{[\s\S]*?background: rgba\(79, 122, 58, 0\.14\)/);
@@ -60,10 +61,13 @@ test("AppShell owns an exact 50px bottom row independent from browser chrome and
   assert.doesNotMatch(shellCss, /\[data-bottom-navigation="true"\] \{[\s\S]*?position: fixed/);
 });
 
-test("MCP setting edits open in a focused dialog instead of reusing the create form", () => {
+test("MCP settings use compact filters, popup creation and two-row item cards", () => {
   assert.match(settingsRoute, /McpReportSettingsPage/);
   assert.doesNotMatch(settingsRoute, /McpReportSettingsPageInternal/);
   assert.match(settingsPage, /McpReportSettingsPage\.module\.css/);
+  assert.match(settingsPage, /function openCreator\(\)/);
+  assert.match(settingsPage, /aria-haspopup="dialog"/);
+  assert.match(settingsPage, /dialogMode === "create" \? "Thêm mẫu" : "Sửa lựa chọn"/);
   assert.match(settingsPage, /function openEditor\(item: SettingItem\)/);
   assert.match(settingsPage, /setEditingItem\(item\)/);
   assert.match(settingsPage, /role="dialog"/);
@@ -73,10 +77,16 @@ test("MCP setting edits open in a focused dialog instead of reusing the create f
   assert.match(settingsPage, /method: "PATCH"/);
   assert.match(settingsPage, /itemId: editingItem\.id/);
   assert.match(settingsPage, /onClick=\{\(\) => openEditor\(item\)\}/);
-  assert.doesNotMatch(settingsPage, /editId \? "Cập nhật mẫu"/);
+  assert.match(settingsPage, /aria-label="Sửa"/);
+  assert.match(settingsCss, /\.filterRail \{[\s\S]*?overflow-x: auto/);
+  assert.match(settingsCss, /\.itemCard \{[\s\S]*?grid-template-rows: auto auto/);
+  assert.match(settingsCss, /\.itemActions \{[\s\S]*?grid-row: 1 \/ span 2/);
+  assert.match(settingsCss, /\.actionButton \{[\s\S]*?width: 38px;[\s\S]*?height: 38px/);
   assert.match(settingsCss, /place-items: center/);
   assert.match(settingsCss, /width: min\(460px, 100%\)/);
   assert.match(settingsCss, /max-height: min\(82dvh, 680px\)/);
+  assert.match(settingsBrowserSmoke, /opening create dialog must preserve the current MCP settings scroll position/);
+  assert.match(settingsBrowserSmoke, /create dialog must issue exactly one POST mutation/);
   assert.match(settingsBrowserSmoke, /opening edit dialog must preserve the current MCP settings scroll position/);
   assert.match(settingsBrowserSmoke, /edit dialog must issue exactly one PATCH mutation/);
   assert.match(settingsBrowserSmoke, /PATCH mutation must include a stable idempotency key/);
@@ -98,7 +108,7 @@ test("browser gate locks mobile and desktop layout, contrast, pressed, loading a
   for (const phrase of [
     "exactly one menu trigger",
     "bottom navigation must contain at most five items",
-    "bottom nav visual height must stay compact at 50px",
+    "bottom nav visual height must stay at 58px",
     "bottom nav must attach directly to the viewport bottom edge",
     "bottom nav shell must not render as a rounded floating card",
     "bottom nav must not have floating outer margins",

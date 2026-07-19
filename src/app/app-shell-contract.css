@@ -1,7 +1,7 @@
 /* AppShell owns the fixed chrome, scroll region and state feedback for every screen. */
 :root {
-  --app-bottom-nav-bar-height: 50px;
-  --app-bottom-nav-link-height: 44px;
+  --app-bottom-nav-bar-height: 58px;
+  --app-bottom-nav-link-height: 50px;
 }
 
 html,
@@ -101,7 +101,7 @@ body {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Exact 50px AppShell row. No safe-area or browser-chrome value may resize it. */
+  /* Exact 58px AppShell row. No safe-area or browser-chrome value may resize it. */
   .app-content-shell > [data-bottom-navigation="true"] {
     position: relative;
     inset: auto;
@@ -123,12 +123,12 @@ body {
     border-radius: 0;
     background: var(--npp-color-surface);
     box-shadow: 0 -4px 12px rgba(75, 47, 31, 0.06);
-    padding: 3px 8px;
+    padding: 4px 8px;
   }
 
   .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link {
     display: grid;
-    grid-template-rows: 24px 14px;
+    grid-template-rows: 28px 16px;
     align-items: center;
     justify-items: center;
     align-content: center;
@@ -137,10 +137,10 @@ body {
     min-height: var(--app-bottom-nav-link-height);
     max-height: var(--app-bottom-nav-link-height);
     box-sizing: border-box;
-    border-radius: 10px;
+    border-radius: 11px;
     background: transparent;
     color: var(--npp-color-text-muted);
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 760;
     line-height: 1;
     padding: 1px 2px;
@@ -148,13 +148,13 @@ body {
   }
 
   .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link .nav-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
     background: transparent;
     color: currentColor;
     box-shadow: none;
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .app-content-shell > [data-bottom-navigation="true"] .bottom-nav-link.active {
