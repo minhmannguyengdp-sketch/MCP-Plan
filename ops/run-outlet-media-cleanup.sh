@@ -42,8 +42,11 @@ node -e '
   const payload = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   const data = payload && payload.data ? payload.data : payload;
   console.log(JSON.stringify({
-    claimedCount: Number(data.claimedCount || 0),
-    deletedCount: Number(data.deletedCount || 0),
-    failedCount: Number(data.failedCount || 0)
+    claimedMediaCount: Number(data.claimedCount || 0),
+    deletedMediaCount: Number(data.deletedCount || 0),
+    failedMediaCount: Number(data.failedCount || 0),
+    claimedDeleteJobCount: Number(data.claimedDeleteJobCount || 0),
+    completedDeleteJobCount: Number(data.completedDeleteJobCount || 0),
+    failedDeleteJobCount: Number(data.failedDeleteJobCount || 0)
   }));
 ' "$response_file"
