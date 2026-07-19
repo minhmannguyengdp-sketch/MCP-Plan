@@ -23,7 +23,7 @@ function request(method, body) {
   return stream;
 }
 
-test("route API intercepts create and update before legacy fallback", async () => {
+test("route API intercepts route and route-customer writes before legacy fallback", async () => {
   const cases = [
     {
       method: "POST",
@@ -36,6 +36,12 @@ test("route API intercepts create and update before legacy fallback", async () =
       route: "/api/routes/route-1",
       rpc: "mcp_idempotent_update_route",
       body: { routeName: "Tuyến A mới", active: false }
+    },
+    {
+      method: "PATCH",
+      route: "/api/route-customers/route-customer-1",
+      rpc: "mcp_idempotent_update_route_customer",
+      body: { customerName: "Điểm bán A", geoLat: 10.75, geoLng: 106.66 }
     }
   ];
 
@@ -44,7 +50,7 @@ test("route API intercepts create and update before legacy fallback", async () =
     const fetchImpl = async (url, init) => {
       calls.push({ url: String(url), init });
       return new Response(JSON.stringify({
-        data: { routeId: "route-1" },
+        data: { id: "result-1", routeId: "route-1" },
         meta: { idempotency: { replayed: false } }
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     };
@@ -64,23 +70,28 @@ test("route API intercepts create and update before legacy fallback", async () =
   }
 });
 
-test("archive routes are not claimed by the DB-only route write owner", async () => {
-  const result = await handleRouteApi(
-    request("POST", {}),
-    new URL("http://local/api/routes/route-1/archive"),
-    context,
-    config,
-    { fetchImpl: async () => { throw new Error("provider_must_not_be_called"); } }
-  );
-  assert.equal(result, null);
+test("archive routes are not claimed by the DB-only route API owner", async () => {
+  for (const path of [
+    "/api/routes/route-1/archive",
+    "/api/route-customers/route-customer-1/archive"
+  ]) {
+    const result = await handleRouteApi(
+      request("POST", {}),
+      new URL(`http://local${path}`),
+      context,
+      config,
+      { fetchImpl: async () => { throw new Error("provider_must_not_be_called"); } }
+    );
+    assert.equal(result, null, path);
+  }
 });
 
-test("dynamic route id is decoded once", async () => {
+test("dynamic route and route-customer ids are decoded once", async () => {
   const calls = [];
   const fetchImpl = async (url, init) => {
     calls.push({ url: String(url), init });
     return new Response(JSON.stringify({
-      data: { routeId: "route id" },
+      data: { id: "result id" },
       meta: { idempotency: { replayed: false } }
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   };
@@ -93,6 +104,16 @@ test("dynamic route id is decoded once", async () => {
     { fetchImpl }
   );
 
-  const args = JSON.parse(calls[0].init.body);
-  assert.equal(args.p_route_id, "route id");
+  await handleRouteApi(
+    request("PATCH", { active: true }),
+    new URL("http://local/api/route-customers/route-customer%20id"),
+    context,
+    config,
+    { fetchImpl }
+  );
+
+  const routeArgs = JSON.parse(calls[0].init.body);
+  const customerArgs = JSON.parse(calls[1].init.body);
+  assert.equal(routeArgs.p_route_id, "route id");
+  assert.equal(customerArgs.p_route_customer_id, "route-customer id");
 });
