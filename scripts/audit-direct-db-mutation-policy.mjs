@@ -27,6 +27,42 @@ function retirementPhaseMatches(replacementPhase, completedPhase) {
   return Boolean(baselinePhase && phase && (phase === baselinePhase || phase.startsWith(`${baselinePhase}.`)));
 }
 
+function validateReclassifications(document, sourceEntries) {
+  const errors = [];
+  const entries = Array.isArray(document.entries) ? document.entries : [];
+  const sourceByFingerprint = new Map(sourceEntries.map((entry) => [entry.fingerprint, entry]));
+  const seen = new Set();
+  const replacements = new Map();
+
+  if (document.schemaVersion !== 1) errors.push("invalid_reclassification_schema_version");
+  for (const entry of entries) {
+    const fingerprint = String(entry?.fingerprint || "").trim();
+    for (const field of ["fingerprint", "classification", "operation", "owner", "reason", "replacementPhase", "replacementTarget"]) {
+      if (!String(entry?.[field] || "").trim()) errors.push(`reclassification_entry_missing_${field}:${fingerprint || "unknown"}`);
+    }
+    if (!fingerprint) continue;
+    if (seen.has(fingerprint)) errors.push(`duplicate_reclassification_fingerprint:${fingerprint}`);
+    seen.add(fingerprint);
+
+    const source = sourceByFingerprint.get(fingerprint);
+    if (!source) {
+      errors.push(`reclassification_unknown_baseline_fingerprint:${fingerprint}`);
+      continue;
+    }
+    if (source.classification !== "approved-boundary") errors.push(`reclassification_source_not_approved:${fingerprint}:${source.classification}`);
+    if (entry.classification !== "known-legacy-debt") errors.push(`reclassification_target_not_legacy_debt:${fingerprint}:${entry.classification}`);
+    if (entry.operation !== source.operation) errors.push(`reclassification_operation_changed:${fingerprint}:${source.operation}:${entry.operation}`);
+    if (entry.owner !== source.owner) errors.push(`reclassification_owner_changed:${fingerprint}:${source.owner}:${entry.owner}`);
+    replacements.set(fingerprint, { ...source, ...entry });
+  }
+
+  return {
+    errors,
+    entries: sourceEntries.map((entry) => replacements.get(entry.fingerprint) || entry),
+    fingerprintCount: replacements.size
+  };
+}
+
 function validateRetirements(document, baselineEntries, findings) {
   const errors = [];
   const entries = Array.isArray(document.entries) ? document.entries : [];
@@ -71,21 +107,30 @@ async function optionalEntries(root, relativePath) {
   return Array.isArray(document.entries) ? document.entries : [];
 }
 
+async function optionalDocument(root, relativePath) {
+  const raw = await readFile(path.join(root, relativePath), "utf8").catch(() => null);
+  return raw ? JSON.parse(raw) : { schemaVersion: 1, entries: [] };
+}
+
 export async function auditDirectDbMutationPolicy({
   root = process.cwd(),
   scanRoots,
   baselinePath = "scripts/direct-db-mutation-baseline.json",
   additionsPath = "scripts/direct-db-mutation-baseline-additions.json",
+  reclassificationsPath = "scripts/direct-db-mutation-retirement-reclassifications.json",
   retirementsPath = "scripts/direct-db-mutation-retirements.json",
   writeReports = true,
   findingsTextPath = "direct-db-mutation-findings.txt",
   findingsJsonPath = "direct-db-mutation-findings.json"
 } = {}) {
   const baselineDocument = JSON.parse(await readFile(path.join(root, baselinePath), "utf8"));
-  const baselineEntries = [
+  const sourceEntries = [
     ...(Array.isArray(baselineDocument.entries) ? baselineDocument.entries : []),
     ...await optionalEntries(root, additionsPath)
   ];
+  const reclassificationDocument = await optionalDocument(root, reclassificationsPath);
+  const reclassification = validateReclassifications(reclassificationDocument, sourceEntries);
+  const baselineEntries = reclassification.entries;
   const generatedBaselinePath = "scripts/.direct-db-mutation-baseline.generated.json";
   await writeFile(path.join(root, generatedBaselinePath), JSON.stringify({ schemaVersion: 1, entries: baselineEntries }), "utf8");
 
@@ -103,11 +148,12 @@ export async function auditDirectDbMutationPolicy({
     const fingerprint = error.slice("stale_baseline:".length);
     return !policy.retiredFingerprints.has(fingerprint);
   });
-  errors.push(...policy.errors);
+  errors.push(...reclassification.errors, ...policy.errors);
 
   const policyResult = {
     ...result,
     errors: uniqueSorted(errors),
+    reclassifications: { fingerprintCount: reclassification.fingerprintCount },
     retirements: { completedPhases: policy.completedPhases, fingerprintCount: policy.retiredFingerprints.size }
   };
   if (writeReports) {
