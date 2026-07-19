@@ -60,6 +60,26 @@ function positiveInteger(value, fallback, name) {
   return parsed;
 }
 
+function loadR2Config(env, nodeEnv) {
+  const names = ["R2_BUCKET_NAME", "R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"];
+  const present = names.filter((name) => text(env[name]));
+  if (present.length === 0) {
+    return Object.freeze({ configured: false });
+  }
+  if (present.length !== names.length) {
+    const missing = names.filter((name) => !text(env[name]));
+    fail("incomplete_r2_config", `Missing R2 values: ${missing.join(", ")}`);
+  }
+  return Object.freeze({
+    configured: true,
+    bucket: identifier(env, "R2_BUCKET_NAME"),
+    endpoint: httpUrl(env, "R2_ENDPOINT", { httpsInProduction: true, nodeEnv }),
+    region: text(env.R2_REGION) || "auto",
+    accessKeyId: required(env, "R2_ACCESS_KEY_ID"),
+    secretAccessKey: required(env, "R2_SECRET_ACCESS_KEY")
+  });
+}
+
 export function parseCorsOrigins(value, { nodeEnv = "development" } = {}) {
   const raw = text(value);
   if (!raw) {
@@ -140,7 +160,8 @@ export function loadFoundationConfig(env = process.env) {
     supabaseUrl: httpUrl(env, "SUPABASE_URL", { httpsInProduction: true, nodeEnv }),
     supabaseServiceRoleKey: required(env, "SUPABASE_SERVICE_ROLE_KEY"),
     corsOrigins: parseCorsOrigins(env.CORS_ORIGINS, { nodeEnv }),
-    upstreamTimeoutMs: positiveInteger(env.UPSTREAM_TIMEOUT_MS, 65000, "UPSTREAM_TIMEOUT_MS")
+    upstreamTimeoutMs: positiveInteger(env.UPSTREAM_TIMEOUT_MS, 65000, "UPSTREAM_TIMEOUT_MS"),
+    r2: loadR2Config(env, nodeEnv)
   });
 }
 
@@ -156,6 +177,7 @@ export function publicFoundationConfig(config) {
     internalHost: config.internalHost,
     internalPort: config.internalPort,
     providerConfigured: Boolean(config.supabaseUrl && config.supabaseServiceRoleKey),
+    r2Configured: config.r2?.configured === true,
     corsOrigins: [...config.corsOrigins]
   });
 }
