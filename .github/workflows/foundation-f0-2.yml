@@ -38,11 +38,16 @@ jobs:
           if-no-files-found: error
 
       - name: Test direct mutation scanner and retirement policy
-        run: |
-          npm run test:direct-db-mutation
-          npm run test:edge-retirement
-          npm run test:direct-rest-retirement
-          npm run test:idempotency
+        run: npm run test:direct-db-mutation
+
+      - name: Verify Edge mutation retirement
+        run: npm run test:edge-retirement
+
+      - name: Verify direct REST mutation retirement
+        run: npm run test:direct-rest-retirement
+
+      - name: Verify persisted idempotency contracts
+        run: npm run test:idempotency
 
       - name: Verify production hygiene contracts
         run: npm run test:production-hygiene
