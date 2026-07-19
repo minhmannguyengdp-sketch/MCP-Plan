@@ -54,6 +54,10 @@ function providerBusinessCode(error) {
   return /^[a-z][a-z0-9_]{2,127}$/.test(normalized) ? normalized : null;
 }
 
+function errorCode(error) {
+  return text(error?.code) || providerBusinessCode(error) || text(error?.message) || "provider_request_failed";
+}
+
 function normalizeProviderError(error) {
   const code = providerBusinessCode(error);
   if (!code) return error;
@@ -89,6 +93,17 @@ async function finishMediaDelete(mediaId, succeeded, errorMessage, context, conf
   }, { fetchImpl });
 }
 
+async function finishDeleteJob(jobId, succeeded, errorMessage, context, config, fetchImpl) {
+  if (!text(jobId)) return null;
+  return supabaseRpc(config, "mcp_finish_storage_delete_job", {
+    p_installation_id: context.installation.id,
+    p_job_id: jobId,
+    p_succeeded: succeeded,
+    p_error: errorMessage,
+    p_context: contextPayload(context)
+  }, { fetchImpl });
+}
+
 async function deleteClaimedMedia(media, context, config, fetchImpl) {
   const mediaId = text(media.id);
   const objectKey = text(media.object_key || media.objectKey);
@@ -107,7 +122,7 @@ async function deleteClaimedMedia(media, context, config, fetchImpl) {
     try {
       await finishMediaDelete(mediaId, false, errorMessage, context, config, fetchImpl);
     } catch {
-      // The original R2 failure remains the actionable error; the cleanup job can reclaim the row.
+      // The cleanup owner can reclaim both deleting and delete_failed rows.
     }
     return { mediaId, objectKey, deleted: false, error: errorMessage };
   }
@@ -122,6 +137,65 @@ async function deleteClaimedRows(mediaRows, context, config, fetchImpl) {
     deletedCount: results.filter((result) => result.deleted).length,
     failed: results.filter((result) => !result.deleted)
   };
+}
+
+async function finalizeDeleteJob(job, context, config, fetchImpl) {
+  const jobId = text(job.id || job.jobId);
+  const targetType = text(job.target_type || job.targetType);
+  const targetId = text(job.target_id || job.targetId);
+  if (!jobId || !targetType || !targetId) {
+    return { jobId, targetType, targetId, completed: false, error: "invalid_storage_delete_job" };
+  }
+
+  let data = null;
+  let completed = false;
+  let finalError = null;
+  try {
+    if (targetType === "route_customer") {
+      data = await supabaseRpc(config, "mcp_delete_route_customer_hard", {
+        p_route_customer_id: targetId
+      }, { fetchImpl });
+    } else if (targetType === "route") {
+      data = await supabaseRpc(config, "mcp_delete_route_hard", {
+        p_route_id: targetId
+      }, { fetchImpl });
+    } else {
+      fail("invalid_storage_delete_target_type");
+    }
+    completed = true;
+  } catch (error) {
+    const code = errorCode(error);
+    const alreadyAbsent =
+      (targetType === "route_customer" && code === "route_customer_not_found") ||
+      (targetType === "route" && code === "route_not_found");
+    completed = alreadyAbsent;
+    finalError = alreadyAbsent ? null : code.slice(0, 300);
+  }
+
+  try {
+    await finishDeleteJob(jobId, completed, finalError, context, config, fetchImpl);
+  } catch (error) {
+    return {
+      jobId,
+      targetType,
+      targetId,
+      completed: false,
+      parentDeleted: completed,
+      error: `delete_job_finish_failed:${errorCode(error).slice(0, 260)}`
+    };
+  }
+
+  return { jobId, targetType, targetId, completed, data: object(data), error: finalError };
+}
+
+async function markDeleteJobFailed(job, reason, context, config, fetchImpl) {
+  const jobId = text(object(job).id);
+  if (!jobId) return;
+  try {
+    await finishDeleteJob(jobId, false, reason, context, config, fetchImpl);
+  } catch {
+    // A still-pending job remains reclaimable; do not hide the original R2 failure.
+  }
 }
 
 export async function prepareOutletMediaUpload(body, context, config, { fetchImpl = fetch } = {}) {
@@ -237,15 +311,17 @@ export async function deleteRouteCustomerAndMedia(routeCustomerId, context, conf
     }, { fetchImpl }));
     const deleted = await deleteClaimedRows(claim.media, context, config, fetchImpl);
     if (deleted.failed.length) {
+      await markDeleteJobFailed(claim.deleteJob, "route_customer_media_delete_incomplete", context, config, fetchImpl);
       fail("route_customer_media_delete_incomplete", 502, {
         routeCustomerId,
         failedMediaIds: deleted.failed.map((item) => item.mediaId).filter(Boolean)
       });
     }
-    const data = await supabaseRpc(config, "mcp_delete_route_customer_hard", {
-      p_route_customer_id: routeCustomerId
-    }, { fetchImpl });
-    return { ...object(data), deletedMediaCount: deleted.deletedCount };
+    const finalized = await finalizeDeleteJob(claim.deleteJob, context, config, fetchImpl);
+    if (!finalized.completed) {
+      fail("route_customer_delete_incomplete", 502, { routeCustomerId, deleteJobId: finalized.jobId });
+    }
+    return { ...finalized.data, deletedMediaCount: deleted.deletedCount, deleteJobId: finalized.jobId };
   } catch (error) {
     throw normalizeProviderError(error);
   }
@@ -262,15 +338,17 @@ export async function deleteRouteAndMedia(routeId, context, config, { fetchImpl 
     }, { fetchImpl }));
     const deleted = await deleteClaimedRows(claim.media, context, config, fetchImpl);
     if (deleted.failed.length) {
+      await markDeleteJobFailed(claim.deleteJob, "route_media_delete_incomplete", context, config, fetchImpl);
       fail("route_media_delete_incomplete", 502, {
         routeId,
         failedMediaIds: deleted.failed.map((item) => item.mediaId).filter(Boolean)
       });
     }
-    const data = await supabaseRpc(config, "mcp_delete_route_hard", {
-      p_route_id: routeId
-    }, { fetchImpl });
-    return { ...object(data), deletedMediaCount: deleted.deletedCount };
+    const finalized = await finalizeDeleteJob(claim.deleteJob, context, config, fetchImpl);
+    if (!finalized.completed) {
+      fail("route_delete_incomplete", 502, { routeId, deleteJobId: finalized.jobId });
+    }
+    return { ...finalized.data, deletedMediaCount: deleted.deletedCount, deleteJobId: finalized.jobId };
   } catch (error) {
     throw normalizeProviderError(error);
   }
@@ -292,11 +370,27 @@ export async function cleanupOutletMedia(body, context, config, { fetchImpl = fe
       p_context: contextPayload(context)
     }, { fetchImpl });
     const deleted = await deleteClaimedRows(claimed, context, config, fetchImpl);
+
+    const claimedJobs = await supabaseRpc(config, "mcp_claim_ready_storage_delete_jobs", {
+      p_installation_id: context.installation.id,
+      p_retry_before: retryBefore,
+      p_limit: Math.min(limit, 100),
+      p_context: contextPayload(context)
+    }, { fetchImpl });
+    const finalizedJobs = await mapWithConcurrency(rows(claimedJobs), DELETE_CONCURRENCY, (job) => (
+      finalizeDeleteJob(job, context, config, fetchImpl)
+    ));
+    const failedJobs = finalizedJobs.filter((job) => !job.completed);
+
     return {
       claimedCount: rows(claimed).length,
       deletedCount: deleted.deletedCount,
       failedCount: deleted.failed.length,
       failedMediaIds: deleted.failed.map((item) => item.mediaId).filter(Boolean),
+      claimedDeleteJobCount: rows(claimedJobs).length,
+      completedDeleteJobCount: finalizedJobs.filter((job) => job.completed).length,
+      failedDeleteJobCount: failedJobs.length,
+      failedDeleteJobIds: failedJobs.map((job) => job.jobId).filter(Boolean),
       pendingBefore,
       retryBefore
     };
