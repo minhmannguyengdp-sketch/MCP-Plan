@@ -8,7 +8,7 @@ on:
       - f0-2-installation-context-config
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify-foundation:
@@ -112,3 +112,25 @@ jobs:
           SUPABASE_URL: https://project.example.com
           SUPABASE_ANON_KEY: ci-publishable-key
         run: npm run build
+
+      - name: Commit guarded retirement transform
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          git fetch origin "$HEAD_BRANCH"
+          git checkout -B "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          if ! grep -q 'async function saveMcpOrderTemplateSettings' apps/backend/server.js; then
+            echo "Retirement transform already applied"
+            exit 0
+          fi
+          node scripts/retire-dead-route-settings.mjs
+          node --check apps/backend/server.js
+          git diff --check
+          test "$(git diff --numstat -- apps/backend/server.js | awk '{print $1}')" = "0"
+          test "$(git diff --numstat -- apps/backend/server.js | awk '{print $2}')" -gt "0"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/backend/server.js
+          git commit -m "chore: retire dead route settings POST handlers"
+          git push origin "HEAD:$HEAD_BRANCH"
