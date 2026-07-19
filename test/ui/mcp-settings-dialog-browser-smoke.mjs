@@ -86,26 +86,26 @@ await page.route("**/api/mcp-report-settings**", async (route) => {
   return route.fulfill({ status: 405, contentType: "application/json", body: JSON.stringify({ error: { message: "method_not_allowed" } }) });
 });
 
+let scrollBefore = null;
+let scrollWhileOpen = null;
+let scrollAfter = null;
+
 try {
   await page.goto(`${appBase}/mcp-setting`, { waitUntil: "networkidle" });
   await page.getByText("Đối thủ cũ", { exact: true }).waitFor({ state: "visible" });
 
   const main = page.locator("[data-app-scroll-region]");
   const editButton = page.getByRole("button", { name: "Sửa", exact: true });
-  await page.evaluate(() => {
-    const scrollRegion = document.querySelector("[data-app-scroll-region]");
-    const spacer = document.createElement("div");
-    spacer.dataset.settingsDialogSpacer = "true";
-    spacer.style.height = "700px";
-    scrollRegion?.append(spacer);
+  await page.addStyleTag({
+    content: `[data-app-scroll-region]::after { content: ""; display: block; height: 700px; flex: 0 0 700px; }`
   });
   await editButton.evaluate((node) => node.scrollIntoView({ block: "center" }));
-  const scrollBefore = await main.evaluate((node) => node.scrollTop);
+  scrollBefore = await main.evaluate((node) => node.scrollTop);
 
   await editButton.click();
   const dialog = page.getByRole("dialog", { name: "Sửa lựa chọn" });
   await dialog.waitFor({ state: "visible" });
-  const scrollWhileOpen = await main.evaluate((node) => node.scrollTop);
+  scrollWhileOpen = await main.evaluate((node) => node.scrollTop);
   assert.ok(Math.abs(scrollWhileOpen - scrollBefore) <= 1, "opening edit dialog must preserve the current MCP settings scroll position");
 
   const dialogBox = await dialog.boundingBox();
@@ -123,7 +123,7 @@ try {
 
   await dialog.waitFor({ state: "hidden" });
   await page.getByText("Đối thủ đã sửa", { exact: true }).waitFor({ state: "visible" });
-  const scrollAfter = await main.evaluate((node) => node.scrollTop);
+  scrollAfter = await main.evaluate((node) => node.scrollTop);
   assert.ok(Math.abs(scrollAfter - scrollBefore) <= 1, "editing must not jump the MCP settings page to the create form");
 
   assert.equal(mutations.length, 1, "edit dialog must issue exactly one PATCH mutation");
@@ -137,7 +137,7 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error ? error.stack : null;
-  const evidence = { status: "FAIL", message, stack, mutations };
+  const evidence = { status: "FAIL", message, stack, scrollBefore, scrollWhileOpen, scrollAfter, mutations };
   await writeFile(`${resultsDir}/mcp-settings-edit-dialog-error.json`, JSON.stringify(evidence, null, 2));
   console.error(JSON.stringify(evidence, null, 2));
   throw error;
