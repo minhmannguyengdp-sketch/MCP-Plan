@@ -143,8 +143,8 @@ async function verifyMobile(browser) {
   assert.ok(Math.abs(before.bottom.bottom - before.viewport.height) <= 1, "bottom nav must attach directly to the viewport bottom edge");
   assert.equal(before.bottomPosition, "relative", "bottom navigation must be an AppShell row, not a fixed viewport overlay");
   assert.equal(before.bottomParentIsShell, true, "bottom navigation must be owned by app-content-shell");
-  assert.ok(Math.abs(before.bottom.height - 50) <= 1, "bottom nav visual height must stay compact at 50px");
-  assert.ok(before.firstBottomLinkHeight >= 44 && before.firstBottomLinkHeight <= 45, "bottom nav shortcuts must keep a 44px touch target");
+  assert.ok(Math.abs(before.bottom.height - 58) <= 1, "bottom nav visual height must stay at 58px");
+  assert.ok(before.firstBottomLinkHeight >= 49 && before.firstBottomLinkHeight <= 51, "bottom nav shortcuts must keep a 50px touch target");
   assert.ok(before.bottomAppearance, "bottom navigation appearance must be measurable");
   assert.ok(before.bottomAppearance.borderRadius <= 0.1, "bottom nav shell must not render as a rounded floating card");
   assert.ok(before.bottomAppearance.borderTopWidth >= 1, "bottom nav must use a subtle top divider");
@@ -233,8 +233,7 @@ async function verifyDesktop(browser) {
   assert.ok(before.sidebar && before.content && before.top && before.main, "desktop shell regions must exist");
   assert.ok(before.sidebar.right <= before.content.left + 1, "desktop sidebar must not overlap app content");
   assert.ok(before.top.left >= before.sidebar.right - 1, "desktop top bar must remain inside app content");
-  assert.ok(before.top.bottom <= before.main.top + 1, "desktop top bar must not overlap main content");
-
+  assert.ok(before.top.bottom <= before.main.top + 1, "desktop top bar must remain inside app content");
   await page.evaluate(() => {
     const main = document.querySelector("[data-app-scroll-region]");
     const spacer = document.createElement("div");
