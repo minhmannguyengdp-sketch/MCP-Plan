@@ -12,6 +12,7 @@ const sessionView = await readFile("src/features/mcp/McpSessionCompactViewFinal2
 const settingsRoute = await readFile("src/app/mcp-setting/page.tsx", "utf8");
 const settingsPage = await readFile("src/features/mcp-settings/McpReportSettingsPage.tsx", "utf8");
 const settingsCss = await readFile("src/features/mcp-settings/McpReportSettingsPage.module.css", "utf8");
+const settingsBrowserSmoke = await readFile("test/ui/mcp-settings-dialog-browser-smoke.mjs", "utf8");
 const browserSmoke = await readFile("test/ui/app-shell-browser-acceptance-smoke.mjs", "utf8");
 const actionSmoke = await readFile("test/ui/mcp-session-actions-browser-smoke.mjs", "utf8");
 const actionMock = await readFile("test/ui/mcp-session-actions-mock-backend.mjs", "utf8");
@@ -32,6 +33,8 @@ test("AppShell owns an exact 50px bottom row independent from browser chrome and
   assert.doesNotMatch(layout, /mobile-nav-tune\.css/);
   assert.doesNotMatch(layout, /safe-area\.css/);
   assert.match(layout, /statusBarStyle: "default"/);
+  assert.match(layout, /viewportFit: "auto"/);
+  assert.doesNotMatch(layout, /viewportFit: "cover"/);
   assert.match(layout, /themeColor: "#F7F3ED"/);
   assert.match(manifest, /background_color: "#F7F3ED"/);
   assert.match(manifest, /theme_color: "#F7F3ED"/);
@@ -74,6 +77,10 @@ test("MCP setting edits open in a focused dialog instead of reusing the create f
   assert.match(settingsCss, /place-items: center/);
   assert.match(settingsCss, /width: min\(460px, 100%\)/);
   assert.match(settingsCss, /max-height: min\(82dvh, 680px\)/);
+  assert.match(settingsBrowserSmoke, /opening edit dialog must preserve the current MCP settings scroll position/);
+  assert.match(settingsBrowserSmoke, /edit dialog must issue exactly one PATCH mutation/);
+  assert.match(settingsBrowserSmoke, /PATCH mutation must include a stable idempotency key/);
+  assert.match(workflow, /mcp-settings-dialog-browser-smoke\.mjs/);
 });
 
 test("expanded app menu drops from the top in the brown and white design system", () => {
