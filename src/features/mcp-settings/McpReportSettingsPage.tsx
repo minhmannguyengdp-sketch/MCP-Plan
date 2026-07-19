@@ -5,6 +5,7 @@ import { AppShell } from "@/ui/shell/AppShell";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { userFacingError } from "@/lib/ui/user-facing-error";
 import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
+import styles from "./McpReportSettingsPage.module.css";
 
 const REPORT_SETTINGS_API = "/api/mcp-report-settings";
 
@@ -39,6 +40,16 @@ type Draft = {
 
 const emptyDraft: Draft = { label: "", value: "", category: "", brandName: "", sortOrder: "0" };
 
+function draftFor(item: SettingItem): Draft {
+  return {
+    label: item.label,
+    value: item.value,
+    category: item.category,
+    brandName: item.brandName,
+    sortOrder: String(item.sortOrder || 0)
+  };
+}
+
 async function requestJson(path: string, init?: RequestInit) {
   const method = String(init?.method || "GET").toUpperCase();
   const requestInit = {
@@ -61,8 +72,9 @@ function statusText(status: string) {
 export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeHref?: string }) {
   const [groups, setGroups] = useState<SettingGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState("");
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [editId, setEditId] = useState("");
+  const [createDraft, setCreateDraft] = useState<Draft>(emptyDraft);
+  const [editingItem, setEditingItem] = useState<SettingItem | null>(null);
+  const [editDraft, setEditDraft] = useState<Draft>(emptyDraft);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
@@ -73,12 +85,11 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
 
   async function loadSettings() {
     setLoading(true);
-    setMessage(null);
     try {
       const payload = await requestJson(`${REPORT_SETTINGS_API}?groupType=market_report&includeInactive=1`);
       const nextGroups = (payload.data?.groups || []) as SettingGroup[];
       setGroups(nextGroups);
-      setActiveGroupId((current) => current || nextGroups[0]?.id || "");
+      setActiveGroupId((current) => nextGroups.some((group) => group.id === current) ? current : nextGroups[0]?.id || "");
     } catch (error) {
       setMessage(userFacingError(error, "Không tải được cài đặt báo cáo. Vui lòng thử lại."));
     } finally {
@@ -90,43 +101,77 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
     void loadSettings();
   }, []);
 
-  function resetForm() {
-    setDraft(emptyDraft);
-    setEditId("");
+  useEffect(() => {
+    if (!editingItem) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !pending) setEditingItem(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [editingItem, pending]);
+
+  function openEditor(item: SettingItem) {
+    setMessage(null);
+    setEditingItem(item);
+    setEditDraft(draftFor(item));
   }
 
-  function editItem(item: SettingItem) {
-    setEditId(item.id);
-    setDraft({
-      label: item.label,
-      value: item.value,
-      category: item.category,
-      brandName: item.brandName,
-      sortOrder: String(item.sortOrder || 0)
-    });
+  function closeEditor() {
+    if (pending) return;
+    setEditingItem(null);
+    setEditDraft(emptyDraft);
   }
 
-  function saveItem() {
+  function saveNewItem() {
     if (!activeGroup) return;
     startTransition(() => {
       void (async () => {
         try {
           setMessage(null);
-          const body = {
-            groupId: activeGroup.id,
-            itemId: editId || undefined,
-            label: draft.label,
-            value: draft.value || draft.label,
-            category: draft.category,
-            brandName: draft.brandName,
-            sortOrder: Number(draft.sortOrder || 0)
-          };
-          await requestJson(REPORT_SETTINGS_API, { method: editId ? "PATCH" : "POST", body: JSON.stringify(body) });
-          setMessage(editId ? "Đã cập nhật mẫu." : "Đã thêm mẫu mới.");
-          resetForm();
+          await requestJson(REPORT_SETTINGS_API, {
+            method: "POST",
+            body: JSON.stringify({
+              groupId: activeGroup.id,
+              label: createDraft.label,
+              value: createDraft.value || createDraft.label,
+              category: createDraft.category,
+              brandName: createDraft.brandName,
+              sortOrder: Number(createDraft.sortOrder || 0)
+            })
+          });
+          setCreateDraft(emptyDraft);
           await loadSettings();
+          setMessage("Đã thêm mẫu mới.");
         } catch (error) {
-          setMessage(userFacingError(error, "Không lưu được lựa chọn. Vui lòng thử lại."));
+          setMessage(userFacingError(error, "Không thêm được lựa chọn. Vui lòng thử lại."));
+        }
+      })();
+    });
+  }
+
+  function saveEditedItem() {
+    if (!editingItem) return;
+    startTransition(() => {
+      void (async () => {
+        try {
+          setMessage(null);
+          await requestJson(REPORT_SETTINGS_API, {
+            method: "PATCH",
+            body: JSON.stringify({
+              itemId: editingItem.id,
+              label: editDraft.label,
+              value: editDraft.value || editDraft.label,
+              category: editDraft.category,
+              brandName: editDraft.brandName,
+              sortOrder: Number(editDraft.sortOrder || 0)
+            })
+          });
+          await loadSettings();
+          setEditingItem(null);
+          setEditDraft(emptyDraft);
+          setMessage("Đã cập nhật mẫu.");
+        } catch (error) {
+          setMessage(userFacingError(error, "Không cập nhật được lựa chọn. Vui lòng thử lại."));
         }
       })();
     });
@@ -136,11 +181,14 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
     startTransition(() => {
       void (async () => {
         try {
+          setMessage(null);
+          const nextStatus = item.status === "active" ? "inactive" : "active";
           await requestJson(REPORT_SETTINGS_API, {
             method: "PATCH",
-            body: JSON.stringify({ itemId: item.id, status: item.status === "active" ? "inactive" : "active" })
+            body: JSON.stringify({ itemId: item.id, status: nextStatus })
           });
           await loadSettings();
+          setMessage(nextStatus === "active" ? "Đã bật lựa chọn." : "Đã tắt lựa chọn.");
         } catch (error) {
           setMessage(userFacingError(error, "Không thay đổi được trạng thái. Vui lòng thử lại."));
         }
@@ -161,11 +209,11 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
         <span>Các lựa chọn đang bật sẽ xuất hiện trong biểu mẫu báo cáo của mọi tuyến.</span>
       </section>
 
-      {message ? <p className="page-subtitle order-message">{message}</p> : null}
+      {message ? <p className="page-subtitle order-message" role="status">{message}</p> : null}
 
       <div className="mcp-status-chips" role="tablist" aria-label="Nhóm mẫu báo cáo">
         {groups.map((group) => (
-          <button className={activeGroup?.id === group.id ? "active" : ""} key={group.id} type="button" onClick={() => { setActiveGroupId(group.id); resetForm(); }}>
+          <button className={activeGroup?.id === group.id ? "active" : ""} key={group.id} type="button" onClick={() => { setActiveGroupId(group.id); closeEditor(); }}>
             {group.title} <b>{group.items.filter((item) => item.status === "active").length}</b>
           </button>
         ))}
@@ -175,7 +223,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
           <div>
             <strong>{activeGroup?.title || "Đang tải..."}</strong>
-            <p className="page-subtitle" style={{ margin: "4px 0 0" }}>{activeGroup?.description || "Chọn nhóm mẫu để chỉnh."}</p>
+            <p className="page-subtitle" style={{ margin: "4px 0 0" }}>{activeGroup?.description || "Chọn nhóm mẫu để thêm lựa chọn."}</p>
           </div>
           <span className="pill">{activeCount}/{activeItems.length} bật</span>
         </div>
@@ -183,31 +231,30 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
         <div className="grid" style={{ gap: 10 }}>
           <label className="form-field">
             <small>Tên mẫu</small>
-            <input value={draft.label} onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Nhập tên đối thủ, thương hiệu hoặc lựa chọn" />
+            <input value={createDraft.label} onChange={(event) => setCreateDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Nhập tên đối thủ, thương hiệu hoặc lựa chọn" />
           </label>
           <label className="form-field">
             <small>Giá trị lưu</small>
-            <input value={draft.value} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Bỏ trống sẽ lấy theo tên mẫu" />
+            <input value={createDraft.value} onChange={(event) => setCreateDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Bỏ trống sẽ lấy theo tên mẫu" />
           </label>
           <label className="form-field">
             <small>Nhóm sản phẩm</small>
-            <input value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} placeholder="Siro / Sinh tố / Trà / Sữa / Topping" />
+            <input value={createDraft.category} onChange={(event) => setCreateDraft((current) => ({ ...current, category: event.target.value }))} placeholder="Siro / Sinh tố / Trà / Sữa / Topping" />
           </label>
           <label className="form-field">
             <small>Thương hiệu</small>
-            <input value={draft.brandName} onChange={(event) => setDraft((current) => ({ ...current, brandName: event.target.value }))} placeholder="Mama / Vina / Berrino..." />
+            <input value={createDraft.brandName} onChange={(event) => setCreateDraft((current) => ({ ...current, brandName: event.target.value }))} placeholder="Mama / Vina / Berrino..." />
           </label>
           <label className="form-field">
             <small>Thứ tự</small>
-            <input inputMode="numeric" value={draft.sortOrder} onChange={(event) => setDraft((current) => ({ ...current, sortOrder: event.target.value }))} />
+            <input inputMode="numeric" value={createDraft.sortOrder} onChange={(event) => setCreateDraft((current) => ({ ...current, sortOrder: event.target.value }))} />
           </label>
         </div>
 
         <div className="sheet-action-grid" style={{ marginTop: 12 }}>
-          <button className="button primary" type="button" onClick={saveItem} disabled={pending || loading || !activeGroup || !draft.label.trim()}>
-            {pending ? "Đang lưu..." : editId ? "Cập nhật mẫu" : "+ Thêm mẫu"}
+          <button className="button primary" type="button" onClick={saveNewItem} disabled={pending || loading || !activeGroup || !createDraft.label.trim()}>
+            {pending ? "Đang lưu..." : "+ Thêm mẫu"}
           </button>
-          {editId ? <button className="button" type="button" onClick={resetForm} disabled={pending}>Hủy sửa</button> : null}
           <button className="button" type="button" onClick={() => void loadSettings()} disabled={pending || loading}>Tải lại</button>
         </div>
       </section>
@@ -227,7 +274,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
               <span className="pill">{statusText(item.status)}</span>
             </div>
             <div className="sheet-action-grid" style={{ marginTop: 10 }}>
-              <button className="button" type="button" onClick={() => editItem(item)} disabled={pending}>Sửa</button>
+              <button className="button" type="button" onClick={() => openEditor(item)} disabled={pending}>Sửa</button>
               <button className={item.status === "active" ? "button danger" : "button primary"} type="button" onClick={() => toggleItem(item)} disabled={pending}>
                 {item.status === "active" ? "Tắt" : "Bật"}
               </button>
@@ -235,6 +282,50 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
           </article>
         ))}
       </section>
+
+      {editingItem ? (
+        <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
+          <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="mcp-setting-edit-title" aria-describedby="mcp-setting-edit-description">
+            <header className={styles.header}>
+              <div>
+                <h2 id="mcp-setting-edit-title">Sửa lựa chọn</h2>
+                <p id="mcp-setting-edit-description">Chỉnh trực tiếp “{editingItem.label}”, không làm thay đổi vị trí đang xem.</p>
+              </div>
+              <button className={styles.close} type="button" onClick={closeEditor} disabled={pending} aria-label="Đóng cửa sổ sửa">×</button>
+            </header>
+
+            <div className={styles.body}>
+              <label className="form-field">
+                <small>Tên mẫu</small>
+                <input autoFocus value={editDraft.label} onChange={(event) => setEditDraft((current) => ({ ...current, label: event.target.value }))} />
+              </label>
+              <label className="form-field">
+                <small>Giá trị lưu</small>
+                <input value={editDraft.value} onChange={(event) => setEditDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Bỏ trống sẽ lấy theo tên mẫu" />
+              </label>
+              <label className="form-field">
+                <small>Nhóm sản phẩm</small>
+                <input value={editDraft.category} onChange={(event) => setEditDraft((current) => ({ ...current, category: event.target.value }))} />
+              </label>
+              <label className="form-field">
+                <small>Thương hiệu</small>
+                <input value={editDraft.brandName} onChange={(event) => setEditDraft((current) => ({ ...current, brandName: event.target.value }))} />
+              </label>
+              <label className="form-field">
+                <small>Thứ tự</small>
+                <input inputMode="numeric" value={editDraft.sortOrder} onChange={(event) => setEditDraft((current) => ({ ...current, sortOrder: event.target.value }))} />
+              </label>
+            </div>
+
+            <footer className={styles.actions}>
+              <button className="button primary" type="button" onClick={saveEditedItem} disabled={pending || !editDraft.label.trim()} aria-busy={pending}>
+                {pending ? "Đang cập nhật..." : "Cập nhật"}
+              </button>
+              <button className="button" type="button" onClick={closeEditor} disabled={pending}>Hủy</button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </AppShell>
   );
 }
