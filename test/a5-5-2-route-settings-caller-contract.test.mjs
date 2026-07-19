@@ -3,16 +3,6 @@ import assert from "node:assert/strict";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const endpoints = [
-  "order-template",
-  "test-template",
-  "report-template",
-  "followup-template",
-  "skip-reason-template",
-  "customer-add-rule",
-  "session-status"
-].map((name) => `/mcp-settings/${name}`);
-
 async function sourceFiles(root) {
   const output = [];
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -23,21 +13,22 @@ async function sourceFiles(root) {
   return output;
 }
 
-test("inventory every route-settings browser caller before onboarding", async () => {
+test("inventory dynamic MCP settings browser callers before onboarding", async () => {
   const files = await sourceFiles(path.resolve("src"));
-  const inventory = Object.fromEntries(endpoints.map((endpoint) => [endpoint, []]));
+  const inventory = [];
 
   for (const file of files) {
     const source = await readFile(file, "utf8");
-    for (const endpoint of endpoints) {
-      if (!source.includes(endpoint)) continue;
-      const lines = source.split("\n");
-      lines.forEach((line, index) => {
-        if (line.includes(endpoint)) inventory[endpoint].push({ file: path.relative(process.cwd(), file), line: index + 1, text: line.trim().slice(0, 500) });
+    if (!source.includes("mcp-settings")) continue;
+    source.split("\n").forEach((line, index) => {
+      if (line.includes("mcp-settings")) inventory.push({
+        file: path.relative(process.cwd(), file),
+        line: index + 1,
+        text: line.trim().slice(0, 1000)
       });
-    }
+    });
   }
 
   await writeFile("route-settings-caller-inventory.json", `${JSON.stringify(inventory, null, 2)}\n`, "utf8");
-  for (const endpoint of endpoints) assert.ok(Array.isArray(inventory[endpoint]));
+  assert.ok(inventory.length > 0);
 });
