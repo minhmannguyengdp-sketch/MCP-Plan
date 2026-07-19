@@ -12,6 +12,7 @@ import {
   forwardedContextHeaders,
   normalizeRequestId
 } from "./request-context.js";
+import { handleOrderApi } from "./order-api.js";
 import { handleTransitionalApi } from "./transitional-api.js";
 
 const PUBLIC_HEALTH_PATHS = new Set(["/", "/health", "/api/health"]);
@@ -209,6 +210,21 @@ export function createFoundationGateway(config) {
       authenticateProxy(req, config);
       const context = buildRequestContext(req, config);
       req.foundationContext = context;
+
+      const orderApi = await handleOrderApi(req, url, context, config);
+      if (orderApi) {
+        writeNormalized(
+          res,
+          normalizeApiPayload(orderApi.payload, {
+            status: orderApi.statusCode,
+            requestId: context.requestId,
+            receivedAt: context.receivedAt
+          }),
+          context.requestId,
+          origin
+        );
+        return;
+      }
 
       const transitional = await handleTransitionalApi(req, url, context, config);
       if (transitional) {
