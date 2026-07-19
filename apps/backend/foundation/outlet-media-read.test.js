@@ -103,6 +103,35 @@ test("customer profile returns business fields and short-lived private image URL
   assert.equal(calls.length, 2);
 });
 
+test("a customer without photos still opens when R2 is not configured", async () => {
+  const fetchImpl = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/mcp_route_customers")) {
+      return jsonResponse([{
+        id: "route-customer-empty",
+        route_id: "route-1",
+        customer_name: "Khách cũ chưa có ảnh",
+        active: true
+      }]);
+    }
+    if (url.pathname.endsWith("/mcp_outlet_media")) return jsonResponse([]);
+    throw new Error(`unexpected_request:${url.pathname}`);
+  };
+
+  const result = await handleTransitionalApi(
+    { method: "GET", headers: {} },
+    new URL("http://local/api/outlet-media/customer-profile?routeCustomerId=route-customer-empty"),
+    context,
+    { ...config, r2: { configured: false } },
+    { fetchImpl }
+  );
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.payload.data.customer.customerName, "Khách cũ chưa có ảnh");
+  assert.equal(result.payload.data.mediaCount, 0);
+  assert.deepEqual(result.payload.data.media, []);
+});
+
 test("customer profile requires a route customer id", async () => {
   await assert.rejects(
     handleTransitionalApi(
