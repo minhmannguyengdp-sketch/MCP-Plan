@@ -52,6 +52,9 @@ jobs:
       - name: Verify route master caller contract
         run: npm run test:route-master-caller
 
+      - name: Inventory route settings callers
+        run: node --test test/a5-5-2-route-settings-caller-contract.test.mjs
+
       - name: Verify A5.5.1 idempotency caller contract
         run: node --test test/a5-5-1-idempotency-caller-contract.test.mjs
 
