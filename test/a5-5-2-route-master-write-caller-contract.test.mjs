@@ -26,7 +26,10 @@ test("route archive remains outside the DB-only create update slice", () => {
     /fetch\(`\/api\/routes\/\$\{encodeURIComponent\(routeEditorRoute\.id\)\}\/archive`[\s\S]*?method: "POST"/
   );
   assert.doesNotMatch(master, /operation: "route\.(?:archive|delete)"/);
-  assert.match(routeApi, /const routeMatch = pathname\.match\(\/\^\\\/api\\\/routes\\\/\(\[\^\/\]\+\)\$\//);
+  assert.equal(
+    routeApi.includes("const routeMatch = pathname.match(/^\\/api\\/routes\\/([^/]+)$/);"),
+    true
+  );
   assert.match(routeApi, /return null;/);
 });
 
