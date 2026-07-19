@@ -38,6 +38,12 @@ type Draft = {
   sortOrder: string;
 };
 
+type DraftFieldsProps = {
+  draft: Draft;
+  onChange: (patch: Partial<Draft>) => void;
+  autoFocus?: boolean;
+};
+
 const emptyDraft: Draft = { label: "", value: "", category: "", brandName: "", sortOrder: "0" };
 
 function draftFor(item: SettingItem): Draft {
@@ -48,6 +54,54 @@ function draftFor(item: SettingItem): Draft {
     brandName: item.brandName,
     sortOrder: String(item.sortOrder || 0)
   };
+}
+
+function DraftFields({ draft, onChange, autoFocus = false }: DraftFieldsProps) {
+  return (
+    <div className={styles.formGrid}>
+      <label className="form-field">
+        <small>Tên mẫu</small>
+        <input
+          autoFocus={autoFocus}
+          value={draft.label}
+          onChange={(event) => onChange({ label: event.target.value })}
+          placeholder="Nhập tên đối thủ, thương hiệu hoặc lựa chọn"
+        />
+      </label>
+      <label className="form-field">
+        <small>Giá trị lưu</small>
+        <input
+          value={draft.value}
+          onChange={(event) => onChange({ value: event.target.value })}
+          placeholder="Bỏ trống sẽ lấy theo tên mẫu"
+        />
+      </label>
+      <label className="form-field">
+        <small>Nhóm sản phẩm</small>
+        <input
+          value={draft.category}
+          onChange={(event) => onChange({ category: event.target.value })}
+          placeholder="Siro / Sinh tố / Trà / Sữa / Topping"
+        />
+      </label>
+      <label className="form-field">
+        <small>Thương hiệu</small>
+        <input
+          value={draft.brandName}
+          onChange={(event) => onChange({ brandName: event.target.value })}
+          placeholder="Mama / Vina / Berrino..."
+        />
+      </label>
+      <label className="form-field">
+        <small>Thứ tự</small>
+        <input
+          inputMode="numeric"
+          value={draft.sortOrder}
+          onChange={(event) => onChange({ sortOrder: event.target.value })}
+        />
+      </label>
+    </div>
+  );
 }
 
 function appScrollRegion() {
@@ -86,17 +140,19 @@ function statusText(status: string) {
 export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeHref?: string }) {
   const [groups, setGroups] = useState<SettingGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState("");
+  const [creating, setCreating] = useState(false);
   const [createDraft, setCreateDraft] = useState<Draft>(emptyDraft);
   const [editingItem, setEditingItem] = useState<SettingItem | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(emptyDraft);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
-  const editScrollTopRef = useRef(0);
+  const dialogScrollTopRef = useRef(0);
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupId) || groups[0], [groups, activeGroupId]);
   const activeItems = activeGroup?.items || [];
   const activeCount = activeItems.filter((item) => item.status === "active").length;
+  const dialogMode = creating ? "create" : editingItem ? "edit" : null;
 
   async function loadSettings({ showLoading = true }: { showLoading?: boolean } = {}) {
     if (showLoading) setLoading(true);
@@ -117,31 +173,46 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
   }, []);
 
   useEffect(() => {
-    if (!editingItem) return;
+    if (!dialogMode) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !pending) closeEditor();
+      if (event.key === "Escape" && !pending) closeDialog();
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [editingItem, pending]);
+  }, [dialogMode, pending]);
+
+  function openCreator() {
+    dialogScrollTopRef.current = appScrollRegion()?.scrollTop || 0;
+    setMessage(null);
+    setEditingItem(null);
+    setEditDraft(emptyDraft);
+    setCreateDraft(emptyDraft);
+    setCreating(true);
+  }
 
   function openEditor(item: SettingItem) {
-    editScrollTopRef.current = appScrollRegion()?.scrollTop || 0;
+    dialogScrollTopRef.current = appScrollRegion()?.scrollTop || 0;
     setMessage(null);
+    setCreating(false);
+    setCreateDraft(emptyDraft);
     setEditingItem(item);
     setEditDraft(draftFor(item));
   }
 
-  function closeEditor() {
+  function closeDialog() {
     if (pending) return;
-    const scrollTop = editScrollTopRef.current;
+    const scrollTop = dialogScrollTopRef.current;
+    setCreating(false);
     setEditingItem(null);
+    setCreateDraft(emptyDraft);
     setEditDraft(emptyDraft);
+    setMessage(null);
     restoreAppScroll(scrollTop);
   }
 
   function saveNewItem() {
     if (!activeGroup) return;
+    const scrollTop = dialogScrollTopRef.current;
     startTransition(() => {
       void (async () => {
         try {
@@ -157,9 +228,11 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
               sortOrder: Number(createDraft.sortOrder || 0)
             })
           });
-          setCreateDraft(emptyDraft);
           await loadSettings({ showLoading: false });
+          setCreating(false);
+          setCreateDraft(emptyDraft);
           setMessage("Đã thêm mẫu mới.");
+          restoreAppScroll(scrollTop);
         } catch (error) {
           setMessage(userFacingError(error, "Không thêm được lựa chọn. Vui lòng thử lại."));
         }
@@ -169,7 +242,7 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
 
   function saveEditedItem() {
     if (!editingItem) return;
-    const scrollTop = editScrollTopRef.current;
+    const scrollTop = dialogScrollTopRef.current;
     startTransition(() => {
       void (async () => {
         try {
@@ -218,132 +291,136 @@ export function McpReportSettingsPage({ activeHref = "/mcp-setting" }: { activeH
     });
   }
 
+  const dialogDraft = dialogMode === "create" ? createDraft : editDraft;
+  const updateDialogDraft = (patch: Partial<Draft>) => {
+    if (dialogMode === "create") setCreateDraft((current) => ({ ...current, ...patch }));
+    else setEditDraft((current) => ({ ...current, ...patch }));
+  };
+
   return (
     <AppShell activeHref={activeHref}>
-      <PageHeader
-        eyebrow="Cài đặt MCP"
-        title="Lựa chọn nhanh cho báo cáo thị trường"
-        subtitle="Quản lý đối thủ, sản phẩm đang dùng và nội dung ghi nhận để nhân viên sử dụng thống nhất."
-      />
+      <PageHeader eyebrow="Cài đặt MCP" title="Lựa chọn nhanh cho báo cáo thị trường" />
 
-      <section className="mcp-gate-banner">
-        <strong>Mẫu dùng chung</strong>
-        <span>Các lựa chọn đang bật sẽ xuất hiện trong biểu mẫu báo cáo của mọi tuyến.</span>
+      <section className={styles.introCard} aria-label="Hướng dẫn cài đặt mẫu báo cáo">
+        <span className={styles.introIcon} aria-hidden="true">i</span>
+        <div className={styles.introCopy}>
+          <strong>Quản lý mẫu dùng chung</strong>
+          <p>Đối thủ, sản phẩm đang dùng và nội dung ghi nhận được dùng thống nhất cho nhân viên.</p>
+          <small>Các lựa chọn đang bật sẽ xuất hiện trong biểu mẫu báo cáo của mọi tuyến.</small>
+        </div>
       </section>
 
-      {message ? <p className="page-subtitle order-message" role="status">{message}</p> : null}
+      {!dialogMode && message ? <p className="page-subtitle order-message" role="status">{message}</p> : null}
 
-      <div className="mcp-status-chips" role="tablist" aria-label="Nhóm mẫu báo cáo">
-        {groups.map((group) => (
-          <button className={activeGroup?.id === group.id ? "active" : ""} key={group.id} type="button" onClick={() => { setActiveGroupId(group.id); closeEditor(); }}>
-            {group.title} <b>{group.items.filter((item) => item.status === "active").length}</b>
-          </button>
-        ))}
+      <div className={styles.filterRail} role="tablist" aria-label="Nhóm mẫu báo cáo">
+        {groups.map((group) => {
+          const count = group.items.filter((item) => item.status === "active").length;
+          const selected = activeGroup?.id === group.id;
+          return (
+            <button
+              className={`${styles.filterChip} ${selected ? styles.filterChipActive : ""}`}
+              key={group.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              title={group.title}
+              onClick={() => setActiveGroupId(group.id)}
+            >
+              <span>{group.title}</span>
+              <b>{count}</b>
+            </button>
+          );
+        })}
       </div>
 
-      <section className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
-          <div>
+      <section className={styles.groupToolbar}>
+        <div className={styles.groupSummary}>
+          <div className={styles.groupTitleRow}>
             <strong>{activeGroup?.title || "Đang tải..."}</strong>
-            <p className="page-subtitle" style={{ margin: "4px 0 0" }}>{activeGroup?.description || "Chọn nhóm mẫu để thêm lựa chọn."}</p>
+            <span className={styles.countPill}>{activeCount}/{activeItems.length} bật</span>
           </div>
-          <span className="pill">{activeCount}/{activeItems.length} bật</span>
+          <p>{activeGroup?.description || "Chọn nhóm mẫu để quản lý lựa chọn."}</p>
         </div>
-
-        <div className="grid" style={{ gap: 10 }}>
-          <label className="form-field">
-            <small>Tên mẫu</small>
-            <input value={createDraft.label} onChange={(event) => setCreateDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Nhập tên đối thủ, thương hiệu hoặc lựa chọn" />
-          </label>
-          <label className="form-field">
-            <small>Giá trị lưu</small>
-            <input value={createDraft.value} onChange={(event) => setCreateDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Bỏ trống sẽ lấy theo tên mẫu" />
-          </label>
-          <label className="form-field">
-            <small>Nhóm sản phẩm</small>
-            <input value={createDraft.category} onChange={(event) => setCreateDraft((current) => ({ ...current, category: event.target.value }))} placeholder="Siro / Sinh tố / Trà / Sữa / Topping" />
-          </label>
-          <label className="form-field">
-            <small>Thương hiệu</small>
-            <input value={createDraft.brandName} onChange={(event) => setCreateDraft((current) => ({ ...current, brandName: event.target.value }))} placeholder="Mama / Vina / Berrino..." />
-          </label>
-          <label className="form-field">
-            <small>Thứ tự</small>
-            <input inputMode="numeric" value={createDraft.sortOrder} onChange={(event) => setCreateDraft((current) => ({ ...current, sortOrder: event.target.value }))} />
-          </label>
-        </div>
-
-        <div className="sheet-action-grid" style={{ marginTop: 12 }}>
-          <button className="button primary" type="button" onClick={saveNewItem} disabled={pending || loading || !activeGroup || !createDraft.label.trim()}>
-            {pending ? "Đang lưu..." : "+ Thêm mẫu"}
-          </button>
-          <button className="button" type="button" onClick={() => void loadSettings()} disabled={pending || loading}>Tải lại</button>
-        </div>
+        <button
+          className={styles.addButton}
+          type="button"
+          onClick={openCreator}
+          disabled={pending || loading || !activeGroup}
+          aria-haspopup="dialog"
+        >
+          <span aria-hidden="true">＋</span>
+          Thêm mẫu
+        </button>
       </section>
 
-      <section className="mcp-line-list">
+      <section className={styles.itemList}>
         {loading ? <div className="empty-inline"><strong>Đang tải mẫu...</strong></div> : null}
         {!loading && activeItems.length === 0 ? <div className="empty-inline"><strong>Chưa có mẫu</strong><p className="page-subtitle">Thêm mẫu đầu tiên cho nhóm này.</p></div> : null}
-        {activeItems.map((item) => (
-          <article className="card" key={item.id} style={{ padding: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-              <div style={{ minWidth: 0 }}>
-                <strong>{item.label}</strong>
-                <p className="page-subtitle" style={{ margin: "4px 0 0" }}>
-                  {item.category || "Không nhóm"} · {item.brandName || "Chưa có thương hiệu"} · thứ tự {item.sortOrder}
-                </p>
+        {activeItems.map((item) => {
+          const active = item.status === "active";
+          return (
+            <article className={styles.itemCard} key={item.id} data-setting-item>
+              <div className={styles.itemHeading}>
+                <strong title={item.label}>{item.label}</strong>
+                <span className={`${styles.statusPill} ${active ? styles.statusActive : styles.statusInactive}`}>
+                  <i aria-hidden="true" />
+                  {statusText(item.status)}
+                </span>
               </div>
-              <span className="pill">{statusText(item.status)}</span>
-            </div>
-            <div className="sheet-action-grid" style={{ marginTop: 10 }}>
-              <button className="button" type="button" onClick={() => openEditor(item)} disabled={pending}>Sửa</button>
-              <button className={item.status === "active" ? "button danger" : "button primary"} type="button" onClick={() => toggleItem(item)} disabled={pending}>
-                {item.status === "active" ? "Tắt" : "Bật"}
-              </button>
-            </div>
-          </article>
-        ))}
+              <p className={styles.itemMeta} title={`${item.category || "Không nhóm"} · ${item.brandName || "Chưa có thương hiệu"} · thứ tự ${item.sortOrder}`}>
+                {item.category || "Không nhóm"} · {item.brandName || "Chưa có thương hiệu"} · thứ tự {item.sortOrder}
+              </p>
+              <div className={styles.itemActions}>
+                <button className={styles.actionButton} type="button" onClick={() => openEditor(item)} disabled={pending} aria-label="Sửa" title="Sửa">
+                  <span aria-hidden="true">✎</span>
+                </button>
+                <button
+                  className={`${styles.actionButton} ${active ? styles.actionDanger : styles.actionEnable}`}
+                  type="button"
+                  onClick={() => toggleItem(item)}
+                  disabled={pending}
+                  aria-label={active ? "Tắt" : "Bật"}
+                  title={active ? "Tắt" : "Bật"}
+                >
+                  <span aria-hidden="true">{active ? "⏻" : "✓"}</span>
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </section>
 
-      {editingItem ? (
-        <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
-          <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="mcp-setting-edit-title" aria-describedby="mcp-setting-edit-description">
+      {dialogMode ? (
+        <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
+          <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="mcp-setting-dialog-title" aria-describedby="mcp-setting-dialog-description">
             <header className={styles.header}>
               <div>
-                <h2 id="mcp-setting-edit-title">Sửa lựa chọn</h2>
-                <p id="mcp-setting-edit-description">Chỉnh trực tiếp “{editingItem.label}”, không làm thay đổi vị trí đang xem.</p>
+                <h2 id="mcp-setting-dialog-title">{dialogMode === "create" ? "Thêm mẫu" : "Sửa lựa chọn"}</h2>
+                <p id="mcp-setting-dialog-description">
+                  {dialogMode === "create"
+                    ? `Thêm lựa chọn vào nhóm “${activeGroup?.title || "đang chọn"}”.`
+                    : `Chỉnh trực tiếp “${editingItem?.label || "lựa chọn"}”, không làm thay đổi vị trí đang xem.`}
+                </p>
               </div>
-              <button className={styles.close} type="button" onClick={closeEditor} disabled={pending} aria-label="Đóng cửa sổ sửa">×</button>
+              <button className={styles.close} type="button" onClick={closeDialog} disabled={pending} aria-label="Đóng cửa sổ">×</button>
             </header>
 
             <div className={styles.body}>
-              <label className="form-field">
-                <small>Tên mẫu</small>
-                <input autoFocus value={editDraft.label} onChange={(event) => setEditDraft((current) => ({ ...current, label: event.target.value }))} />
-              </label>
-              <label className="form-field">
-                <small>Giá trị lưu</small>
-                <input value={editDraft.value} onChange={(event) => setEditDraft((current) => ({ ...current, value: event.target.value }))} placeholder="Bỏ trống sẽ lấy theo tên mẫu" />
-              </label>
-              <label className="form-field">
-                <small>Nhóm sản phẩm</small>
-                <input value={editDraft.category} onChange={(event) => setEditDraft((current) => ({ ...current, category: event.target.value }))} />
-              </label>
-              <label className="form-field">
-                <small>Thương hiệu</small>
-                <input value={editDraft.brandName} onChange={(event) => setEditDraft((current) => ({ ...current, brandName: event.target.value }))} />
-              </label>
-              <label className="form-field">
-                <small>Thứ tự</small>
-                <input inputMode="numeric" value={editDraft.sortOrder} onChange={(event) => setEditDraft((current) => ({ ...current, sortOrder: event.target.value }))} />
-              </label>
+              {message ? <p className="page-subtitle order-message" role="status">{message}</p> : null}
+              <DraftFields draft={dialogDraft} onChange={updateDialogDraft} autoFocus />
             </div>
 
             <footer className={styles.actions}>
-              <button className="button primary" type="button" onClick={saveEditedItem} disabled={pending || !editDraft.label.trim()} aria-busy={pending}>
-                {pending ? "Đang cập nhật..." : "Cập nhật"}
+              <button
+                className="button primary"
+                type="button"
+                onClick={dialogMode === "create" ? saveNewItem : saveEditedItem}
+                disabled={pending || !dialogDraft.label.trim()}
+                aria-busy={pending}
+              >
+                {pending ? "Đang lưu..." : dialogMode === "create" ? "Thêm mẫu" : "Cập nhật"}
               </button>
-              <button className="button" type="button" onClick={closeEditor} disabled={pending}>Hủy</button>
+              <button className="button" type="button" onClick={closeDialog} disabled={pending}>Hủy</button>
             </footer>
           </section>
         </div>
