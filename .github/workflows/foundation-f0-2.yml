@@ -49,6 +49,9 @@ jobs:
       - name: Verify session lifecycle caller contract
         run: npm run test:session-lifecycle-caller
 
+      - name: Verify route master caller contract
+        run: npm run test:route-master-caller
+
       - name: Verify A5.5.1 idempotency caller contract
         run: node --test test/a5-5-1-idempotency-caller-contract.test.mjs
 
