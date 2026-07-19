@@ -12,6 +12,7 @@ import { FilterBar } from "@/ui/layout/FilterBar";
 import { PageHeader } from "@/ui/layout/PageHeader";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
+import { RouteCustomerMediaPreview } from "./RouteCustomerMediaPreview";
 
 type MasterTab = "routes" | "customers" | "gps" | "open";
 type RouteEditorMode = "create" | "edit" | "delete";
@@ -104,7 +105,7 @@ function EmptyPanel({ title, hint }: { title: string; hint: string }) {
 function CustomerSheet({ customer, onClose }: { customer: RouteCustomerItem | null; onClose: () => void }) {
   const mapsUrl = customer ? buildGoogleMapsUrl(customer) : undefined;
   return <BottomSheet open={Boolean(customer)} onClose={onClose} title={customer ? customer.accountName : "Điểm bán"} description={customer ? `${customer.routeName} - STT ${customer.sortOrder}` : undefined} footer={<div className="sheet-action-grid">{mapsUrl ? <a className="button primary" href={mapsUrl} target="_blank" rel="noreferrer">Mở Google Maps</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}>
-    {customer ? <div className="outlet-sheet-content"><div className="outlet-focus-card"><span>Trạng thái điểm bán</span><strong>{routeCustomerStatusLabel(customer.status)}</strong><small>{gpsLabel(customer)}</small></div><div className="grid"><div className="metric-row"><span>Liên hệ</span><strong>{customer.contactName}</strong></div><div className="metric-row"><span>Khu vực</span><strong>{customer.area}</strong></div><div className="metric-row"><span>Thứ tự ghé</span><strong>{customer.sortOrder}</strong></div><div className="metric-row"><span>Cập nhật vị trí</span><strong>{customer.gps?.updatedAt ?? "Chưa có"}</strong></div></div></div> : null}
+    {customer ? <div className="outlet-sheet-content"><div className="outlet-focus-card"><span>Trạng thái điểm bán</span><strong>{routeCustomerStatusLabel(customer.status)}</strong><small>{gpsLabel(customer)}</small></div><div className="grid"><div className="metric-row"><span>Liên hệ</span><strong>{customer.contactName}</strong></div><div className="metric-row"><span>Khu vực</span><strong>{customer.area}</strong></div><div className="metric-row"><span>Thứ tự ghé</span><strong>{customer.sortOrder}</strong></div><div className="metric-row"><span>Cập nhật vị trí</span><strong>{customer.gps?.updatedAt ?? "Chưa có"}</strong></div></div><RouteCustomerMediaPreview key={customer.id} routeCustomerId={customer.id} customerName={customer.accountName} /></div> : null}
   </BottomSheet>;
 }
 
