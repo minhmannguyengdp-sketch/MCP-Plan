@@ -13,6 +13,7 @@ import {
   normalizeRequestId
 } from "./request-context.js";
 import { handleOrderApi } from "./order-api.js";
+import { handleRouteApi } from "./route-api.js";
 import { handleTransitionalApi } from "./transitional-api.js";
 
 const PUBLIC_HEALTH_PATHS = new Set(["/", "/health", "/api/health"]);
@@ -217,6 +218,21 @@ export function createFoundationGateway(config) {
           res,
           normalizeApiPayload(orderApi.payload, {
             status: orderApi.statusCode,
+            requestId: context.requestId,
+            receivedAt: context.receivedAt
+          }),
+          context.requestId,
+          origin
+        );
+        return;
+      }
+
+      const routeApi = await handleRouteApi(req, url, context, config);
+      if (routeApi) {
+        writeNormalized(
+          res,
+          normalizeApiPayload(routeApi.payload, {
+            status: routeApi.statusCode,
             requestId: context.requestId,
             receivedAt: context.receivedAt
           }),
