@@ -5,7 +5,7 @@
     {
       "phase": "A5.2",
       "completedAt": "2026-07-15",
-      " owner": "legacy-backend",
+      "owner": "legacy-backend",
       "reason": "The authenticated Gateway/RPC cutover was verified for MCP day result/add/open/status. The legacy backend-to-Edge caller and unreachable direct-table open/status implementations were removed; direct internal fallback now fails closed instead of restoring retired mutation paths.",
       "fingerprints": [
         "554f43f7c06fc8a9a4da0b21",
