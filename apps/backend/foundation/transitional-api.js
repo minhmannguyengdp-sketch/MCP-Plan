@@ -28,6 +28,7 @@ import {
   finalizeOutletMediaUpload,
   prepareOutletMediaUpload
 } from "./outlet-media.js";
+import { loadOutletCustomerProfile } from "./outlet-media-read.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 const OUTLET_MEDIA_CLEANUP_ACTOR = "service:mcp-plan:outlet-media-cleanup";
@@ -197,6 +198,12 @@ async function removeOutletMedia(req, context, config, fetchImpl) {
   return response({ data: await deleteOutletMedia(body, context, config, { fetchImpl }) });
 }
 
+async function loadOutletCustomer(url, context, config, fetchImpl) {
+  const routeCustomerId = text(url.searchParams.get("routeCustomerId") || url.searchParams.get("route_customer_id"));
+  if (!routeCustomerId) badRequest("route_customer_id_required");
+  return response({ data: await loadOutletCustomerProfile(routeCustomerId, context, config, { fetchImpl }) });
+}
+
 async function cleanupOutletMediaRequest(req, context, config, fetchImpl) {
   assertCleanupActor(context);
   const body = await readJsonBody(req);
@@ -281,6 +288,7 @@ export async function handleTransitionalApi(req, url, context, config, { fetchIm
     if (routeDelete) return removeRoute(decodePathId(routeDelete[1], "invalid_route_id"), context, config, fetchImpl);
   }
 
+  if (method === "GET" && pathname === "/api/outlet-media/customer-profile") return loadOutletCustomer(url, context, config, fetchImpl);
   if (method === "GET" && pathname === "/api/mcp-report-templates") return loadReportTemplates(config, fetchImpl);
   if (method === "GET" && pathname === "/api/products/search") return searchProducts(url, config, fetchImpl);
 

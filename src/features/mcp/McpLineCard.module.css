@@ -103,7 +103,8 @@
 .actions {
   grid-area: actions;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(28px, auto));
   gap: 5px;
   min-width: 0;
 }
@@ -116,7 +117,7 @@
   color: #101828;
   cursor: pointer;
   line-height: 1.05;
-  padding: 4px 7px;
+  padding: 4px 5px;
   text-decoration: none;
 }
 
@@ -132,6 +133,16 @@
 
 .directions:hover {
   background: #dbeafe;
+}
+
+.photo {
+  border-color: rgba(180, 83, 9, 0.24);
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.photo:hover {
+  background: #fef0c7;
 }
 
 .checkin {
@@ -247,8 +258,8 @@
 
   .action {
     min-height: 28px;
-    font-size: 10.5px;
-    padding: 4px;
+    font-size: 9.8px;
+    padding: 4px 2px;
   }
 
   .checkin {

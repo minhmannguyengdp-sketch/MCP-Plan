@@ -75,12 +75,11 @@ function signedR2ObjectRequest(config, objectKey, method, { now = new Date() } =
   };
 }
 
-export function presignR2Put(config, objectKey, contentType, { expiresSeconds = 300, now = new Date() } = {}) {
+function presignR2Object(config, objectKey, method, signedHeaders, canonicalHeaders, { expiresSeconds = 300, now = new Date() } = {}) {
   const url = r2ObjectUrl(config, objectKey);
   const amzDate = timestamp(now);
   const dateStamp = amzDate.slice(0, 8);
   const scope = credentialScope(dateStamp, config.region);
-  const signedHeaders = "content-type;host";
   const query = [
     ["X-Amz-Algorithm", ALGORITHM],
     ["X-Amz-Credential", `${config.accessKeyId}/${scope}`],
@@ -89,10 +88,10 @@ export function presignR2Put(config, objectKey, contentType, { expiresSeconds = 
     ["X-Amz-SignedHeaders", signedHeaders]
   ];
   const canonicalRequest = [
-    "PUT",
+    method,
     url.pathname,
     canonicalQuery(query),
-    `content-type:${contentType}\nhost:${url.host}\n`,
+    canonicalHeaders,
     signedHeaders,
     UNSIGNED_PAYLOAD
   ].join("\n");
@@ -101,10 +100,38 @@ export function presignR2Put(config, objectKey, contentType, { expiresSeconds = 
   query.push(["X-Amz-Signature", signature]);
   url.search = canonicalQuery(query);
   return {
-    putUrl: url.toString(),
-    expiresAt: new Date(now.getTime() + expiresSeconds * 1000).toISOString(),
+    url: url.toString(),
+    expiresAt: new Date(now.getTime() + expiresSeconds * 1000).toISOString()
+  };
+}
+
+export function presignR2Put(config, objectKey, contentType, { expiresSeconds = 300, now = new Date() } = {}) {
+  const signed = presignR2Object(
+    config,
+    objectKey,
+    "PUT",
+    "content-type;host",
+    `content-type:${contentType}\nhost:${new URL(config.endpoint).host}\n`,
+    { expiresSeconds, now }
+  );
+  return {
+    putUrl: signed.url,
+    expiresAt: signed.expiresAt,
     requiredHeaders: { "Content-Type": contentType }
   };
+}
+
+export function presignR2Get(config, objectKey, { expiresSeconds = 300, now = new Date() } = {}) {
+  const endpoint = new URL(config.endpoint);
+  const signed = presignR2Object(
+    config,
+    objectKey,
+    "GET",
+    "host",
+    `host:${endpoint.host}\n`,
+    { expiresSeconds, now }
+  );
+  return { getUrl: signed.url, expiresAt: signed.expiresAt };
 }
 
 export function signedR2HeadRequest(config, objectKey, options = {}) {
