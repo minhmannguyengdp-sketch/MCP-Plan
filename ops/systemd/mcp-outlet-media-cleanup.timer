@@ -1,0 +1,11 @@
+[Unit]
+Description=Run MCP-Plan outlet media cleanup nightly
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=mcp-outlet-media-cleanup.service
+
+[Install]
+WantedBy=timers.target
