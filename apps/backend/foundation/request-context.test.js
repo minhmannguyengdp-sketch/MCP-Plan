@@ -76,14 +76,12 @@ test("authenticated proxy may provide a complete service actor context", () => {
   assert.equal(context.auth.authenticated, true);
 });
 
-test("authenticated actor context must be complete and service-scoped", () => {
-  assert.throws(
-    () => authenticateRequestContext(
-      request(authenticatedHeaders({ "x-actor-id": "service:mcp-plan:outlet-media-cleanup" })),
-      config
-    ),
-    /incomplete_actor_context/
+test("partial actor metadata falls back while complete invalid metadata is rejected", () => {
+  const partial = authenticateRequestContext(
+    request(authenticatedHeaders({ "x-actor-id": "service:mcp-plan:outlet-media-cleanup" })),
+    config
   );
+  assert.equal(partial.actor.id, "service:npp-a:mcp-v1");
 
   assert.throws(
     () => authenticateRequestContext(
