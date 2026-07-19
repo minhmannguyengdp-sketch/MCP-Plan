@@ -91,19 +91,22 @@ try {
   await page.getByText("Đối thủ cũ", { exact: true }).waitFor({ state: "visible" });
 
   const main = page.locator("[data-app-scroll-region]");
+  const editButton = page.getByRole("button", { name: "Sửa", exact: true });
   await page.evaluate(() => {
     const scrollRegion = document.querySelector("[data-app-scroll-region]");
     const spacer = document.createElement("div");
     spacer.dataset.settingsDialogSpacer = "true";
     spacer.style.height = "700px";
-    scrollRegion?.prepend(spacer);
-    if (scrollRegion instanceof HTMLElement) scrollRegion.scrollTop = 420;
+    scrollRegion?.append(spacer);
   });
+  await editButton.evaluate((node) => node.scrollIntoView({ block: "center" }));
   const scrollBefore = await main.evaluate((node) => node.scrollTop);
 
-  await page.getByRole("button", { name: "Sửa", exact: true }).click();
+  await editButton.click();
   const dialog = page.getByRole("dialog", { name: "Sửa lựa chọn" });
   await dialog.waitFor({ state: "visible" });
+  const scrollWhileOpen = await main.evaluate((node) => node.scrollTop);
+  assert.ok(Math.abs(scrollWhileOpen - scrollBefore) <= 1, "opening edit dialog must preserve the current MCP settings scroll position");
 
   const dialogBox = await dialog.boundingBox();
   assert.ok(dialogBox, "edit dialog must have a visible box");
@@ -129,8 +132,8 @@ try {
   assert.ok(mutations[0].idempotencyKey.length >= 16, "PATCH mutation must include a stable idempotency key");
 
   await page.screenshot({ path: `${resultsDir}/18-mcp-settings-edit-dialog.png`, fullPage: false });
-  await writeFile(`${resultsDir}/mcp-settings-edit-dialog.json`, JSON.stringify({ scrollBefore, scrollAfter, dialogBox, mutations }, null, 2));
-  console.log(JSON.stringify({ status: "PASS", scrollBefore, scrollAfter, dialogBox, mutations: mutations.length }, null, 2));
+  await writeFile(`${resultsDir}/mcp-settings-edit-dialog.json`, JSON.stringify({ scrollBefore, scrollWhileOpen, scrollAfter, dialogBox, mutations }, null, 2));
+  console.log(JSON.stringify({ status: "PASS", scrollBefore, scrollWhileOpen, scrollAfter, dialogBox, mutations: mutations.length }, null, 2));
 } finally {
   await context.close();
   await browser.close();
