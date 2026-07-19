@@ -104,7 +104,7 @@ export async function loadOutletCustomerProfile(routeCustomerId, context, config
     "limit=3"
   ].join("&");
   const mediaRows = rows(await supabaseRest(config, mediaQuery, { fetchImpl }));
-  const r2 = requireR2(config);
+  const r2 = mediaRows.length ? requireR2(config) : null;
 
   return {
     customer: customerProfile(customer),
