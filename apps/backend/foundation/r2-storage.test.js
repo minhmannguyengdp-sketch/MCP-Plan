@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { presignR2Put, signedR2HeadRequest } from "./r2-storage.js";
+import { presignR2Put, signedR2DeleteRequest, signedR2HeadRequest } from "./r2-storage.js";
 
 const config = {
   endpoint: "https://account.r2.cloudflarestorage.com",
@@ -28,4 +28,13 @@ test("HEAD verification uses signed R2 request without exposing secret", () => {
   assert.match(request.init.headers.Authorization, /^AWS4-HMAC-SHA256 Credential=access-key\//);
   assert.doesNotMatch(request.init.headers.Authorization, /secret-key/);
   assert.equal(request.init.headers["x-amz-content-sha256"], "UNSIGNED-PAYLOAD");
+});
+
+test("DELETE is signed against the exact bucket object and is safe to retry", () => {
+  const request = signedR2DeleteRequest(config, "mcp-plan/outlets/npp/customer/photo 1.jpg", { now });
+  const url = new URL(request.url);
+  assert.equal(request.init.method, "DELETE");
+  assert.equal(url.pathname, "/hung-phat/mcp-plan/outlets/npp/customer/photo%201.jpg");
+  assert.match(request.init.headers.Authorization, /^AWS4-HMAC-SHA256 Credential=access-key\//);
+  assert.doesNotMatch(request.init.headers.Authorization, /secret-key/);
 });
