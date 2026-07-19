@@ -22,7 +22,7 @@ async function waitForHttp(url, timeoutMs = 120000) {
   throw lastError || new Error(`timeout_waiting_for_${url}`);
 }
 
-await waitForHttp(appBase);
+await waitForHttp(`${appBase}/mcp-setting`);
 
 let item = {
   id: "setting-item-1",
