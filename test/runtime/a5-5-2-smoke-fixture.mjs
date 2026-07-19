@@ -47,6 +47,7 @@ export async function createFixture() {
   const opened = await must("/api/mcp-day/open-session", {
     method: "POST",
     requestId: `a552-open-${stamp}`,
+    idempotencyKey: `a552.route-session.open.${stamp}`,
     body: { routeId, sessionDate, owner: "API Smoke" }
   });
   const sessionId = String(object(object(opened.payload.data).session).id || "");

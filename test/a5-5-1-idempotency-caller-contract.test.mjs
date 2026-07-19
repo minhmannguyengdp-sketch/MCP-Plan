@@ -50,10 +50,20 @@ test("session-customer result and add callers use stable idempotency while legac
   );
 });
 
-test("session manager limits idempotent retry to the snapshot route", async () => {
+test("session manager keeps snapshot and lifecycle mutations on stable idempotency", async () => {
   const manager = await source("src/features/mcp/McpSessionsManagerSafe.tsx");
+  const callApiStart = manager.indexOf("async function callApi(");
+  const callIdempotentStart = manager.indexOf("async function callIdempotentApi(");
 
-  assert.match(manager, /async function callApi[\s\S]*?await fetch\(/);
+  assert.notEqual(callApiStart, -1);
+  assert.notEqual(callIdempotentStart, -1);
+  const callApiBody = manager.slice(callApiStart, callIdempotentStart);
+
+  assert.match(callApiBody, /idempotentMutationFetch\(/);
+  assert.match(callApiBody, /sessionMutationOperation\(init\.method\)/);
+  assert.doesNotMatch(callApiBody, /await fetch\(/);
+  assert.match(manager, /method === "PATCH"\) return "route-session\.update"/);
+  assert.match(manager, /method === "DELETE"\) return "route-session\.delete-empty"/);
   assert.match(manager, /async function callIdempotentApi[\s\S]*?idempotentMutationFetch\(/);
   assert.match(
     manager,

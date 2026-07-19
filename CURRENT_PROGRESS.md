@@ -1,174 +1,222 @@
 # MCP-Plan — Current Progress
 
 > **File handoff bắt buộc cho chat mới. Đọc file này trước khi tiếp tục.**  
-> Cập nhật: **2026-07-18**  
-> Master plan: **Phase A / NPP-F05 / A5.5**  
-> Trạng thái: **NPP-F05 PASS — A5.5.2 BACKEND 13/30 PASS — APPSHELL/THEME/INTERACTION FEEDBACK DEPLOYED — LIVE PHONE SMOKE PENDING**
+> Cập nhật: **2026-07-19**  
+> Master plan: **Phase A / NPP-F05 / A5.5.2**  
+> Trạng thái: **MASTER PLAN CONTINUES — SESSION LIFECYCLE SOURCE PASS — PRODUCTION RUNTIME PENDING**
 
-## 1. Điểm tiếp tục duy nhất
+## 1. Quyết định trình tự hiện tại
 
-```text
-1. Trên mobile production chạy live smoke:
-   - AppShell sticky top bar là phần tử đầu tiên;
-   - Xuất tuyến nằm trong tool slot, không có card nổi phía trên;
-   - menu ☰ đủ nhóm và tác vụ màn hình;
-   - theme Tổng quan -> Tuyến -> Phiên -> form nghiệp vụ;
-   - Cài đặt hiển thị toggle Phản hồi rung;
-   - tắt rung -> bấm nút không rung;
-   - bật rung -> thiết bị hỗ trợ rung phản hồi nhẹ;
-   - reload vẫn giữ lựa chọn;
-   - thiết bị không hỗ trợ rung vẫn thao tác bình thường;
-   - order/test/report/follow-up lưu thành công trên production.
-2. Ghi live evidence vào repo.
-3. Native Capacitor haptic chỉ live-verify khi app đã được đóng gói; automated adapter-priority đã PASS.
-4. Sau live production PASS mới tiếp A5.5.2 với open-session/status/PATCH/DELETE/destructive mutations.
-
-KHÔNG bắt đầu NPP-F06.
-KHÔNG bắt đầu Order Core.
-KHÔNG đụng milktea-backend port 3002.
-```
-
-Không được ghi Chromium smoke thay cho lượt kiểm tra điện thoại production.
-
-## 2. Vị trí master plan
+Owner đã quyết định:
 
 ```text
-Plan:              ke-hoach-app-van-hanh-npp.md
-Phase:             Phase A — Foundation portability
-Current milestone: NPP-F05 / A5.5
-Current subphase:  A5.5.2 — IN PROGRESS
-Verified coverage: 13/30
-Remaining:         17 mutation routes
+1. Tiếp tục master plan A5.5.2 trước.
+2. Hoãn lượt mobile production test/fix MCP sang một pass riêng sau.
+3. Không dùng quyết định hoãn này để bỏ bất kỳ live smoke hoặc rollout gate nào.
+4. Không bắt đầu NPP-F06.
+5. Không bắt đầu Order Core.
+6. Không đụng milktea-backend hoặc port 3002.
 ```
 
-## 3. PR #49 — interaction feedback + vibration setting
+Không được ghi Chromium smoke thay cho kiểm tra điện thoại production. Không được ghi `RUNTIME PASS` nếu chưa áp migration, pull VPS và chạy authenticated runtime smoke có dọn fixture.
+
+## 2. Vị trí master plan và coverage đã sửa
+
+Con số handoff cũ `13/30` bị thiếu operation persisted-idempotent `route-customer.add` từ PR #29.
 
 ```text
-PR:                         #49 — MERGED
-Branch:                     ui/interaction-feedback-settings
-Final head:                 065bb525578df3d603d3548154a51c480c97fa34
-Merge SHA:                  528f7715cdc9a7186cc7f00f6af1bcdc9f6de759
-Foundation F0.2:            #412 PASS
-F05 UI Browser Smoke:       #48 PASS
-Session Actions UI Smoke:   #15 PASS
-Vercel production:          SUCCESS
-Backend/schema change:      NONE
-VPS pullmcp:                NOT REQUIRED
-Release evidence:           docs/npp-plan/INTERACTION_FEEDBACK_RELEASE.md
+Plan:                         ke-hoach-app-van-hanh-npp.md
+Phase:                        Phase A — Foundation portability
+Current milestone:            NPP-F05 / A5.5.2
+Corrected original baseline:  14/30
+PR #65 source slice:          +4 session lifecycle routes
+Source coverage after merge:  18/30
+Original routes remaining:    12
+Runtime verified now:         14/30
 ```
 
-Browser result:
+Hai operation phát sinh sau khi mẫu số 30 được khóa — `session-customer.checkin.set` và standalone `order.create` — vẫn phải tuân thủ Foundation/idempotency nhưng không làm đổi mẫu số original inventory.
 
-```json
-{
-  "INTERACTION_FEEDBACK_BROWSER_SMOKE": "PASS",
-  "settingsTopBar": "PASS",
-  "webPreference": "PASS",
-  "persistedSetting": "PASS",
-  "capacitorPriority": "PASS"
-}
-```
-
-Artifact:
+Inventory và invariant đầy đủ:
 
 ```text
-name:    f05-ui-browser-smoke-evidence
-id:      8430775468
-digest:  sha256:d8f5b0c649778eae1e23c031c06e293992f1abbaed77a90a0c3531663167eebb
+docs/npp-plan/A5_5_2_MUTATION_INVENTORY_AND_SESSION_LIFECYCLE.md
 ```
 
-Kiến trúc feedback:
+## 3. PR #65 — A5.5.2 Session Lifecycle
 
 ```text
-Intentional UI click
--> InteractionFeedbackProvider delegated listener
--> preference enabled?
--> Capacitor Plugins.Haptics nếu native
--> navigator.vibrate nếu web hỗ trợ
--> no-op an toàn nếu không hỗ trợ/chặn rung
+PR:                         #65 — OPEN / SOURCE PASS / MERGE PENDING
+Branch:                     a5-5-2-session-lifecycle
+Current head:               0b6886cbd99db0f1c570da813e62dbd241c65d86
+Foundation F0.2:            #532 PASS
+F05 UI Browser Smoke:       #130 PASS
+Supabase migration applied: NO
+VPS pullmcp:                NO
+Production runtime smoke:   NO
+Vercel deploy:              NO
 ```
 
-Preference key duy nhất: `mcp-plan:interaction-feedback-enabled`.
-
-## 4. PR #46 — AppShell top bar + menu mở rộng + ordered theme
+Bốn public operations trong slice:
 
 ```text
-PR:                         #46 — MERGED
-Final head:                 13500166b5a26a2e2ef695a268f28de77bcec515
-Merge SHA:                  1c10990e728c793f7b7abe9d9bcf5493cbd1239c
-Foundation F0.2:            #404 PASS
-F05 UI Browser Smoke:       #45 PASS
-Session Actions UI Smoke:   #12 PASS
-Backend/schema change:      NONE
-VPS pullmcp:                NOT REQUIRED
-Release evidence:           docs/npp-plan/APPSHELL_TOPBAR_EXPANDED_MENU_RELEASE.md
+POST   /api/mcp-day/open-session                  route-session.open
+POST   /api/mcp-day/session-customer/status       session-customer.status.update
+PATCH  /api/mcp-sessions/:id                      route-session.update
+DELETE /api/mcp-sessions/:id                      route-session.delete-empty
 ```
 
-PR #46 và carrier #47 từng bị `build-rate-limit` trước khi source build chạy. Block đã được giải tỏa khi PR #49 merge SHA nhận `Vercel: success`; production hiện chứa toàn bộ cây AppShell/theme/feedback mới.
-
-## 5. Kiến trúc UI đã khóa
+Kiến trúc:
 
 ```text
-AppShell sticky top bar
-├─ nhận diện + tên phân hệ
-├─ tool slot do AppShell sở hữu
-│  └─ Xuất tuyến portal vào slot
-└─ một nút ☰
-
-Menu ☰
-├─ tác vụ màn hình hiện tại
-├─ Vận hành hôm nay
-├─ Quản lý MCP
-├─ Thiết lập nghiệp vụ
-└─ Cài đặt ứng dụng
-
-Bottom navigation = shortcut phân hệ thường dùng
-Desktop sidebar  = inventory đầy đủ trên màn rộng
+Browser caller
+-> Next same-origin proxy
+-> authenticated Foundation Gateway
+-> typed session-lifecycle owner
+-> service-role-only persisted-idempotent PostgreSQL wrapper
+-> existing canonical PostgreSQL business owner
 ```
 
-Không được khôi phục control fixed riêng, card export nằm ngoài AppShell, nút bánh răng riêng hoặc nút ⋮ riêng của Phiên.
+Bảo đảm source đã PASS:
 
-## 6. Theme ownership
+- stable `Idempotency-Key` tại caller;
+- same-key/same-payload replay contract;
+- same-key/different-payload conflict contract;
+- trusted Foundation request/installation/actor context;
+- append-only audit through persisted idempotency wrappers;
+- exact provider fingerprints, không wildcard/dynamic target;
+- Foundation intercept trước legacy fallback;
+- direct DB mutation scanner vẫn giữ debt/unclassified/forbidden bằng 0;
+- backend Foundation, typecheck, frontend production build và browser smoke PASS.
 
-Nguồn token duy nhất: `src/app/npp-theme.css`.
+Invariants giữ nguyên:
+
+- một active session trên mỗi route;
+- lock order canonical khi mở phiên;
+- skipped/cancelled customer status bắt buộc reason;
+- không được bỏ âm thầm order/test/report/follow-up activity;
+- session đã đóng là read-only;
+- close-session snapshot vẫn thuộc canonical update owner;
+- chỉ hard-delete session rỗng, non-closed; có activity thì phải cancel.
+
+## 4. Root cause CI đã sửa
+
+CI cũ gộp bốn nhóm mutation policy trong một step nên không xác định được nhóm lỗi. Workflow đã được tách thành các gate có tên riêng mà không bỏ test.
+
+A5.5.1 caller contract cũ từng bắt buộc `McpSessionsManagerSafe.callApi` dùng raw `fetch`, vì trước đây chỉ snapshot được onboard. Khi PATCH/DELETE session được onboard, assertion đó trở thành kiến trúc lỗi thời. Contract đã được nâng cấp để:
+
+- cấm raw mutation trong `callApi`;
+- buộc PATCH dùng `route-session.update`;
+- buộc DELETE dùng `route-session.delete-empty`;
+- vẫn giữ snapshot operation `session-report.snapshot.create`.
+
+## 5. Rollout gate cho PR #65
+
+Chỉ thực hiện khi owner yêu cầu rollout production:
 
 ```text
-1. Tổng quan
-2. Tuyến
-3. Phiên
-4. Form nghiệp vụ: order / test / report / follow-up
+1. Merge PR #65 sau final CI.
+2. Apply migration 20260719200000_a5_5_2_session_lifecycle_idempotency.sql.
+3. VPS pullmcp.
+4. Verify PM2 mcp-plan-backend and HTTP health on 3001.
+5. Run guarded authenticated lifecycle smoke:
+   - execute;
+   - replay;
+   - conflict;
+   - audit;
+   - trusted context;
+   - business invariant;
+   - complete fixture cleanup.
+6. Chỉ sau runtime PASS mới ghi runtime coverage 18/30.
 ```
+
+Không dùng customer/route/session production thật cho smoke. Destructive smoke chỉ dùng guarded temporary empty session.
+
+## 6. Remaining original 12 routes after PR #65 source merge
+
+### S2 — Route master: 5
 
 ```text
-canvas   #F7F3ED
-surface  #FFFFFF
-header   #5A3A24
-primary  #4F7A3A
-accent   #C89B5B
-text     #2B211B
-border   #E8DED2
+POST  /api/routes
+PATCH /api/routes/:id
+POST  /api/routes/:id/archive
+PATCH /api/route-customers/:id
+POST  /api/route-customers/:id/archive
 ```
 
-## 7. Backend/session-action nền
+Hai archive route đã có Foundation R2 lifecycle owner, nhưng vẫn còn thiếu persisted idempotency/audit chuẩn A5.5.2 cho public user intent.
+
+### S3 — Route settings: 7
 
 ```text
-PR #41 backend runtime:        PASS
-PR #44 UI caller + warm theme: DEPLOYED
-A5.5 verified operations:      13/30
-Remaining:                     17
-order/test/report/follow-up:   execute/replay/conflict/audit/context PASS
+POST /api/mcp-settings/order-template
+POST /api/mcp-settings/test-template
+POST /api/mcp-settings/report-template
+POST /api/mcp-settings/followup-template
+POST /api/mcp-settings/skip-reason-template
+POST /api/mcp-settings/customer-add-rule
+POST /api/mcp-settings/session-status
 ```
 
-## 8. Runtime
+`mcp-settings/session-status` thuộc admin/settings intent, không trộn với runtime session-lifecycle slice dù dùng chung canonical lifecycle owner.
+
+## 7. PR #64 — standalone order creation
+
+```text
+PR:                         #64 — MERGED
+Merge SHA:                  d9b04441f6802b6840d026f3ae5dc2afc30a0728
+Foundation F0.2:            #525 PASS
+F05 UI Browser Smoke:       #124 PASS
+Supabase migration applied: NO
+VPS pullmcp:                NO
+Vercel deploy:              NO
+Production test:            NO
+```
+
+Source đã có nút tạo đơn, chọn khách đã có hoặc nhập khách vãng lai, product picker và typed standalone order owner. Không được nói tính năng đã live trước khi migration + VPS + Vercel + smoke hoàn tất.
+
+## 8. MCP/R2/mobile test còn nợ
+
+Các hạng mục này được hoãn theo quyết định trình tự, không bị hủy:
+
+- mobile production AppShell/theme/interaction feedback;
+- storefront photo create/view/delete full R2 smoke;
+- route customer photo preview production check;
+- tab order standalone production check;
+- MCP UX issues người dùng phát hiện sau khi test thật;
+- cleanup timer và production R2 state re-verification.
+
+## 9. Runtime topology
 
 ```text
 VPS source:          /var/www/mcp-plan-source
 VPS runtime:         /var/www/mcp-plan-backend
-PM2:                 mcp-plan-backend
-Gateway:             127.0.0.1:3001
+PM2 process:         mcp-plan-backend
+Foundation Gateway: 127.0.0.1:3001
 Legacy internal:     127.0.0.1:3102
 Milktea backend:     3002 — KHÔNG ĐỤNG
-Frontend production: Vercel SUCCESS — release tree includes PR #46 and PR #49
 ```
 
-Không chỉ ghi trạng thái trong chat.
+Backend health phải kiểm bằng:
+
+```bash
+pm2 list
+curl -fsS http://127.0.0.1:3001/health
+```
+
+Không dùng `systemctl is-active mcp-plan-backend.service`.
+
+## 10. Điểm tiếp tục sau PR #65
+
+```text
+A. Nếu owner yêu cầu rollout:
+   migration -> pullmcp -> health -> guarded lifecycle runtime smoke -> evidence.
+
+B. Nếu owner yêu cầu tiếp source master plan mà chưa rollout:
+   bắt đầu S2 Route Master, nhưng phải ghi rõ runtime PR #65 vẫn pending.
+
+C. Nếu owner chuyển sang test/fix MCP:
+   dừng master-plan coding tại đây, kiểm production state thật trước khi sửa UI.
+```
+
+Không chỉ ghi trạng thái trong chat; mọi thay đổi trạng thái phải cập nhật file này.

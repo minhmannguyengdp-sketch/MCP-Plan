@@ -14,6 +14,7 @@
     "test:edge-retirement": "node --test test/a5-3-edge-retirement.test.mjs test/a5-3-no-legacy-edge-caller.test.mjs",
     "test:direct-rest-retirement": "node --test test/a5-4-1-dead-session-mutations.test.mjs test/a5-4-2-session-report-caller-audit.test.mjs test/a5-4-3-report-settings-caller-audit.test.mjs test/a5-4-4-field-check-market-report-caller-audit.test.mjs",
     "test:idempotency": "node --test test/a5-5-1-idempotency-caller-contract.test.mjs test/a5-5-2-session-action-caller-contract.test.mjs test/a5-5-2-session-action-runtime-smoke-contract.test.mjs test/orders-create-ui-contract.test.mjs test/route-active-session-ui-contract.test.mjs test/mcp-session-checkin-ui-contract.test.mjs test/f05-runtime-smoke-script.test.mjs",
+    "test:session-lifecycle-caller": "node --test test/a5-5-2-session-lifecycle-caller-contract.test.mjs",
     "test:production-hygiene": "node --test test/production-hygiene.test.mjs test/production-hygiene-no-fixture-leak.test.mjs",
     "test:pullmcp-deployer": "node --test test/pullmcp-deployer.test.mjs",
     "test:backend-api-auth": "node --test test/api-client-backend-auth.test.mjs test/production-tab-data-contract.test.mjs",
@@ -23,7 +24,7 @@
     "smoke:a5-5-2-session-actions": "node test/runtime/smoke-a5-5-2-session-actions.mjs",
     "test:foundation": "npm --prefix apps/backend test",
     "verify:copy": "npm run audit:copy && npm run typecheck",
-    "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run test:direct-rest-retirement && npm run test:idempotency && npm run test:production-hygiene && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:foundation && npm run typecheck && npm run test:theme-contract",
+    "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run test:direct-rest-retirement && npm run test:session-lifecycle-caller && npm run test:idempotency && npm run test:production-hygiene && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:foundation && npm run typecheck && npm run test:theme-contract",
     "test:theme-contract": "node --test test/mcp-warm-theme-contract.test.mjs test/a5-5-2-session-action-live-caller-contract.test.mjs test/app-shell-expanded-menu-theme-contract.test.mjs test/interaction-feedback-contract.test.mjs test/app-shell-browser-acceptance-contract.test.mjs test/mcp-ui-root-cause-regression.test.mjs test/mcp-customer-profile-media-ui-contract.test.mjs"
   },
   "dependencies": {

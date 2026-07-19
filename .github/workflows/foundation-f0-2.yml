@@ -38,11 +38,28 @@ jobs:
           if-no-files-found: error
 
       - name: Test direct mutation scanner and retirement policy
-        run: |
-          npm run test:direct-db-mutation
-          npm run test:edge-retirement
-          npm run test:direct-rest-retirement
-          npm run test:idempotency
+        run: npm run test:direct-db-mutation
+
+      - name: Verify Edge mutation retirement
+        run: npm run test:edge-retirement
+
+      - name: Verify direct REST mutation retirement
+        run: npm run test:direct-rest-retirement
+
+      - name: Verify session lifecycle caller contract
+        run: npm run test:session-lifecycle-caller
+
+      - name: Verify A5.5.1 idempotency caller contract
+        run: node --test test/a5-5-1-idempotency-caller-contract.test.mjs
+
+      - name: Verify A5.5.2 session action contracts
+        run: node --test test/a5-5-2-session-action-caller-contract.test.mjs test/a5-5-2-session-action-runtime-smoke-contract.test.mjs
+
+      - name: Verify order and active-route idempotency contracts
+        run: node --test test/orders-create-ui-contract.test.mjs test/route-active-session-ui-contract.test.mjs
+
+      - name: Verify check-in and F05 runtime contracts
+        run: node --test test/mcp-session-checkin-ui-contract.test.mjs test/f05-runtime-smoke-script.test.mjs
 
       - name: Verify production hygiene contracts
         run: npm run test:production-hygiene
