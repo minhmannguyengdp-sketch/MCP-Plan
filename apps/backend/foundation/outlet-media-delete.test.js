@@ -44,6 +44,7 @@ test("route customer hard delete waits until every R2 object is deleted", async 
     calls.push(request);
     if (request.url.pathname === "/rest/v1/rpc/mcp_claim_route_customer_media_delete") {
       return json({
+        deleteJob: { id: "job-1", target_type: "route_customer", target_id: "rc-1", status: "pending" },
         routeCustomer: { id: "rc-1", active: false },
         media: [
           { id: "media-1", object_key: "mcp-plan/outlets/npp/rc-1/one.jpg", status: "deleting" },
@@ -61,27 +62,37 @@ test("route customer hard delete waits until every R2 object is deleted", async 
     if (request.url.pathname === "/rest/v1/rpc/mcp_delete_route_customer_hard") {
       return json({ deleted: true, routeCustomerId: request.body.p_route_customer_id });
     }
+    if (request.url.pathname === "/rest/v1/rpc/mcp_finish_storage_delete_job") {
+      assert.equal(request.body.p_job_id, "job-1");
+      assert.equal(request.body.p_succeeded, true);
+      return json({ id: "job-1", status: "completed" });
+    }
     throw new Error(`unexpected_request:${request.method}:${request.url}`);
   };
 
   const result = await deleteRouteCustomerAndMedia("rc-1", context, config, { fetchImpl });
   assert.equal(result.deleted, true);
   assert.equal(result.deletedMediaCount, 2);
+  assert.equal(result.deleteJobId, "job-1");
   const hardDeleteIndex = calls.findIndex((call) => call.url.pathname.endsWith("mcp_delete_route_customer_hard"));
   const finishIndexes = calls
     .map((call, index) => call.url.pathname.endsWith("mcp_finish_outlet_media_delete") ? index : -1)
     .filter((index) => index >= 0);
-  assert.ok(finishIndexes.length === 2);
+  const jobFinishIndex = calls.findIndex((call) => call.url.pathname.endsWith("mcp_finish_storage_delete_job"));
+  assert.equal(finishIndexes.length, 2);
   assert.ok(finishIndexes.every((index) => index < hardDeleteIndex), "database customer delete must happen after all R2 delete finishes");
+  assert.ok(hardDeleteIndex < jobFinishIndex, "delete job completes only after the database parent is deleted");
 });
 
-test("one R2 failure keeps customer data and records a retryable delete failure", async () => {
+test("one R2 failure keeps customer data and records a retryable parent delete job", async () => {
   let hardDeleteCalled = false;
-  let finishSucceeded = null;
+  let mediaFinishSucceeded = null;
+  let jobFinishSucceeded = null;
   const fetchImpl = async (input, init = {}) => {
     const request = requestInfo(input, init);
     if (request.url.pathname === "/rest/v1/rpc/mcp_claim_route_customer_media_delete") {
       return json({
+        deleteJob: { id: "job-fail", target_type: "route_customer", target_id: "rc-2", status: "pending" },
         routeCustomer: { id: "rc-2", active: false },
         media: [{ id: "media-fail", object_key: "mcp-plan/outlets/npp/rc-2/fail.jpg", status: "deleting" }]
       });
@@ -90,8 +101,12 @@ test("one R2 failure keeps customer data and records a retryable delete failure"
       return new Response(null, { status: 503 });
     }
     if (request.url.pathname === "/rest/v1/rpc/mcp_finish_outlet_media_delete") {
-      finishSucceeded = request.body.p_succeeded;
+      mediaFinishSucceeded = request.body.p_succeeded;
       return json({ id: request.body.p_media_id, status: "delete_failed" });
+    }
+    if (request.url.pathname === "/rest/v1/rpc/mcp_finish_storage_delete_job") {
+      jobFinishSucceeded = request.body.p_succeeded;
+      return json({ id: "job-fail", status: "failed" });
     }
     if (request.url.pathname === "/rest/v1/rpc/mcp_delete_route_customer_hard") {
       hardDeleteCalled = true;
@@ -104,15 +119,18 @@ test("one R2 failure keeps customer data and records a retryable delete failure"
     deleteRouteCustomerAndMedia("rc-2", context, config, { fetchImpl }),
     (error) => error.code === "route_customer_media_delete_incomplete" && error.statusCode === 502
   );
-  assert.equal(finishSucceeded, false);
+  assert.equal(mediaFinishSucceeded, false);
+  assert.equal(jobFinishSucceeded, false);
   assert.equal(hardDeleteCalled, false);
 });
 
-test("cleanup treats an already absent R2 object as successfully deleted", async () => {
+test("cleanup removes stale R2 objects and resumes their parent hard-delete jobs", async () => {
+  const calls = [];
   const fetchImpl = async (input, init = {}) => {
     const request = requestInfo(input, init);
+    calls.push(request);
     if (request.url.pathname === "/rest/v1/rpc/mcp_claim_stale_outlet_media_delete") {
-      return json([{ id: "media-stale", object_key: "mcp-plan/outlets/npp/rc/stale.jpg", status: "deleting" }]);
+      return json([{ id: "media-stale", object_key: "mcp-plan/outlets/npp/rc-stale/stale.jpg", status: "deleting" }]);
     }
     if (request.url.hostname === "account.r2.cloudflarestorage.com" && request.method === "DELETE") {
       return new Response(null, { status: 404 });
@@ -120,6 +138,17 @@ test("cleanup treats an already absent R2 object as successfully deleted", async
     if (request.url.pathname === "/rest/v1/rpc/mcp_finish_outlet_media_delete") {
       assert.equal(request.body.p_succeeded, true);
       return json({ id: "media-stale", status: "deleted" });
+    }
+    if (request.url.pathname === "/rest/v1/rpc/mcp_claim_ready_storage_delete_jobs") {
+      assert.equal(request.body.p_retry_before, "2026-07-19T07:45:00.000Z");
+      return json([{ id: "job-stale", target_type: "route_customer", target_id: "rc-stale", status: "finalizing" }]);
+    }
+    if (request.url.pathname === "/rest/v1/rpc/mcp_delete_route_customer_hard") {
+      return json({ deleted: true, routeCustomerId: "rc-stale" });
+    }
+    if (request.url.pathname === "/rest/v1/rpc/mcp_finish_storage_delete_job") {
+      assert.equal(request.body.p_succeeded, true);
+      return json({ id: "job-stale", status: "completed" });
     }
     throw new Error(`unexpected_request:${request.method}:${request.url}`);
   };
@@ -131,6 +160,12 @@ test("cleanup treats an already absent R2 object as successfully deleted", async
   assert.equal(result.claimedCount, 1);
   assert.equal(result.deletedCount, 1);
   assert.equal(result.failedCount, 0);
+  assert.equal(result.claimedDeleteJobCount, 1);
+  assert.equal(result.completedDeleteJobCount, 1);
+  assert.equal(result.failedDeleteJobCount, 0);
   assert.equal(result.pendingBefore, "2026-07-18T08:00:00.000Z");
   assert.equal(result.retryBefore, "2026-07-19T07:45:00.000Z");
+  const mediaFinishIndex = calls.findIndex((call) => call.url.pathname.endsWith("mcp_finish_outlet_media_delete"));
+  const jobClaimIndex = calls.findIndex((call) => call.url.pathname.endsWith("mcp_claim_ready_storage_delete_jobs"));
+  assert.ok(mediaFinishIndex < jobClaimIndex, "cleanup must finish R2 rows before claiming their parent delete jobs");
 });
