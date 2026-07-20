@@ -291,7 +291,7 @@ export function OutletPhotoManager({
         <button className="button" type="button" onClick={() => galleryInputRef.current?.click()} disabled={busy || remaining <= 0}>▧ Thư viện</button>
         {drafts.length ? (
           <button className="button primary" type="button" onClick={() => void savePhotos()} disabled={busy}>
-            {saving ? "Đang tải…" : drafts.some((photo) => photo.status === "error") ? "Thử lại" : `Lưu ${drafts.length} ảnh`}
+            {drafts.some((photo) => photo.status === "error") ? "Thử lại" : saving ? "Đang tải…" : `Lưu ${drafts.length} ảnh`}
           </button>
         ) : null}
       </div>
