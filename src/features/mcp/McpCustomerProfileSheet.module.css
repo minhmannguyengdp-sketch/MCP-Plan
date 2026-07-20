@@ -192,9 +192,11 @@
 }
 
 .previewCard {
-  flex: 0 0 min(86%, 560px);
+  flex: 0 0 min(72vw, 280px);
   display: grid;
   overflow: hidden;
+  width: min(72vw, 280px);
+  max-width: 280px;
   min-width: 0;
   margin: 0;
   border: 1px solid #e4e7ec;
@@ -323,7 +325,9 @@
   }
 
   .previewCard {
-    flex-basis: 88%;
+    flex-basis: min(72vw, 260px);
+    width: min(72vw, 260px);
+    max-width: 260px;
   }
 
   .mediaActions {
