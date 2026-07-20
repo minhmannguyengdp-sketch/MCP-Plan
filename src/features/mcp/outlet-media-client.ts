@@ -26,8 +26,10 @@ function object(value: unknown): Record<string, unknown> {
 export function outletMediaError(payload: unknown, fallback = "Không xử lý được ảnh") {
   const body = object(payload);
   const error = body.error;
-  if (typeof error === "string") return error;
   const errorBody = object(error);
+  const code = String(errorBody.code || (typeof error === "string" ? error : "") || body.detail || "");
+  if (code === "outlet_media_limit_reached") return `Điểm bán chỉ lưu tối đa ${MAX_OUTLET_PHOTOS} ảnh.`;
+  if (typeof error === "string") return error;
   return String(errorBody.message || errorBody.code || body.detail || body.message || fallback);
 }
 
