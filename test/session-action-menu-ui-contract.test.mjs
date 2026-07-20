@@ -25,6 +25,17 @@ assert.doesNotMatch(owner, /PageHeaderActionsPortal/, "session screen must not a
 assert.doesNotMatch(owner, /Mở menu tác vụ phiên/, "legacy session menu trigger must be removed");
 assert.doesNotMatch(wrapper, /VisitsExportMenu/, "legacy inline export trigger must remain removed");
 
+assert.match(owner, /idempotentMutationFetch/, "close session must use the canonical idempotent mutation caller");
+assert.match(owner, /operation:\s*"route-session\.update"/, "close session must use the exact route-session.update operation");
+assert.doesNotMatch(owner, /await fetch\(`\/api\/backend\/mcp-session-actions\//, "close session must not bypass idempotency with raw fetch");
+assert.match(owner, /closeInFlight\.current/, "close session must reject duplicate in-flight clicks before React rerenders");
+assert.match(owner, /response\.blob\(\)/, "session export must own the response body instead of relying on PWA navigation");
+assert.match(owner, /URL\.createObjectURL\(blob\)/, "session export must create a browser-downloadable object URL");
+assert.match(owner, /anchor\.download\s*=/, "session export must preserve the server filename through a download anchor");
+assert.match(owner, /data-export-kind="pdf"/, "PDF export must be an explicit controlled action");
+assert.match(owner, /data-export-kind="excel"/, "Excel export must be an explicit controlled action");
+assert.match(owner, /role="alert"/, "export failures must remain visible in the export sheet");
+
 assert.match(appMenuStyles, /position:\s*fixed/, "one shared mobile trigger must own the top-right surface");
 assert.match(appMenuStyles, /grid-template-columns:\s*42px minmax\(0, 1fr\) auto/, "menu items must keep a scalable icon-copy-chevron layout");
 

@@ -61,10 +61,14 @@ try {
 
   const exportSheet = page.getByRole("dialog", { name: "Xuất dữ liệu phiên", exact: true });
   await exportSheet.waitFor({ state: "visible" });
-  const pdfLink = exportSheet.getByRole("link", { name: /Báo cáo phiên PDF/ });
-  const excelLink = exportSheet.getByRole("link", { name: /Checklist khách Excel/ });
-  assert.match(String(await pdfLink.getAttribute("href")), /^\/api\/pdf\/session-day\?/);
-  assert.match(String(await excelLink.getAttribute("href")), /^\/api\/backend\/exports\/mcp-sessions\.csv\?/);
+  const pdfButton = exportSheet.getByRole("button", { name: /Báo cáo phiên PDF/ });
+  const excelButton = exportSheet.getByRole("button", { name: /Checklist khách Excel/ });
+  await pdfButton.waitFor({ state: "visible" });
+  await excelButton.waitFor({ state: "visible" });
+  assert.equal(await pdfButton.getAttribute("data-export-kind"), "pdf");
+  assert.equal(await excelButton.getAttribute("data-export-kind"), "excel");
+  assert.equal(await pdfButton.isEnabled(), true, "PDF export action must be enabled");
+  assert.equal(await excelButton.isEnabled(), true, "Excel export action must be enabled");
   await page.screenshot({ path: `${resultsDir}/14-unified-export-menu-mobile.png`, fullPage: true });
 
   console.log(JSON.stringify({
@@ -74,7 +78,7 @@ try {
     standaloneSettingsButton: false,
     standaloneSessionButton: false,
     actions: ["report", "export", "close", "settings"],
-    exportLinks: "PASS"
+    exportActions: "PASS"
   }, null, 2));
 } finally {
   await context.close();

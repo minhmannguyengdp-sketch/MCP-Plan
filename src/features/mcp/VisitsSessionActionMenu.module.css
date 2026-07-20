@@ -14,14 +14,21 @@
   border-radius: 16px;
   background: var(--panel);
   color: var(--text);
+  cursor: pointer;
+  font: inherit;
   padding: 10px 12px;
   text-align: left;
   text-decoration: none;
 }
 
-.exportItem:hover {
+.exportItem:hover:not(:disabled) {
   border-color: rgba(37, 99, 235, 0.26);
   background: var(--panel-soft);
+}
+
+.exportItem:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .menuIcon {

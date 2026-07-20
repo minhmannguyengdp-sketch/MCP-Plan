@@ -248,10 +248,14 @@ async function unifiedMobileMenu(browser) {
   await menu.getByRole("button", { name: /Xuất dữ liệu/ }).click();
   const exportDialog = page.getByRole("dialog", { name: "Xuất dữ liệu phiên", exact: true });
   await exportDialog.waitFor({ state: "visible" });
-  const pdf = exportDialog.getByRole("link", { name: /Báo cáo phiên PDF/ });
-  const excel = exportDialog.getByRole("link", { name: /Checklist khách Excel/ });
-  assert.match(String(await pdf.getAttribute("href")), /^\/api\/pdf\/session-day\?/, "PDF export must keep canonical route");
-  assert.match(String(await excel.getAttribute("href")), /^\/api\/backend\/exports\/mcp-sessions\.csv\?/, "Excel export must keep canonical route");
+  const pdf = exportDialog.getByRole("button", { name: /Báo cáo phiên PDF/ });
+  const excel = exportDialog.getByRole("button", { name: /Checklist khách Excel/ });
+  await pdf.waitFor({ state: "visible" });
+  await excel.waitFor({ state: "visible" });
+  assert.equal(await pdf.getAttribute("data-export-kind"), "pdf", "PDF export must remain a controlled action");
+  assert.equal(await excel.getAttribute("data-export-kind"), "excel", "Excel export must remain a controlled action");
+  assert.equal(await pdf.isEnabled(), true, "PDF export must be enabled");
+  assert.equal(await excel.isEnabled(), true, "Excel export must be enabled");
   await screenshot(page, "11-unified-mobile-export-menu");
 
   await context.close();
@@ -261,7 +265,7 @@ async function unifiedMobileMenu(browser) {
     standaloneSettingsButton: false,
     sessionHeaderMenuButton: false,
     actions: ["report", "export", "close", "settings"],
-    exportLinks: "PASS"
+    exportActions: "PASS"
   };
 }
 
