@@ -3,15 +3,15 @@
 > Đọc file này trước khi tiếp tục.  
 > Cập nhật: **2026-07-20**  
 > Phase: **A / NPP-F05 / A5.5.2**  
-> Trạng thái: **SOURCE 30/30 — RUNTIME BACKEND DEPLOYED — GUARDED LIVE SMOKE PENDING — VERCEL UI DEPLOY TRIGGERED**
+> Trạng thái: **SOURCE 30/30 — BACKEND DEPLOYED — ORDER MOBILE REGRESSION FIX DEPLOY TRIGGERED — GUARDED LIVE SMOKE PENDING**
 
 ## Quyết định hiện tại
 
 - NPP-F05/A5.5.2 đã khép đủ original source inventory `30/30`.
 - Chín migration production từ `20260719190000` đến `20260720224600` đã được áp dụng theo đúng version/tên file trong repository.
 - Backend Foundation đã rollout bằng `pullmcp`; `178/178` tests PASS, environment validation PASS và `F0.2_VPS_SMOKE=PASS` trên port `3001`.
+- PR #74 sửa regression mobile tạo đơn đã merge; commit này phê duyệt Vercel frontend-only rollout cho bản sửa đó.
 - Không ghi runtime `30/30` cho đến khi có guarded authenticated execute/replay/conflict/audit smoke và cleanup evidence.
-- Commit này phê duyệt riêng Vercel rollout cho PR #73; không mở rộng phạm vi sang thay đổi backend/database mới.
 - Không bắt đầu NPP-F06 hoặc Order Core trước khi chốt lượt production smoke Foundation đang nợ.
 - Không đụng `milktea-backend` hoặc port `3002`.
 
@@ -32,6 +32,42 @@ Backend source deployed:           30/30
 Guarded runtime evidence pending:  16 operations
 ```
 
+## PR #74 — guarded mobile order review flow
+
+```text
+PR:                    #74 MERGED / CI PASS
+Merge SHA:             7848ba8ad03e26d07f02b0b8b056735793ccff5b
+Foundation F0.2:       #612 PASS
+Backend/schema change: NONE
+VPS pullmcp:           NOT REQUIRED
+Vercel deploy:         TRIGGERED BY THIS COMMIT
+```
+
+Production evidence that identified the regression:
+
+```text
+14:55:04 GET  /api/products/search   200
+14:55:16 POST /api/backend/orders    201
+14:55:17 GET  /orders                200
+```
+
+The workspace disappeared because an order POST succeeded; it was not a random close. The old primary action moved to cart and submitted in the same gesture.
+
+Fixed boundary:
+
+```text
+customer prerequisite
+-> product taps are add-only and stop propagation
+-> catalog primary action only opens review
+-> a separate click while already on the Đơn panel may POST
+-> immediate in-flight submit guard
+-> unfinished draft close confirmation
+-> max-content catalog rows with mobile touch-height floor
+-> overlay-height fallback and visible mobile footer
+```
+
+One unintended production order created at `14:55:16` may require owner review. Do not delete or mutate it without explicit approval.
+
 ## PR #73 — fullscreen mobile order flow
 
 ```text
@@ -40,21 +76,18 @@ Merge SHA:             c3601db38b286c6171035062dd30bfa2a5793e1c
 Foundation F0.2:       #603 PASS
 Backend/schema change: NONE
 VPS dependency:        SATISFIED BY APPROVED BACKEND ROLLOUT
-Vercel deploy:         TRIGGERED BY THIS COMMIT
+Previous Vercel deploy: READY
 ```
 
-UX boundary:
+UX foundation:
 
 ```text
 true 100vw × 100dvh order workspace
--> no drag handle / top border / inherited outer padding
--> fixed header and footer with safe-area ownership
+-> no drag handle / inherited outer padding
 -> mobile panels: Khách / Sản phẩm / Đơn
--> only one active business panel and one scroll owner on mobile
+-> one active business panel and one scroll owner
 -> whole product row is a touch target
 -> immediate add confirmation + visible selected quantity
--> persistent Xem đơn action
--> primary action routes to missing prerequisite before submit
 -> desktop two-column catalog + live cart retained
 ```
 
@@ -68,7 +101,7 @@ Backend/schema change: NONE
 Previous Vercel deploy: READY
 ```
 
-UX boundary:
+UX foundation:
 
 ```text
 desktop two-column catalog + live cart
@@ -192,9 +225,9 @@ complete database and R2 fixture cleanup
 ## Point to continue
 
 1. Verify the production Vercel deployment created by this `deploy:` commit.
-2. Smoke `/orders` on mobile: fullscreen geometry, one scroll owner, customer selection, product-row tap, immediate quantity/cart feedback and final create action.
-3. Check Vercel runtime logs for the exact order request and verify the backend returns the canonical create result.
-4. Run standalone order replay/conflict smoke with guarded fixture cleanup.
-5. Run the remaining guarded authenticated smoke inventory and archive lifecycle evidence.
-6. Only after all evidence passes, update runtime coverage from `14/30` to `30/30`.
-7. Then begin NPP-F06: production DB versus repository migrations/functions/policies/grants reconciliation.
+2. Smoke `/orders` on the affected mobile device: choose customer, add products, confirm the popup remains open and rows remain readable.
+3. Confirm the first primary click only opens the Đơn review panel and emits no POST.
+4. Confirm a separate `Tạo đơn` click emits one canonical POST and closes only after success.
+5. Review the unintended order created at `14:55:16`; do not delete without owner approval.
+6. Run the remaining guarded authenticated smoke inventory and archive lifecycle evidence.
+7. Only after all evidence passes, update runtime coverage from `14/30` to `30/30`, then begin NPP-F06.
