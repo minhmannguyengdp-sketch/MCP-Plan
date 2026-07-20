@@ -25,13 +25,48 @@ test("create-order sheet supports existing and manual customers", () => {
   assert.match(sheet, /không tự thêm vào tuyến/i);
 });
 
-test("create-order uses a large dense workspace instead of the default small sheet", () => {
+test("create-order workspace is true fullscreen without the legacy drag handle", () => {
   assert.match(sheet, /variant="workspace"/);
   assert.match(bottomSheet, /variant\?: "default" \| "compact" \| "workspace"/);
-  assert.match(bottomSheet, /width: "min\(1180px, calc\(100vw - 24px\)\)"/);
-  assert.match(bottomSheet, /height: "min\(94dvh, 920px\)"/);
-  assert.match(sheetStyles, /grid-template-columns: minmax\(0, 1\.55fr\) minmax\(340px, 0\.85fr\)/);
-  assert.match(sheetStyles, /font-size: 12px/);
+  assert.match(bottomSheet, /width: "100vw"/);
+  assert.match(bottomSheet, /height: "100dvh"/);
+  assert.match(bottomSheet, /maxHeight: "100dvh"/);
+  assert.match(bottomSheet, /gap: 0/);
+  assert.match(bottomSheet, /padding: 0/);
+  assert.match(bottomSheet, /variant === "workspace" \? null : <div className="sheet-handle"/);
+  assert.match(bottomSheet, /data-fullscreen=/);
+});
+
+test("mobile order flow exposes customer, catalog and cart as explicit panels", () => {
+  assert.match(sheet, /type MobilePanel = "customer" \| "catalog" \| "cart"/);
+  assert.match(sheet, /data-mobile-panel=\{mobilePanel\}/);
+  assert.match(sheet, /className=\{styles\.mobileTabs\}/);
+  assert.match(sheet, />1\. Khách</);
+  assert.match(sheet, />2\. Sản phẩm</);
+  assert.match(sheet, />3\. Đơn</);
+  assert.match(sheetStyles, /grid-template-rows: auto minmax\(0, 1fr\)/);
+  assert.match(sheetStyles, /workspace\[data-mobile-panel="customer"\] \.catalogSection/);
+  assert.match(sheetStyles, /workspace:not\(\[data-mobile-panel="cart"\]\) \.rightPane/);
+  assert.doesNotMatch(sheetStyles, /\.workspace \{[\s\S]{0,220}overflow-y: auto/);
+});
+
+test("product selection uses a full-row touch target and immediate visible feedback", () => {
+  assert.match(sheet, /className=\{styles\.productRow\}/);
+  assert.match(sheet, /onClick=\{\(\) => addProduct\(product\)\}/);
+  assert.match(sheet, /aria-label=\{`Thêm \$\{product\.name\} vào đơn`\}/);
+  assert.match(sheet, /setAddedNotice\(`/);
+  assert.match(sheet, /aria-live="assertive"/);
+  assert.match(sheet, /Trong đơn: \{selectedQuantity\}/);
+  assert.match(sheetStyles, /\.productRow \{[\s\S]*min-height: 54px/);
+  assert.match(sheetStyles, /touch-action: manipulation/);
+});
+
+test("primary create action routes users to missing business prerequisites", () => {
+  assert.match(sheet, /function runPrimaryAction\(\)/);
+  assert.match(sheet, /setMobilePanel\("customer"\)/);
+  assert.match(sheet, /setMobilePanel\("catalog"\)/);
+  assert.match(sheet, /const primaryLabel = !customerReady \? "Chọn khách" : items\.length === 0 \? "Thêm sản phẩm" : "Tạo đơn"/);
+  assert.match(sheet, /Xem đơn \(\{totalQuantity\}\)/);
 });
 
 test("product selection is realtime, filterable and keeps a visible cart", () => {
