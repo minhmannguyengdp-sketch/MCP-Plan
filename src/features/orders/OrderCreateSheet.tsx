@@ -8,6 +8,7 @@ import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import styles from "./OrderCreateSheet.module.css";
 
 type CustomerMode = "existing" | "manual";
+type MobilePanel = "customer" | "catalog" | "cart";
 
 type ProductCatalogItem = {
   productId: string;
@@ -99,6 +100,8 @@ export function OrderCreateSheet({
 }) {
   const router = useRouter();
   const productRequestRef = useRef(0);
+  const addedNoticeTimerRef = useRef<number | null>(null);
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("customer");
   const [customerMode, setCustomerMode] = useState<CustomerMode>("existing");
   const [customerSearch, setCustomerSearch] = useState("");
   const [routeCustomerId, setRouteCustomerId] = useState("");
@@ -115,6 +118,7 @@ export function OrderCreateSheet({
   const [items, setItems] = useState<OrderDraftItem[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
+  const [addedNotice, setAddedNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -130,6 +134,8 @@ export function OrderCreateSheet({
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const selectedQuantityByVariant = useMemo(() => new Map(items.map((item) => [item.variantId, item.quantity])), [items]);
+  const customerReady = customerMode === "existing" ? Boolean(routeCustomerId) : Boolean(manualCustomer.name.trim());
+  const readyToSubmit = customerReady && items.length > 0;
 
   const loadProducts = useCallback(async (query: string, category: string, brand: string) => {
     const requestId = ++productRequestRef.current;
@@ -160,10 +166,17 @@ export function OrderCreateSheet({
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (addedNoticeTimerRef.current !== null) window.clearTimeout(addedNoticeTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!open) {
       productRequestRef.current += 1;
       return;
     }
+    setMobilePanel("customer");
     setCustomerMode("existing");
     setCustomerSearch("");
     setRouteCustomerId("");
@@ -179,6 +192,7 @@ export function OrderCreateSheet({
     setProducts([]);
     setItems([]);
     setProductError(null);
+    setAddedNotice("");
     setMessage(null);
   }, [open]);
 
@@ -190,7 +204,14 @@ export function OrderCreateSheet({
     return () => window.clearTimeout(timer);
   }, [loadProducts, open, productBrand, productCategory, productSearch]);
 
+  function announceAdded(product: ProductCatalogItem, nextQuantity: number) {
+    setAddedNotice(`${product.name}: đã thêm ${nextQuantity}`);
+    if (addedNoticeTimerRef.current !== null) window.clearTimeout(addedNoticeTimerRef.current);
+    addedNoticeTimerRef.current = window.setTimeout(() => setAddedNotice(""), 1800);
+  }
+
   function addProduct(product: ProductCatalogItem) {
+    const nextQuantity = (selectedQuantityByVariant.get(product.variantId) || 0) + 1;
     setMessage(null);
     setItems((current) => {
       const existed = current.find((item) => item.variantId === product.variantId);
@@ -199,6 +220,7 @@ export function OrderCreateSheet({
       }
       return [...current, { ...product, quantity: 1, unitPrice: Number(product.price || 0) }];
     });
+    announceAdded(product, nextQuantity);
   }
 
   function decreaseProduct(variantId: string) {
@@ -217,8 +239,15 @@ export function OrderCreateSheet({
     }));
   }
 
+  function selectCustomer(customerId: string) {
+    setRouteCustomerId(customerId);
+    setMessage(null);
+    setMobilePanel("catalog");
+  }
+
   function updateManualCustomer(field: keyof ManualCustomer, value: string) {
     setManualCustomer((current) => ({ ...current, [field]: value }));
+    setMessage(null);
   }
 
   function clearProductFilters() {
@@ -229,16 +258,14 @@ export function OrderCreateSheet({
 
   async function submit() {
     if (saving) return;
-    if (customerMode === "existing" && !routeCustomerId) {
-      setMessage("Cần chọn một khách đã có.");
-      return;
-    }
-    if (customerMode === "manual" && !manualCustomer.name.trim()) {
-      setMessage("Cần nhập tên khách.");
+    if (!customerReady) {
+      setMessage("Chọn khách hoặc nhập tên khách trước khi tạo đơn.");
+      setMobilePanel("customer");
       return;
     }
     if (items.length === 0) {
-      setMessage("Cần thêm ít nhất một sản phẩm vào đơn.");
+      setMessage("Thêm ít nhất một sản phẩm vào đơn.");
+      setMobilePanel("catalog");
       return;
     }
 
@@ -278,14 +305,36 @@ export function OrderCreateSheet({
       onCreated(orderCode);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Không tạo được đơn hàng");
+      setMobilePanel("cart");
     } finally {
       setSaving(false);
     }
   }
 
+  function runPrimaryAction() {
+    if (!customerReady) {
+      setMessage("Bước 1: chọn khách hoặc nhập tên khách.");
+      setMobilePanel("customer");
+      return;
+    }
+    if (items.length === 0) {
+      setMessage("Bước 2: chạm vào một sản phẩm để thêm vào đơn.");
+      setMobilePanel("catalog");
+      return;
+    }
+    setMobilePanel("cart");
+    void submit();
+  }
+
   const customerDescription = customerMode === "existing"
     ? selectedCustomer?.accountName || "Chưa chọn khách"
     : manualCustomer.name || "Khách nhập nhanh";
+  const primaryLabel = !customerReady ? "Chọn khách" : items.length === 0 ? "Thêm sản phẩm" : "Tạo đơn";
+  const footerHint = message || (!customerReady
+    ? "Chọn khách để bắt đầu"
+    : items.length === 0
+      ? "Đã chọn khách · thêm sản phẩm"
+      : `${items.length} dòng · ${totalQuantity} sản phẩm`);
 
   return (
     <BottomSheet
@@ -296,25 +345,42 @@ export function OrderCreateSheet({
       variant="workspace"
       footer={(
         <div className={styles.footer}>
-          <div className={styles.footerSummary}>
-            <small>{items.length} dòng · {totalQuantity} sản phẩm</small>
+          <div className={styles.footerSummary} aria-live="polite">
+            <small>{footerHint}</small>
             <strong>{money.format(total)}</strong>
           </div>
-          <button className="button primary" type="button" onClick={() => void submit()} disabled={saving}>{saving ? "Đang tạo..." : "Tạo đơn"}</button>
-          <button className="button" type="button" onClick={onClose} disabled={saving}>Đóng</button>
+          <button className={`${styles.cartButton} button`} type="button" onClick={() => setMobilePanel("cart")} disabled={saving}>
+            Xem đơn ({totalQuantity})
+          </button>
+          <button className={`${styles.primaryAction} button primary`} type="button" onClick={runPrimaryAction} disabled={saving} data-ready={readyToSubmit ? "true" : "false"}>
+            {saving ? "Đang tạo..." : primaryLabel}
+          </button>
+          <button className={`${styles.desktopClose} button`} type="button" onClick={onClose} disabled={saving}>Đóng</button>
         </div>
       )}
     >
-      <div className={styles.workspace}>
+      <div className={styles.workspace} data-mobile-panel={mobilePanel}>
+        <nav className={styles.mobileTabs} aria-label="Các bước tạo đơn">
+          <button type="button" data-active={mobilePanel === "customer" ? "true" : "false"} onClick={() => setMobilePanel("customer")}>
+            <span>1. Khách</span><small>{customerReady ? "Đã chọn" : "Bắt buộc"}</small>
+          </button>
+          <button type="button" data-active={mobilePanel === "catalog" ? "true" : "false"} onClick={() => setMobilePanel("catalog")}>
+            <span>2. Sản phẩm</span><small>{products.length} kết quả</small>
+          </button>
+          <button type="button" data-active={mobilePanel === "cart" ? "true" : "false"} onClick={() => setMobilePanel("cart")}>
+            <span>3. Đơn</span><small>{totalQuantity} sản phẩm</small>
+          </button>
+        </nav>
+
         <div className={styles.leftPane}>
           <section className={`${styles.section} ${styles.customerSection}`}>
             <div className={styles.sectionHead}>
               <div><strong>1. Chọn khách</strong><small>Khách đã có hoặc nhập nhanh khách vãng lai</small></div>
-              {selectedCustomer ? <span className={styles.selectionBadge}>Đã chọn</span> : null}
+              {customerReady ? <span className={styles.selectionBadge}>Đã chọn</span> : null}
             </div>
             <div className={styles.modeTabs} role="tablist" aria-label="Cách chọn khách">
-              <button type="button" className={customerMode === "existing" ? styles.activeTab : ""} onClick={() => setCustomerMode("existing")} disabled={saving}>Khách đã có</button>
-              <button type="button" className={customerMode === "manual" ? styles.activeTab : ""} onClick={() => setCustomerMode("manual")} disabled={saving}>Nhập khách</button>
+              <button type="button" className={customerMode === "existing" ? styles.activeTab : ""} onClick={() => { setCustomerMode("existing"); setMessage(null); }} disabled={saving}>Khách đã có</button>
+              <button type="button" className={customerMode === "manual" ? styles.activeTab : ""} onClick={() => { setCustomerMode("manual"); setMessage(null); }} disabled={saving}>Nhập khách</button>
             </div>
 
             {customerMode === "existing" ? (
@@ -327,7 +393,7 @@ export function OrderCreateSheet({
                       type="button"
                       key={customer.id}
                       className={routeCustomerId === customer.id ? styles.selectedCustomer : ""}
-                      onClick={() => { setRouteCustomerId(customer.id); setMessage(null); }}
+                      onClick={() => selectCustomer(customer.id)}
                       disabled={saving}
                     >
                       <strong>{customer.accountName}</strong>
@@ -344,13 +410,15 @@ export function OrderCreateSheet({
                 <label className={styles.compactField}><span>Khu vực</span><input value={manualCustomer.area} onChange={(event) => updateManualCustomer("area", event.target.value)} disabled={saving} /></label>
                 <label className={styles.compactField}><span>Địa chỉ giao hàng</span><input value={manualCustomer.address} onChange={(event) => updateManualCustomer("address", event.target.value)} disabled={saving} /></label>
                 <p className={styles.hint}>Khách nhập nhanh chỉ được lưu như snapshot của đơn, không tự thêm vào tuyến.</p>
+                <button className={`${styles.mobileContinue} button primary`} type="button" onClick={() => setMobilePanel("catalog")} disabled={!manualCustomer.name.trim() || saving}>Tiếp tục chọn sản phẩm</button>
               </div>
             )}
+            {message && mobilePanel === "customer" ? <p className={styles.message}>{message}</p> : null}
           </section>
 
           <section className={`${styles.section} ${styles.catalogSection}`}>
             <div className={styles.sectionHead}>
-              <div><strong>2. Chọn sản phẩm</strong><small>Tìm realtime theo tên, SKU, nhãn, nhóm và quy cách</small></div>
+              <div><strong>2. Chọn sản phẩm</strong><small>Chạm vào cả dòng sản phẩm để thêm nhanh</small></div>
               <span className={styles.resultCount} aria-live="polite">{loadingProducts ? "Đang tìm..." : `${products.length} kết quả`}</span>
             </div>
 
@@ -366,11 +434,11 @@ export function OrderCreateSheet({
                       void loadProducts(productSearch, productCategory, productBrand);
                     }
                   }}
-                  placeholder="Ví dụ: SKU, tên hàng, vị, dung tích..."
+                  placeholder="Tên, SKU, vị, dung tích..."
                   disabled={saving}
                 />
               </label>
-              <button className="button" type="button" onClick={() => void loadProducts(productSearch, productCategory, productBrand)} disabled={saving || loadingProducts}>Tìm ngay</button>
+              <button className="button" type="button" onClick={() => void loadProducts(productSearch, productCategory, productBrand)} disabled={saving || loadingProducts}>Tìm</button>
               <button className="button" type="button" onClick={clearProductFilters} disabled={saving || (!productSearch && !productCategory && !productBrand)}>Xóa lọc</button>
             </div>
 
@@ -389,27 +457,31 @@ export function OrderCreateSheet({
                   {brandOptions.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
                 </select>
               </label>
-              <p>Danh sách tự cập nhật sau 250ms; bấm Enter để tìm ngay.</p>
+              <p>Tự tìm sau 250ms.</p>
             </div>
 
+            {addedNotice ? <p className={styles.addedNotice} aria-live="assertive">✓ {addedNotice}</p> : null}
+            {message && mobilePanel === "catalog" ? <p className={styles.message}>{message}</p> : null}
             {productError ? <p className={styles.message}>{productError}</p> : null}
-            <div className={styles.productResults} role="list" aria-label="Kết quả tìm sản phẩm">
+            <div className={styles.productResults} aria-label="Kết quả tìm sản phẩm">
               {loadingProducts && products.length === 0 ? <p className={styles.emptyState}>Đang tải danh mục sản phẩm...</p> : null}
               {!loadingProducts && products.length === 0 && !productError ? <p className={styles.emptyState}>Không tìm thấy sản phẩm. Thử xóa bớt bộ lọc hoặc tìm bằng SKU.</p> : null}
               {products.map((product) => {
                 const selectedQuantity = selectedQuantityByVariant.get(product.variantId) || 0;
                 return (
-                  <article key={product.variantId} className={selectedQuantity ? styles.selectedProduct : ""} role="listitem">
-                    <div className={styles.productMain}>
-                      <strong>{product.name}</strong>
-                      <small>{[product.brand, product.category].filter(Boolean).join(" · ") || "Chưa phân nhóm"}</small>
-                      <span>{variantLabel(product)} · {product.sku || "Chưa SKU"}</span>
-                    </div>
-                    <div className={styles.productPrice}>
-                      <b>{money.format(Number(product.price || 0))}</b>
-                      {selectedQuantity ? <small>Trong đơn: {selectedQuantity}</small> : null}
-                    </div>
-                    <button type="button" onClick={() => addProduct(product)} disabled={saving}>+ Thêm</button>
+                  <article key={product.variantId} className={selectedQuantity ? styles.selectedProduct : ""}>
+                    <button type="button" className={styles.productRow} onClick={() => addProduct(product)} disabled={saving} aria-label={`Thêm ${product.name} vào đơn`}>
+                      <span className={styles.productMain}>
+                        <strong>{product.name}</strong>
+                        <small>{[product.brand, product.category].filter(Boolean).join(" · ") || "Chưa phân nhóm"}</small>
+                        <span>{variantLabel(product)} · {product.sku || "Chưa SKU"}</span>
+                      </span>
+                      <span className={styles.productPrice}>
+                        <b>{money.format(Number(product.price || 0))}</b>
+                        {selectedQuantity ? <small>Trong đơn: {selectedQuantity}</small> : null}
+                      </span>
+                      <span className={styles.addAction}>{selectedQuantity ? `+ Thêm (${selectedQuantity})` : "+ Thêm"}</span>
+                    </button>
                   </article>
                 );
               })}
@@ -424,7 +496,7 @@ export function OrderCreateSheet({
               <b className={styles.cartTotal}>{money.format(total)}</b>
             </div>
             <div className={styles.itemList}>
-              {items.length === 0 ? <p className={styles.emptyState}>Chưa có sản phẩm. Chọn sản phẩm ở cột bên trái để thêm vào đơn.</p> : null}
+              {items.length === 0 ? <p className={styles.emptyState}>Chưa có sản phẩm. Chuyển sang tab Sản phẩm và chạm vào cả dòng hàng để thêm.</p> : null}
               {items.map((item) => (
                 <article key={item.variantId}>
                   <div className={styles.itemHead}>
@@ -455,7 +527,7 @@ export function OrderCreateSheet({
               <label className={styles.compactField}><span>Trạng thái</span><select value={status} onChange={(event) => setStatus(event.target.value as "draft" | "confirmed")} disabled={saving}><option value="confirmed">Đã chốt</option><option value="draft">Nháp</option></select></label>
             </div>
             <label className={styles.compactField}><span>Ghi chú giao hàng / công nợ</span><textarea value={note} onChange={(event) => setNote(event.target.value)} disabled={saving} /></label>
-            {message ? <p className={styles.message}>{message}</p> : null}
+            {message && mobilePanel === "cart" ? <p className={styles.message}>{message}</p> : null}
           </section>
         </aside>
       </div>
