@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { RouteCustomerItem } from "@/features/mcp/route-customers.types";
 import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
+import fixStyles from "./OrderCreateSheet.mobile-fix.module.css";
 import styles from "./OrderCreateSheet.module.css";
 
 type CustomerMode = "existing" | "manual";
@@ -101,6 +102,7 @@ export function OrderCreateSheet({
   const router = useRouter();
   const productRequestRef = useRef(0);
   const addedNoticeTimerRef = useRef<number | null>(null);
+  const submitInFlightRef = useRef(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("customer");
   const [customerMode, setCustomerMode] = useState<CustomerMode>("existing");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -135,7 +137,7 @@ export function OrderCreateSheet({
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const selectedQuantityByVariant = useMemo(() => new Map(items.map((item) => [item.variantId, item.quantity])), [items]);
   const customerReady = customerMode === "existing" ? Boolean(routeCustomerId) : Boolean(manualCustomer.name.trim());
-  const readyToSubmit = customerReady && items.length > 0;
+  const readyToSubmit = customerReady && items.length > 0 && mobilePanel === "cart";
 
   const loadProducts = useCallback(async (query: string, category: string, brand: string) => {
     const requestId = ++productRequestRef.current;
@@ -174,6 +176,7 @@ export function OrderCreateSheet({
   useEffect(() => {
     if (!open) {
       productRequestRef.current += 1;
+      submitInFlightRef.current = false;
       return;
     }
     setMobilePanel("customer");
@@ -211,6 +214,11 @@ export function OrderCreateSheet({
   }
 
   function addProduct(product: ProductCatalogItem) {
+    if (!customerReady) {
+      setMessage("Chọn khách trước, sau đó mới thêm sản phẩm vào đơn.");
+      setMobilePanel("customer");
+      return;
+    }
     const nextQuantity = (selectedQuantityByVariant.get(product.variantId) || 0) + 1;
     setMessage(null);
     setItems((current) => {
@@ -256,8 +264,43 @@ export function OrderCreateSheet({
     setProductBrand("");
   }
 
-  async function submit() {
+  function requestPanel(nextPanel: MobilePanel) {
+    if (nextPanel === "catalog" && !customerReady) {
+      setMessage("Bước 1: chọn khách trước khi chọn sản phẩm.");
+      setMobilePanel("customer");
+      return;
+    }
+    if (nextPanel === "cart" && !customerReady) {
+      setMessage("Bước 1: chọn khách trước khi xem đơn.");
+      setMobilePanel("customer");
+      return;
+    }
+    if (nextPanel === "cart" && items.length === 0) {
+      setMessage("Bước 2: thêm ít nhất một sản phẩm trước khi xem đơn.");
+      setMobilePanel("catalog");
+      return;
+    }
+    setMessage(null);
+    setMobilePanel(nextPanel);
+  }
+
+  function requestClose() {
     if (saving) return;
+    const hasDraft = Boolean(
+      routeCustomerId
+      || manualCustomer.name.trim()
+      || manualCustomer.phone.trim()
+      || manualCustomer.area.trim()
+      || manualCustomer.address.trim()
+      || items.length
+      || note.trim()
+    );
+    if (hasDraft && !window.confirm("Đơn đang nhập chưa lưu. Đóng và bỏ nội dung này?")) return;
+    onClose();
+  }
+
+  async function submit() {
+    if (saving || submitInFlightRef.current) return;
     if (!customerReady) {
       setMessage("Chọn khách hoặc nhập tên khách trước khi tạo đơn.");
       setMobilePanel("customer");
@@ -268,7 +311,13 @@ export function OrderCreateSheet({
       setMobilePanel("catalog");
       return;
     }
+    if (mobilePanel !== "cart") {
+      setMessage("Kiểm tra lại số lượng và đơn giá, sau đó bấm Tạo đơn.");
+      setMobilePanel("cart");
+      return;
+    }
 
+    submitInFlightRef.current = true;
     setSaving(true);
     setMessage(null);
     try {
@@ -307,6 +356,7 @@ export function OrderCreateSheet({
       setMessage(error instanceof Error ? error.message : "Không tạo được đơn hàng");
       setMobilePanel("cart");
     } finally {
+      submitInFlightRef.current = false;
       setSaving(false);
     }
   }
@@ -322,14 +372,24 @@ export function OrderCreateSheet({
       setMobilePanel("catalog");
       return;
     }
-    setMobilePanel("cart");
+    if (mobilePanel !== "cart") {
+      setMessage(null);
+      setMobilePanel("cart");
+      return;
+    }
     void submit();
   }
 
   const customerDescription = customerMode === "existing"
     ? selectedCustomer?.accountName || "Chưa chọn khách"
     : manualCustomer.name || "Khách nhập nhanh";
-  const primaryLabel = !customerReady ? "Chọn khách" : items.length === 0 ? "Thêm sản phẩm" : "Tạo đơn";
+  const primaryLabel = !customerReady
+    ? "Chọn khách"
+    : items.length === 0
+      ? "Thêm sản phẩm"
+      : mobilePanel === "cart"
+        ? "Tạo đơn"
+        : "Xem lại đơn";
   const footerHint = message || (!customerReady
     ? "Chọn khách để bắt đầu"
     : items.length === 0
@@ -339,35 +399,35 @@ export function OrderCreateSheet({
   return (
     <BottomSheet
       open={open}
-      onClose={() => { if (!saving) onClose(); }}
+      onClose={requestClose}
       title="Tạo đơn hàng"
       description={`${customerDescription} · ${totalQuantity} sản phẩm`}
       variant="workspace"
       footer={(
-        <div className={styles.footer}>
-          <div className={styles.footerSummary} aria-live="polite">
+        <div className={`${styles.footer} ${fixStyles.footer}`}>
+          <div className={`${styles.footerSummary} ${fixStyles.footerSummary}`} aria-live="polite">
             <small>{footerHint}</small>
             <strong>{money.format(total)}</strong>
           </div>
-          <button className={`${styles.cartButton} button`} type="button" onClick={() => setMobilePanel("cart")} disabled={saving}>
+          <button className={`${styles.cartButton} ${fixStyles.cartButton} button`} type="button" onClick={() => requestPanel("cart")} disabled={saving || items.length === 0}>
             Xem đơn ({totalQuantity})
           </button>
-          <button className={`${styles.primaryAction} button primary`} type="button" onClick={runPrimaryAction} disabled={saving} data-ready={readyToSubmit ? "true" : "false"}>
+          <button className={`${styles.primaryAction} ${fixStyles.primaryAction} button primary`} type="button" onClick={runPrimaryAction} disabled={saving} data-ready={readyToSubmit ? "true" : "false"}>
             {saving ? "Đang tạo..." : primaryLabel}
           </button>
-          <button className={`${styles.desktopClose} button`} type="button" onClick={onClose} disabled={saving}>Đóng</button>
+          <button className={`${styles.desktopClose} button`} type="button" onClick={requestClose} disabled={saving}>Đóng</button>
         </div>
       )}
     >
-      <div className={styles.workspace} data-mobile-panel={mobilePanel}>
-        <nav className={styles.mobileTabs} aria-label="Các bước tạo đơn">
-          <button type="button" data-active={mobilePanel === "customer" ? "true" : "false"} onClick={() => setMobilePanel("customer")}>
+      <div className={`${styles.workspace} ${fixStyles.workspace}`} data-mobile-panel={mobilePanel}>
+        <nav className={`${styles.mobileTabs} ${fixStyles.mobileTabs}`} aria-label="Các bước tạo đơn">
+          <button type="button" data-active={mobilePanel === "customer" ? "true" : "false"} onClick={() => requestPanel("customer")} disabled={saving}>
             <span>1. Khách</span><small>{customerReady ? "Đã chọn" : "Bắt buộc"}</small>
           </button>
-          <button type="button" data-active={mobilePanel === "catalog" ? "true" : "false"} onClick={() => setMobilePanel("catalog")}>
+          <button type="button" data-active={mobilePanel === "catalog" ? "true" : "false"} onClick={() => requestPanel("catalog")} disabled={!customerReady || saving}>
             <span>2. Sản phẩm</span><small>{products.length} kết quả</small>
           </button>
-          <button type="button" data-active={mobilePanel === "cart" ? "true" : "false"} onClick={() => setMobilePanel("cart")}>
+          <button type="button" data-active={mobilePanel === "cart" ? "true" : "false"} onClick={() => requestPanel("cart")} disabled={!customerReady || items.length === 0 || saving}>
             <span>3. Đơn</span><small>{totalQuantity} sản phẩm</small>
           </button>
         </nav>
@@ -410,7 +470,7 @@ export function OrderCreateSheet({
                 <label className={styles.compactField}><span>Khu vực</span><input value={manualCustomer.area} onChange={(event) => updateManualCustomer("area", event.target.value)} disabled={saving} /></label>
                 <label className={styles.compactField}><span>Địa chỉ giao hàng</span><input value={manualCustomer.address} onChange={(event) => updateManualCustomer("address", event.target.value)} disabled={saving} /></label>
                 <p className={styles.hint}>Khách nhập nhanh chỉ được lưu như snapshot của đơn, không tự thêm vào tuyến.</p>
-                <button className={`${styles.mobileContinue} button primary`} type="button" onClick={() => setMobilePanel("catalog")} disabled={!manualCustomer.name.trim() || saving}>Tiếp tục chọn sản phẩm</button>
+                <button className={`${styles.mobileContinue} button primary`} type="button" onClick={() => requestPanel("catalog")} disabled={!manualCustomer.name.trim() || saving}>Tiếp tục chọn sản phẩm</button>
               </div>
             )}
             {message && mobilePanel === "customer" ? <p className={styles.message}>{message}</p> : null}
@@ -463,14 +523,24 @@ export function OrderCreateSheet({
             {addedNotice ? <p className={styles.addedNotice} aria-live="assertive">✓ {addedNotice}</p> : null}
             {message && mobilePanel === "catalog" ? <p className={styles.message}>{message}</p> : null}
             {productError ? <p className={styles.message}>{productError}</p> : null}
-            <div className={styles.productResults} aria-label="Kết quả tìm sản phẩm">
+            <div className={`${styles.productResults} ${fixStyles.productResults}`} aria-label="Kết quả tìm sản phẩm">
               {loadingProducts && products.length === 0 ? <p className={styles.emptyState}>Đang tải danh mục sản phẩm...</p> : null}
               {!loadingProducts && products.length === 0 && !productError ? <p className={styles.emptyState}>Không tìm thấy sản phẩm. Thử xóa bớt bộ lọc hoặc tìm bằng SKU.</p> : null}
               {products.map((product) => {
                 const selectedQuantity = selectedQuantityByVariant.get(product.variantId) || 0;
                 return (
-                  <article key={product.variantId} className={selectedQuantity ? styles.selectedProduct : ""}>
-                    <button type="button" className={styles.productRow} onClick={() => addProduct(product)} disabled={saving} aria-label={`Thêm ${product.name} vào đơn`}>
+                  <article key={product.variantId} className={[fixStyles.productCard, selectedQuantity ? styles.selectedProduct : ""].filter(Boolean).join(" ")}>
+                    <button
+                      type="button"
+                      className={`${styles.productRow} ${fixStyles.productRow}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        addProduct(product);
+                      }}
+                      disabled={!customerReady || saving}
+                      aria-label={`Thêm ${product.name} vào đơn`}
+                    >
                       <span className={styles.productMain}>
                         <strong>{product.name}</strong>
                         <small>{[product.brand, product.category].filter(Boolean).join(" · ") || "Chưa phân nhóm"}</small>
@@ -495,7 +565,7 @@ export function OrderCreateSheet({
               <div><strong>Đơn đang lên</strong><small>{items.length} dòng · {totalQuantity} sản phẩm</small></div>
               <b className={styles.cartTotal}>{money.format(total)}</b>
             </div>
-            <div className={styles.itemList}>
+            <div className={`${styles.itemList} ${fixStyles.itemList}`}>
               {items.length === 0 ? <p className={styles.emptyState}>Chưa có sản phẩm. Chuyển sang tab Sản phẩm và chạm vào cả dòng hàng để thêm.</p> : null}
               {items.map((item) => (
                 <article key={item.variantId}>
