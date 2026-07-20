@@ -48,12 +48,18 @@ test("manager owns private read, preview, add, delete, retry and refresh", () =>
   assert.doesNotMatch(`${manager}\n${client}\n${backend}`, /outlet-media\/replace/);
 });
 
-test("stored photos plus drafts are hard-capped at three", () => {
+test("stored photos plus drafts are hard-capped at three in UI and database owner", () => {
   assert.match(client, /export const MAX_OUTLET_PHOTOS = 3/);
   assert.match(manager, /Math\.min\(MAX_OUTLET_PHOTOS, requestedLimit\)/);
   assert.match(manager, /Math\.min\(MAX_OUTLET_PHOTOS, profile\?\.mediaLimit \|\| MAX_OUTLET_PHOTOS\)/);
   assert.match(manager, /limit - media\.length - drafts\.length/);
   assert.match(manager, /MAX_OUTLET_PHOTOS - media\.length/);
+  assert.match(migration, /select count\(\*\) into v_active_media_count/i);
+  assert.match(migration, /status in \('pending', 'ready', 'deleting', 'delete_failed'\)/i);
+  assert.match(migration, /if v_active_media_count >= 3 then/i);
+  assert.match(migration, /outlet_media_limit_reached/i);
+  assert.match(client, /code === "outlet_media_limit_reached"/);
+  assert.match(client, /Điểm bán chỉ lưu tối đa \$\{MAX_OUTLET_PHOTOS\} ảnh/);
   assert.match(browserSmoke, /stored photos plus drafts must never exceed three/);
 });
 
