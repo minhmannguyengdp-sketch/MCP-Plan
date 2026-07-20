@@ -122,13 +122,13 @@ export async function uploadOutletPhoto(
   photo: OutletPhotoDraft,
   target: {
     routeCustomerId: string;
-    sessionId: string;
+    sessionId?: string | null;
     location?: OutletMediaLocation | null;
   }
 ) {
   const init = await outletMediaJson("/api/backend/outlet-media/upload-init", {
     routeCustomerId: target.routeCustomerId,
-    sessionId: target.sessionId,
+    sessionId: target.sessionId || undefined,
     clientUploadId: photo.clientUploadId,
     mimeType: photo.file.type,
     byteSize: photo.file.size,
