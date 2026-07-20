@@ -1,17 +1,17 @@
 # MCP-Plan — Current Progress
 
 > Đọc file này trước khi tiếp tục.  
-> Cập nhật: **2026-07-19**  
+> Cập nhật: **2026-07-20**  
 > Phase: **A / NPP-F05 / A5.5.2**  
-> Trạng thái: **SOURCE 28/30 — RUNTIME 14/30 — S2C ARCHIVE DESIGN NEXT**
+> Trạng thái: **SOURCE 30/30 — RUNTIME 14/30 — PRODUCTION ROLLOUT PENDING**
 
 ## Quyết định hiện tại
 
-- Tiếp tục master plan A5.5.2 trước.
-- Hoãn mobile production test/fix MCP sang pass riêng.
-- Không bắt đầu NPP-F06 hoặc Order Core.
+- NPP-F05/A5.5.2 đã khép đủ original source inventory `30/30`.
+- Không ghi runtime PASS cho PR #64–#70 khi chưa rollout migration/backend và có authenticated smoke/cleanup evidence.
+- Chưa bắt đầu NPP-F06 hoặc Order Core trước khi chốt lượt rollout Foundation đang nợ.
+- Hoãn mobile production test/fix MCP sang pass riêng; không hủy các live-smoke gate.
 - Không đụng `milktea-backend` hoặc port `3002`.
-- Không ghi runtime PASS khi chưa rollout và có authenticated smoke/cleanup evidence.
 
 ## Coverage
 
@@ -22,46 +22,70 @@ PR #65 session lifecycle:          +4
 PR #66 route create/update:        +2
 PR #67 route-customer edit:        +1
 PR #68 dead settings retirement:   +7
-Source merged:                     28/30
-Original routes remaining:         2
+PR #70 archive intents:            +2
+Source merged:                     30/30
+Original routes remaining:          0
 Runtime verified:                  14/30
 ```
 
-## PR #68 — Route-settings mutation retirement
+## PR #70 — S2c cross-system archive intents
 
 ```text
-PR:                    #68 MERGED / SOURCE PASS
-Merge SHA:             2fea8a36e6c1305a8de499cc2e0b740a39a406d7
-Foundation F0.2:       #564 PASS
-Browser workflow:      NOT TRIGGERED — backend/audit-only path
-Supabase migration:    NONE
+PR:                    #70 MERGED / SOURCE PASS
+Merge SHA:             a0de1b15eeb84b12d1fcb5f7bc1f3ce789a40cc0
+Foundation F0.2:       #592 PASS
+F05 Browser Smoke:     #156 PASS
+Supabase migrations:   20260720223000_add_archive_intents.sql
+                       20260720223500_link_archive_intent_delete_job_terminal.sql
+Migration applied:     NO
 VPS pullmcp:           NO
+Production smoke:      NO
 Vercel deploy:         NO
-Production runtime:    UNCHANGED
 ```
 
-A full-repository inventory found no live POST caller for seven legacy route-settings mutations. The current `/mcp-setting` screen uses `/api/mcp-report-settings`, already typed and persisted-idempotent. Live `session-status` references are GET reads only.
+Public operations closed:
 
-PR #68 removed seven legacy POST branches, seven save helpers and five private normalizers. Required GET readers remain. No RPC or schema was dropped.
+```text
+POST /api/routes/:id/archive           route.archive
+POST /api/route-customers/:id/archive  route-customer.archive
+```
 
-Audit evidence:
+Root boundary:
 
-- immutable baseline remains unchanged;
-- exact retirement reclassification overlay contains seven fingerprints;
-- owner and operation cannot change during reclassification;
-- completion ledger phase is `A5.5.2`;
-- scanner PASS with `legacy_debt=0`, `forbidden=0`, `unclassified=0`;
-- 34 retired fingerprints total.
+```text
+persisted user intent
+-> exact target/storage-delete-job linkage
+-> existing resumable private R2 lifecycle
+-> guarded parent hard-delete
+-> cleanup-compatible terminal finalizer
+-> persisted response + append-only Foundation audit
+```
+
+Guarantees:
+
+- same key/same payload replays one persisted terminal result;
+- same key with another target or payload conflicts;
+- one target cannot create competing storage-delete jobs;
+- intent and newly claimed delete job are linked in the same PostgreSQL job transaction;
+- the archive owner reuses `outlet-media.js`; it does not duplicate R2 deletion logic;
+- R2 failure blocks parent hard-delete and leaves work reclaimable;
+- a cleanup-completed job finalizes its linked intent and audit;
+- browser roles cannot mutate intent/job persistence directly;
+- no PostgreSQL/R2 fake transaction and no object key/provider detail in the public result.
 
 Decision document:
 
 ```text
-docs/npp-plan/A5_5_2_ROUTE_SETTINGS_SLICE.md
+docs/npp-plan/A5_5_2_S2C_ARCHIVE_INTENTS.md
 ```
 
-## Earlier merged source slices
+## Earlier merged A5.5.2 source slices
 
 ```text
+PR #68 route-settings retirement
+Merge: 2fea8a36e6c1305a8de499cc2e0b740a39a406d7
+Migration: none
+
 PR #67 route-customer.update
 Merge: 39c3c77b1c3e4588c04faaf33c5a07c25b72f0fc
 Migration: 20260719220000_a5_5_2_route_customer_update_idempotency.sql
@@ -75,34 +99,31 @@ Merge: f8df14acd453e7452d3542eaff2618f964a034b6
 Migration: 20260719200000_a5_5_2_session_lifecycle_idempotency.sql
 ```
 
-## Remaining original 2 — S2c cross-system archive
-
-```text
-POST /api/routes/:id/archive
-POST /api/route-customers/:id/archive
-```
-
-Existing Foundation owner already has private R2 deletion lifecycle, parent delete jobs, retry/reclaim and guarded hard-delete. Missing piece is persisted replay/conflict/audit for the public intent across an asynchronous cross-system workflow.
-
-Do not pretend PostgreSQL and R2 share one transaction. The final source slice must design:
-
-```text
-client intent claim
--> exact target/job linkage
--> resumable R2 deletion
--> cleanup-compatible finalizer
--> persisted terminal response/audit
-```
-
 ## Production debt still pending
 
-PR #64–#68 are not production runtime evidence. Required rollout includes migrations where applicable, `pullmcp`, `pm2 list`, health on `127.0.0.1:3001`, execute/replay/conflict/audit/context/invariant smoke and complete fixture cleanup.
+PR #64–#70 source PASS is not production runtime evidence. The rollout must use temporary guarded fixtures only and include:
+
+```text
+ordered pending migrations
+-> pullmcp
+-> pm2 list
+-> health http://127.0.0.1:3001/health
+-> authenticated execute/replay/conflict smoke
+-> audit + trusted request/installation/actor context
+-> lifecycle/business invariants
+-> R2 archive retry/reclaim/finalizer
+-> complete database and R2 fixture cleanup
+```
+
+Do not use real production route/customer/session data for destructive smoke.
 
 MCP/R2/mobile test still pending: AppShell/feedback mobile, R2 create/view/delete, customer photo preview, standalone order, cleanup timer and UX issues found by the owner.
 
 ## Point to continue
 
-1. Read the existing archive/delete-job transaction and retry owners.
-2. Lock S2c intent/job/finalizer invariants before code.
-3. Implement the two archive intents in one cross-system slice.
-4. No production rollout unless explicitly requested.
+1. Do not deploy automatically; wait for explicit production rollout approval.
+2. On approval, apply all pending migrations in repository order.
+3. Run `pullmcp`, verify PM2 and Foundation health on port `3001`.
+4. Run guarded authenticated smoke for the 16 pending original operations, including both archive intents and complete cleanup.
+5. Only after evidence passes, update runtime coverage from `14/30` to `30/30`.
+6. Then begin NPP-F06: production DB versus repository migrations/functions/policies/grants reconciliation.
