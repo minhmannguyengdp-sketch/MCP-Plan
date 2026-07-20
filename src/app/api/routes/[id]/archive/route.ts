@@ -6,8 +6,12 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const headers = new Headers(request.headers);
+  if (!headers.has("Idempotency-Key")) {
+    headers.set("Idempotency-Key", `route.archive:${params.id}`);
+  }
   return proxyBackendRequest(
-    request,
+    new Request(request, { headers }),
     `/api/routes/${encodeURIComponent(params.id)}/archive`,
     "POST"
   );
