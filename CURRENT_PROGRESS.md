@@ -3,15 +3,16 @@
 > Đọc file này trước khi tiếp tục.  
 > Cập nhật: **2026-07-20**  
 > Phase: **A / NPP-F05 / A5.5.2**  
-> Trạng thái: **SOURCE 30/30 — RUNTIME 14/30 — VERCEL UI DEPLOY TRIGGERED — BACKEND ROLLOUT PENDING**
+> Trạng thái: **SOURCE 30/30 — RUNTIME BACKEND DEPLOYED — GUARDED LIVE SMOKE PENDING — VERCEL UI DEPLOY TRIGGERED**
 
 ## Quyết định hiện tại
 
 - NPP-F05/A5.5.2 đã khép đủ original source inventory `30/30`.
-- Không ghi runtime PASS cho PR #64–#71 khi chưa rollout migration/backend và có authenticated smoke/cleanup evidence.
-- Đã có phê duyệt riêng cho Vercel frontend-only rollout của PR #72; không suy diễn thành phê duyệt migration hoặc VPS `pullmcp`.
-- Chưa bắt đầu NPP-F06 hoặc Order Core trước khi chốt lượt rollout Foundation đang nợ.
-- Hoãn mobile production test/fix MCP sang pass riêng; không hủy các live-smoke gate.
+- Chín migration production từ `20260719190000` đến `20260720224600` đã được áp dụng theo đúng version/tên file trong repository.
+- Backend Foundation đã rollout bằng `pullmcp`; `178/178` tests PASS, environment validation PASS và `F0.2_VPS_SMOKE=PASS` trên port `3001`.
+- Không ghi runtime `30/30` cho đến khi có guarded authenticated execute/replay/conflict/audit smoke và cleanup evidence.
+- Commit này phê duyệt riêng Vercel rollout cho PR #73; không mở rộng phạm vi sang thay đổi backend/database mới.
+- Không bắt đầu NPP-F06 hoặc Order Core trước khi chốt lượt production smoke Foundation đang nợ.
 - Không đụng `milktea-backend` hoặc port `3002`.
 
 ## Coverage
@@ -26,7 +27,35 @@ PR #68 dead settings retirement:   +7
 PR #70 archive intents:            +2
 Source merged:                     30/30
 Original routes remaining:          0
-Runtime verified:                  14/30
+Runtime formally verified:         14/30
+Backend source deployed:           30/30
+Guarded runtime evidence pending:  16 operations
+```
+
+## PR #73 — fullscreen mobile order flow
+
+```text
+PR:                    #73 MERGED / CI PASS
+Merge SHA:             c3601db38b286c6171035062dd30bfa2a5793e1c
+Foundation F0.2:       #603 PASS
+Backend/schema change: NONE
+VPS dependency:        SATISFIED BY APPROVED BACKEND ROLLOUT
+Vercel deploy:         TRIGGERED BY THIS COMMIT
+```
+
+UX boundary:
+
+```text
+true 100vw × 100dvh order workspace
+-> no drag handle / top border / inherited outer padding
+-> fixed header and footer with safe-area ownership
+-> mobile panels: Khách / Sản phẩm / Đơn
+-> only one active business panel and one scroll owner on mobile
+-> whole product row is a touch target
+-> immediate add confirmation + visible selected quantity
+-> persistent Xem đơn action
+-> primary action routes to missing prerequisite before submit
+-> desktop two-column catalog + live cart retained
 ```
 
 ## PR #72 — large searchable order workspace
@@ -36,20 +65,60 @@ PR:                    #72 MERGED / CI PASS
 Merge SHA:             757cab25c5348bf96a2cc1410ca0a0677c454970
 Foundation F0.2:       #600 PASS
 Backend/schema change: NONE
-VPS pullmcp:           NOT REQUIRED FOR THIS UI SLICE
-Vercel deploy:         TRIGGERED BY THIS COMMIT
+Previous Vercel deploy: READY
 ```
 
 UX boundary:
 
 ```text
-workspace sheet up to 1180px / 94dvh
--> desktop two-column catalog + live cart
+desktop two-column catalog + live cart
 -> realtime product search after 250ms
 -> category and brand filters
 -> no 30-row UI cap
 -> compact text with touchable controls
--> near-full-screen single-column mobile fallback
+```
+
+## Production migration/backend rollout — COMPLETE
+
+Applied migration history:
+
+```text
+20260719190000_add_standalone_order_create
+20260719200000_a5_5_2_session_lifecycle_idempotency
+20260719210000_a5_5_2_route_master_write_idempotency
+20260719220000_a5_5_2_route_customer_update_idempotency
+20260720210000_allow_route_customer_profile_media
+20260720223000_add_archive_intents
+20260720223500_link_archive_intent_delete_job_terminal
+20260720224500_lock_archive_intent_claims
+20260720224600_preserve_archive_terminal_failure
+```
+
+Database verification:
+
+```text
+migration version/name alignment: PASS
+required owner/RPC existence: PASS
+service-role-only mutation grants: PASS
+archive advisory lock order: key -> target PASS
+archive terminal-failure guard: PASS
+archive delete-job triggers: PASS
+fixed-route outlet media nullable session boundary: PASS
+```
+
+VPS verification:
+
+```text
+backend tests:          178/178 PASS
+runtime env:            public=127.0.0.1:3001 legacy=127.0.0.1:3102
+mcp-plan-backend:       online / restart 0
+health:                 200
+without token:          401
+with token:             200
+blocked origin:         403
+F0.2_VPS_SMOKE:         PASS
+runtime backup:         /var/www/mcp-plan-backend.backup.20260720-143750
+milktea-backend/3002:   untouched
 ```
 
 ## PR #70/#71 — S2c cross-system archive intents
@@ -59,14 +128,9 @@ PR #70:                MERGED / SOURCE PASS
 PR #70 merge SHA:      a0de1b15eeb84b12d1fcb5f7bc1f3ce789a40cc0
 PR #71 concurrency:    MERGED / SOURCE PASS
 PR #71 merge SHA:      ec355b7118aca66d086d68a0b3b0326b4f26ba06
-Foundation F0.2:       PASS
-Supabase migrations:   20260720223000_add_archive_intents.sql
-                       20260720223500_link_archive_intent_delete_job_terminal.sql
-                       20260720224500_lock_archive_intent_claims.sql
-                       20260720224600_preserve_archive_terminal_failure.sql
-Migration applied:     NO
-VPS pullmcp:           NO
-Production smoke:      NO
+Supabase migrations:   APPLIED
+VPS pullmcp:           PASS
+Guarded live smoke:    PENDING
 ```
 
 Public operations closed:
@@ -107,52 +171,30 @@ Decision document:
 docs/npp-plan/A5_5_2_S2C_ARCHIVE_INTENTS.md
 ```
 
-## Earlier merged A5.5.2 source slices
+## Guarded production evidence still pending
+
+Use temporary guarded fixtures only. Do not use real production route/customer/session data for destructive smoke.
+
+Required evidence:
 
 ```text
-PR #68 route-settings retirement
-Merge: 2fea8a36e6c1305a8de499cc2e0b740a39a406d7
-Migration: none
-
-PR #67 route-customer.update
-Merge: 39c3c77b1c3e4588c04faaf33c5a07c25b72f0fc
-Migration: 20260719220000_a5_5_2_route_customer_update_idempotency.sql
-
-PR #66 route.create / route.update
-Merge: 5692e7592a94e51b6f41b88c8543156cc95c5dec
-Migration: 20260719210000_a5_5_2_route_master_write_idempotency.sql
-
-PR #65 session lifecycle x4
-Merge: f8df14acd453e7452d3542eaff2618f964a034b6
-Migration: 20260719200000_a5_5_2_session_lifecycle_idempotency.sql
+standalone order create execute/replay/conflict
+session lifecycle execute/replay/conflict
+route create/update execute/replay/conflict
+route-customer update execute/replay/conflict
+trusted request/installation/actor context
+append-only audit rows
+business/lifecycle invariants
+R2 archive retry/reclaim/finalizer
+complete database and R2 fixture cleanup
 ```
-
-## Production debt still pending
-
-PR #64–#71 source PASS is not production runtime evidence. The rollout must use temporary guarded fixtures only and include:
-
-```text
-ordered pending migrations
--> pullmcp
--> pm2 list
--> health http://127.0.0.1:3001/health
--> authenticated execute/replay/conflict smoke
--> audit + trusted request/installation/actor context
--> lifecycle/business invariants
--> R2 archive retry/reclaim/finalizer
--> complete database and R2 fixture cleanup
-```
-
-Do not use real production route/customer/session data for destructive smoke.
-
-MCP/R2/mobile test still pending: AppShell/feedback mobile, R2 create/view/delete, customer photo preview, standalone order, cleanup timer and UX issues found by the owner.
 
 ## Point to continue
 
-1. Verify the Vercel production deployment created by this `deploy:` commit and smoke the large order workspace.
-2. Do not apply pending migrations or run `pullmcp` without separate production backend approval.
-3. On backend approval, apply all pending migrations in repository order.
-4. Run `pullmcp`, verify PM2 and Foundation health on port `3001`.
-5. Run guarded authenticated smoke for the 16 pending original operations, including both archive intents and complete cleanup.
-6. Only after evidence passes, update runtime coverage from `14/30` to `30/30`.
+1. Verify the production Vercel deployment created by this `deploy:` commit.
+2. Smoke `/orders` on mobile: fullscreen geometry, one scroll owner, customer selection, product-row tap, immediate quantity/cart feedback and final create action.
+3. Check Vercel runtime logs for the exact order request and verify the backend returns the canonical create result.
+4. Run standalone order replay/conflict smoke with guarded fixture cleanup.
+5. Run the remaining guarded authenticated smoke inventory and archive lifecycle evidence.
+6. Only after all evidence passes, update runtime coverage from `14/30` to `30/30`.
 7. Then begin NPP-F06: production DB versus repository migrations/functions/policies/grants reconciliation.
