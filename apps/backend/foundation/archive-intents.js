@@ -152,14 +152,19 @@ async function executeArchive(options, context, config, fetchImpl) {
       (targetType === "route_customer" && code === "route_customer_not_found");
 
     if (parentAlreadyAbsent) {
-      const recovered = await recoverCompletedArchive(
-        operation,
-        targetType,
-        targetId,
-        context,
-        config,
-        fetchImpl
-      ).catch(() => null);
+      let recovered;
+      try {
+        recovered = await recoverCompletedArchive(
+          operation,
+          targetType,
+          targetId,
+          context,
+          config,
+          fetchImpl
+        );
+      } catch (recoveryError) {
+        throw normalizeProviderError(recoveryError);
+      }
       if (recovered) return recovered;
     }
 
