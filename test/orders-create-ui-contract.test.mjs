@@ -12,7 +12,7 @@ const serverPage = await readFile(new URL("../src/features/orders/OrdersPage.tsx
 const gateway = await readFile(new URL("../apps/backend/foundation/gateway.js", import.meta.url), "utf8");
 
 test("orders tab exposes the real create-order entry point with proxied sessions", () => {
-  assert.match(page, />\+ Tạo đơn</);
+  assert.match(page, /createLoading \? "Đang tải phiên\.\.\." : "\+ Tạo đơn"/);
   assert.match(page, /<OrderCreateSheet/);
   assert.match(page, /sessions=\{sessions\}/);
   assert.match(page, /async function loadOrderSessions\(customers: RouteCustomerItem\[\]\)/);
