@@ -79,13 +79,14 @@ function terminalPayload(intent, targetType, targetId, fallback = {}) {
   const stored = object(intent.response_payload || intent.responsePayload);
   if (Object.keys(stored).length) return stored;
   const job = object(intent.deleteJob || intent.delete_job);
+  const fallbackPayload = object(fallback);
   return {
-    ...object(fallback),
+    ...fallbackPayload,
     targetType,
     targetId,
-    deleteJobId: text(intent.delete_job_id || intent.deleteJobId || job.id),
+    deleteJobId: text(intent.delete_job_id || intent.deleteJobId || job.id || fallbackPayload.deleteJobId),
     deleted: true,
-    deletedMediaCount: Number(fallback.deletedMediaCount || job.archive_media_count || 0)
+    deletedMediaCount: Number(fallbackPayload.deletedMediaCount ?? job.archive_media_count ?? 0)
   };
 }
 
