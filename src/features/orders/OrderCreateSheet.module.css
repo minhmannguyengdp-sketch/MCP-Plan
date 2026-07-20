@@ -4,7 +4,12 @@
   gap: 10px;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
   font-size: 12px;
+}
+
+.mobileTabs {
+  display: none;
 }
 
 .leftPane,
@@ -12,6 +17,7 @@
   display: grid;
   gap: 10px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .leftPane {
@@ -29,7 +35,7 @@
   gap: 8px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   padding: 10px;
 }
 
@@ -81,8 +87,20 @@
   padding: 3px;
 }
 
+.modeTabs button,
+.mobileTabs button,
+.productRow,
+.customerList button,
+.itemHead > button,
+.quantityControl button,
+.footer button,
+.mobileContinue {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .modeTabs button {
-  min-height: 34px;
+  min-height: 38px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -101,6 +119,12 @@
 .finalGrid {
   display: grid;
   gap: 7px;
+  min-height: 0;
+}
+
+.customerPicker {
+  flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .manualGrid,
@@ -111,6 +135,10 @@
 .hint {
   grid-column: 1 / -1;
   margin: 0;
+}
+
+.mobileContinue {
+  display: none;
 }
 
 .compactField {
@@ -131,7 +159,7 @@
 .compactField textarea,
 .itemControls input {
   width: 100%;
-  min-height: 35px;
+  min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: #fff;
@@ -157,18 +185,22 @@
 
 .customerList {
   display: grid;
+  align-content: start;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
+  min-height: 0;
   max-height: 118px;
-  overflow: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .customerList button {
   display: grid;
   gap: 1px;
   min-width: 0;
+  min-height: 48px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;
@@ -197,10 +229,12 @@
 .customerList .selectedCustomer {
   border-color: var(--brand-strong);
   background: var(--brand-soft, #f3f7ed);
+  box-shadow: inset 0 0 0 1px var(--brand-strong);
 }
 
 .catalogSection,
-.cartSection {
+.cartSection,
+.customerSection {
   overflow: hidden;
 }
 
@@ -213,7 +247,7 @@
 }
 
 .searchToolbar > button {
-  min-height: 35px;
+  min-height: 38px;
   padding-inline: 11px;
   font-size: 11px;
 }
@@ -235,31 +269,65 @@
   text-align: right;
 }
 
+.addedNotice {
+  flex: 0 0 auto;
+  margin: 0;
+  border-radius: 9px;
+  background: #ecfdf3;
+  color: #166534;
+  padding: 7px 9px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
 .productResults {
   display: grid;
   align-content: start;
   gap: 5px;
   min-height: 0;
   flex: 1 1 auto;
-  overflow: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .productResults article {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(96px, auto) auto;
-  align-items: center;
-  gap: 8px;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: #fff;
-  padding: 7px 8px;
+  overflow: hidden;
 }
 
 .productResults article.selectedProduct {
   border-color: var(--brand-strong);
   background: var(--brand-soft, #f3f7ed);
+  box-shadow: inset 0 0 0 1px var(--brand-strong);
+}
+
+.productRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, auto) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 54px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 7px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.productRow:active {
+  transform: scale(0.995);
+}
+
+.productRow:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand-strong) 30%, transparent);
+  outline-offset: -3px;
 }
 
 .productMain {
@@ -304,9 +372,10 @@
   font-weight: 900;
 }
 
-.productResults article > button {
-  min-height: 32px;
-  border: 0;
+.addAction {
+  display: grid;
+  min-height: 38px;
+  place-items: center;
   border-radius: 9px;
   background: var(--brand-strong);
   color: #fff;
@@ -339,9 +408,10 @@
   gap: 6px;
   min-height: 0;
   flex: 1 1 auto;
-  overflow: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .itemList article {
@@ -384,8 +454,8 @@
 
 .itemHead > button {
   display: grid;
-  width: 27px;
-  height: 27px;
+  width: 34px;
+  height: 34px;
   place-items: center;
   flex: 0 0 auto;
   border: 1px solid var(--line);
@@ -417,8 +487,8 @@
 
 .quantityControl {
   display: grid;
-  grid-template-columns: 31px minmax(42px, 1fr) 31px;
-  min-height: 35px;
+  grid-template-columns: 38px minmax(42px, 1fr) 38px;
+  min-height: 38px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -428,12 +498,12 @@
 .quantityControl button {
   border: 0;
   background: var(--surface-subtle, #f7f4ef);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 900;
 }
 
 .quantityControl input {
-  min-height: 33px;
+  min-height: 36px;
   border: 0;
   border-right: 1px solid var(--line);
   border-left: 1px solid var(--line);
@@ -451,6 +521,7 @@
 }
 
 .message {
+  flex: 0 0 auto;
   margin: 0;
   border-radius: 10px;
   background: #fff3ed;
@@ -462,7 +533,7 @@
 
 .footer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -471,11 +542,15 @@
 .footerSummary {
   display: grid;
   gap: 1px;
+  min-width: 0;
 }
 
 .footerSummary small {
+  overflow: hidden;
   color: var(--muted);
   font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .footerSummary strong {
@@ -483,47 +558,208 @@
   font-size: 18px;
 }
 
+.footer button {
+  min-height: 42px;
+}
+
+.cartButton {
+  white-space: nowrap;
+}
+
+.primaryAction[data-ready="false"] {
+  box-shadow: none;
+}
+
 @media (max-width: 900px) {
   .workspace {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 6px;
     height: 100%;
-    overflow-y: auto;
-    padding-right: 2px;
+    overflow: hidden;
+    font-size: 11px;
+  }
+
+  .mobileTabs {
+    display: grid;
+    grid-row: 1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    border-radius: 12px;
+    background: var(--surface-subtle, #f7f4ef);
+    padding: 4px;
+  }
+
+  .mobileTabs button {
+    display: grid;
+    gap: 1px;
+    min-height: 46px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    padding: 5px 4px;
+    font-weight: 900;
+  }
+
+  .mobileTabs button span {
+    font-size: 11px;
+  }
+
+  .mobileTabs button small {
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobileTabs button[data-active="true"] {
+    background: #fff;
+    color: var(--brand-strong);
+    box-shadow: var(--shadow), var(--ring-soft);
   }
 
   .leftPane,
   .rightPane {
-    grid-template-rows: auto;
-    min-height: auto;
+    grid-row: 2;
+    grid-column: 1;
+    min-height: 0;
+    height: 100%;
+    gap: 0;
+    overflow: hidden;
   }
 
+  .leftPane {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .rightPane {
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .workspace[data-mobile-panel="customer"] .catalogSection,
+  .workspace[data-mobile-panel="catalog"] .customerSection,
+  .workspace[data-mobile-panel="cart"] .leftPane,
+  .workspace:not([data-mobile-panel="cart"]) .rightPane {
+    display: none;
+  }
+
+  .customerSection,
   .catalogSection {
-    min-height: 520px;
+    height: 100%;
   }
 
-  .cartSection {
-    min-height: 360px;
-    max-height: 540px;
-  }
-}
-
-@media (max-width: 680px) {
-  .workspace {
-    font-size: 11px;
+  .section {
+    border-radius: 12px;
+    padding: 8px;
   }
 
-  .customerList,
-  .manualGrid,
-  .finalGrid {
+  .customerPicker {
+    min-height: 0;
+  }
+
+  .customerList {
     grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .manualGrid {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 2px;
+  }
+
+  .mobileContinue {
+    display: block;
+    grid-column: 1 / -1;
+    min-height: 44px;
   }
 
   .searchToolbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .filterRow {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .filterRow p {
+    margin: 0 0 8px;
+    text-align: right;
+  }
+
+  .productRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 62px;
+    padding: 8px;
+  }
+
+  .productPrice {
+    align-self: start;
+  }
+
+  .addAction {
+    grid-column: 1 / -1;
+    min-height: 40px;
+  }
+
+  .cartSection {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .finalSection {
+    max-height: 235px;
+    overflow-y: auto;
+  }
+
+  .finalGrid {
     grid-template-columns: 1fr 1fr;
   }
 
-  .searchField {
+  .footer {
+    grid-template-columns: minmax(0, 1fr) 1fr 1fr;
+    gap: 6px;
+  }
+
+  .footerSummary {
     grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .footerSummary strong {
+    font-size: 16px;
+  }
+
+  .cartButton,
+  .primaryAction {
+    min-height: 46px !important;
+  }
+
+  .cartButton {
+    grid-column: 1 / 2;
+  }
+
+  .primaryAction {
+    grid-column: 2 / 4;
+  }
+
+  .desktopClose {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .sectionHead small {
+    display: none;
+  }
+
+  .searchToolbar {
+    grid-template-columns: minmax(0, 1fr) 62px 70px;
   }
 
   .filterRow {
@@ -531,17 +767,11 @@
   }
 
   .filterRow p {
-    grid-column: 1 / -1;
-    margin: 0;
-    text-align: left;
+    display: none;
   }
 
-  .productResults article {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .productResults article > button {
-    grid-column: 2;
+  .productMain strong {
+    font-size: 11px;
   }
 
   .itemControls {
@@ -552,19 +782,5 @@
     grid-column: 1 / -1;
     padding: 0;
     text-align: right;
-  }
-
-  .footer {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .footerSummary {
-    grid-column: 1 / -1;
-    grid-template-columns: 1fr auto;
-    align-items: end;
-  }
-
-  .footerSummary strong {
-    font-size: 16px;
   }
 }
