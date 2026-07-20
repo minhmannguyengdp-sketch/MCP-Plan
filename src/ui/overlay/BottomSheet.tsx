@@ -26,6 +26,13 @@ const backdropStyle: CSSProperties = {
   touchAction: "auto"
 };
 
+const workspaceBackdropStyle: CSSProperties = {
+  ...backdropStyle,
+  alignItems: "stretch",
+  background: "var(--panel)",
+  padding: 0
+};
+
 const defaultSheetStyle: CSSProperties = {
   width: "min(760px, 100%)",
   maxHeight: "min(88dvh, 760px)",
@@ -51,11 +58,16 @@ const compactSheetStyle: CSSProperties = {
 
 const workspaceSheetStyle: CSSProperties = {
   ...defaultSheetStyle,
-  width: "min(1180px, calc(100vw - 24px))",
-  height: "min(94dvh, 920px)",
-  maxHeight: "min(94dvh, 920px)",
-  borderRadius: "20px 20px 14px 14px",
-  boxShadow: "0 -28px 86px rgba(16, 24, 40, 0.32)"
+  width: "100vw",
+  height: "100dvh",
+  maxWidth: "none",
+  maxHeight: "100dvh",
+  gap: 0,
+  border: 0,
+  borderRadius: 0,
+  boxShadow: "none",
+  padding: 0,
+  touchAction: "auto"
 };
 
 const handleStyle: CSSProperties = {
@@ -85,7 +97,10 @@ const compactHeaderStyle: CSSProperties = {
 
 const workspaceHeaderStyle: CSSProperties = {
   ...headerStyle,
-  padding: "10px 16px 9px"
+  minHeight: 58,
+  alignItems: "center",
+  padding: "max(8px, env(safe-area-inset-top)) 12px 8px",
+  background: "var(--panel)"
 };
 
 const bodyStyle: CSSProperties = {
@@ -106,7 +121,8 @@ const compactBodyStyle: CSSProperties = {
 const workspaceBodyStyle: CSSProperties = {
   ...bodyStyle,
   overflow: "hidden",
-  padding: "10px 12px 12px"
+  padding: "8px",
+  touchAction: "auto"
 };
 
 const footerStyle: CSSProperties = {
@@ -123,8 +139,12 @@ const compactFooterStyle: CSSProperties = {
 
 const workspaceFooterStyle: CSSProperties = {
   ...footerStyle,
-  padding: "9px 14px calc(9px + env(safe-area-inset-bottom))"
+  padding: "8px 10px max(8px, env(safe-area-inset-bottom))"
 };
+
+function backdropVariantStyle(variant: BottomSheetProps["variant"]) {
+  return variant === "workspace" ? workspaceBackdropStyle : backdropStyle;
+}
 
 function sheetStyle(variant: BottomSheetProps["variant"]) {
   if (variant === "workspace") return workspaceSheetStyle;
@@ -224,17 +244,18 @@ export function BottomSheet({ title, description, open = false, children, footer
   if (!mounted || !open) return null;
 
   function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) onCloseRef.current?.();
+    if (variant !== "workspace" && event.target === event.currentTarget) onCloseRef.current?.();
   }
 
   const variantClass = variant === "default" ? "bottom-sheet" : `bottom-sheet bottom-sheet-${variant}`;
 
   return createPortal(
-    <div className="sheet-backdrop" role="presentation" onClick={handleBackdropClick} style={backdropStyle}>
+    <div className="sheet-backdrop" role="presentation" onClick={handleBackdropClick} style={backdropVariantStyle(variant)}>
       <section
         ref={sheetRef}
         className={variantClass}
         data-variant={variant}
+        data-fullscreen={variant === "workspace" ? "true" : undefined}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -242,7 +263,7 @@ export function BottomSheet({ title, description, open = false, children, footer
         tabIndex={-1}
         style={sheetStyle(variant)}
       >
-        <div className="sheet-handle" style={handleStyle} />
+        {variant === "workspace" ? null : <div className="sheet-handle" style={handleStyle} />}
         <header className="sheet-header" style={headerVariantStyle(variant)}>
           <div>
             <h2 id={titleId}>{title}</h2>
