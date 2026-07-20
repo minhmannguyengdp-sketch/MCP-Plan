@@ -58,9 +58,10 @@ test("profile media migration enforces the three-photo limit in the database own
 
 test("upload-init passes null session to the canonical RPC for fixed-route profile photos", async () => {
   let rpcBody = null;
+  const rpcPath = ["", "rest", "v1", "rpc", "mcp_prepare_outlet_media_upload"].join("/");
   const fetchImpl = async (input, init = {}) => {
     const url = new URL(typeof input === "string" ? input : input.url || String(input));
-    if (url.pathname === "/rest/v1/rpc/mcp_prepare_outlet_media_upload") {
+    if (url.pathname === rpcPath) {
       rpcBody = JSON.parse(init.body);
       return json({
         id: "media-profile-1",
