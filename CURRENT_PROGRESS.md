@@ -3,14 +3,14 @@
 > Đọc file này trước khi tiếp tục.  
 > Cập nhật: **2026-07-20**  
 > Phase: **A / NPP-F05 / A5.5.2**  
-> Trạng thái: **SOURCE 30/30 — BACKEND DEPLOYED — ORDER MOBILE REGRESSION FIX DEPLOY TRIGGERED — GUARDED LIVE SMOKE PENDING**
+> Trạng thái: **SOURCE 30/30 — BACKEND DEPLOYED — SESSION CLOSE/EXPORT FIX DEPLOY TRIGGERED — GUARDED LIVE SMOKE PENDING**
 
 ## Quyết định hiện tại
 
 - NPP-F05/A5.5.2 đã khép đủ original source inventory `30/30`.
 - Chín migration production từ `20260719190000` đến `20260720224600` đã được áp dụng theo đúng version/tên file trong repository.
 - Backend Foundation đã rollout bằng `pullmcp`; `178/178` tests PASS, environment validation PASS và `F0.2_VPS_SMOKE=PASS` trên port `3001`.
-- PR #74 sửa regression mobile tạo đơn đã merge; commit này phê duyệt Vercel frontend-only rollout cho bản sửa đó.
+- PR #75 sửa đúng caller contract chốt phiên và lifecycle tải báo cáo mobile/PWA đã merge; commit này phê duyệt Vercel frontend-only rollout.
 - Không ghi runtime `30/30` cho đến khi có guarded authenticated execute/replay/conflict/audit smoke và cleanup evidence.
 - Không bắt đầu NPP-F06 hoặc Order Core trước khi chốt lượt production smoke Foundation đang nợ.
 - Không đụng `milktea-backend` hoặc port `3002`.
@@ -32,6 +32,45 @@ Backend source deployed:           30/30
 Guarded runtime evidence pending:  16 operations
 ```
 
+## PR #75 — session close and report download contract
+
+```text
+PR:                    #75 MERGED / CI PASS
+Merge SHA:             67f6457796519fdf0851a66c07ac7f298527991b
+Foundation F0.2:       #616 PASS
+F05 browser smoke:     #161 PASS
+Backend/schema change: NONE
+VPS pullmcp:           NOT REQUIRED
+Vercel deploy:         TRIGGERED BY THIS COMMIT
+```
+
+Production evidence that identified the root causes:
+
+```text
+PATCH /api/backend/mcp-session-actions/:id  400
+GET   /api/mcp-session-report               200
+GET   /api/pdf/session-day                  200 attachment
+GET   /api/backend/exports/mcp-sessions.csv 200 attachment
+```
+
+Fixed boundary:
+
+```text
+raw close fetch without Idempotency-Key
+-> canonical idempotentMutationFetch
+-> exact operation route-session.update
+-> immediate in-flight duplicate guard
+
+passive anchor navigation + immediate popup unmount
+-> owned fetch/response validation
+-> blob + server filename preservation
+-> browser download trigger
+-> popup closes only after success
+-> visible loading and error state
+```
+
+Pending customers are not an artificial close blocker. The canonical session lifecycle owner remains the sole source of close semantics.
+
 ## PR #74 — guarded mobile order review flow
 
 ```text
@@ -40,7 +79,7 @@ Merge SHA:             7848ba8ad03e26d07f02b0b8b056735793ccff5b
 Foundation F0.2:       #612 PASS
 Backend/schema change: NONE
 VPS pullmcp:           NOT REQUIRED
-Vercel deploy:         TRIGGERED BY THIS COMMIT
+Previous Vercel deploy: READY
 ```
 
 Production evidence that identified the regression:
@@ -225,9 +264,9 @@ complete database and R2 fixture cleanup
 ## Point to continue
 
 1. Verify the production Vercel deployment created by this `deploy:` commit.
-2. Smoke `/orders` on the affected mobile device: choose customer, add products, confirm the popup remains open and rows remain readable.
-3. Confirm the first primary click only opens the Đơn review panel and emits no POST.
-4. Confirm a separate `Tạo đơn` click emits one canonical POST and closes only after success.
+2. On the affected mobile/PWA, open the active session and confirm PDF/CSV show loading then download with the server filename.
+3. Chốt the real session only through the owner’s explicit action; confirm one PATCH succeeds and the session switches to readonly.
+4. Do not run an automated destructive close against the owner’s real session.
 5. Review the unintended order created at `14:55:16`; do not delete without owner approval.
 6. Run the remaining guarded authenticated smoke inventory and archive lifecycle evidence.
 7. Only after all evidence passes, update runtime coverage from `14/30` to `30/30`, then begin NPP-F06.
