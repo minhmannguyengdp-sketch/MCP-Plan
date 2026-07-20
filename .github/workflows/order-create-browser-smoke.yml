@@ -1,0 +1,84 @@
+name: Order Create Browser Smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/order-create-browser-smoke.yml"
+      - "src/features/orders/**"
+      - "src/app/orders/**"
+      - "src/app/api/backend/orders/**"
+      - "src/app/api/products/**"
+      - "src/lib/api/**"
+      - "src/ui/overlay/**"
+      - "src/app/order-create-workspace.css"
+      - "test/orders-create-ui-contract.test.mjs"
+      - "test/ui/order-create-**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright@1.54.1
+          npx playwright install --with-deps chromium
+
+      - name: Build Next production app
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3110
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: service:ci:order-create
+          SUPABASE_URL: https://project.example.com
+          SUPABASE_ANON_KEY: ci-publishable-key
+        run: npm run build
+
+      - name: Run normalized order browser smoke
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3110
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: service:ci:order-create
+          SUPABASE_URL: https://project.example.com
+          SUPABASE_ANON_KEY: ci-publishable-key
+          ORDER_CREATE_MOCK_PORT: 3110
+          ORDER_CREATE_APP_BASE: http://127.0.0.1:3001
+          ORDER_CREATE_MOCK_BASE: http://127.0.0.1:3110
+          ORDER_CREATE_RESULTS_DIR: test-results/order-create-smoke
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/order-create-smoke
+          node test/ui/order-create-mock-backend.mjs >test-results/order-create-smoke/mock-backend.log 2>&1 &
+          MOCK_PID=$!
+          npm start -- -p 3001 >test-results/order-create-smoke/next.log 2>&1 &
+          APP_PID=$!
+          cleanup() {
+            kill "$APP_PID" "$MOCK_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          node test/ui/order-create-normalized-browser-smoke.mjs 2>&1 | tee test-results/order-create-smoke/browser-smoke.log
+
+      - name: Upload browser smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: order-create-browser-smoke-evidence
+          path: |
+            test-results/order-create-smoke
+            .next/static/css
+          if-no-files-found: error
