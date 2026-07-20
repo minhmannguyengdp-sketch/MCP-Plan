@@ -11,6 +11,7 @@ import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 import { OrderCreateSheet } from "./OrderCreateSheet";
+import type { OrderSessionOption } from "./order-create.types";
 import styles from "./OrdersClientPage.module.css";
 
 const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
@@ -98,10 +99,12 @@ function OrderDetailSheet({ order, onClose }: { order: OrderDto | null; onClose:
 
 export function OrdersClientPage({
   ordersResult,
-  customers
+  customers,
+  sessions
 }: {
   ordersResult: ApiResult<OrderDto[]>;
   customers: RouteCustomerItem[];
+  sessions: OrderSessionOption[];
 }) {
   const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -128,6 +131,7 @@ export function OrdersClientPage({
       <OrderCreateSheet
         open={createOpen}
         customers={customers}
+        sessions={sessions}
         onClose={() => setCreateOpen(false)}
         onCreated={(orderCode) => {
           setCreateOpen(false);
