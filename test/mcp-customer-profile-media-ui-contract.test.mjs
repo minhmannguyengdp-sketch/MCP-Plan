@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const cardPath = new URL("../src/features/mcp/McpLineCard.tsx", import.meta.url);
 const cardCssPath = new URL("../src/features/mcp/McpLineCard.module.css", import.meta.url);
 const profilePath = new URL("../src/features/mcp/McpCustomerProfileSheet.tsx", import.meta.url);
+const managerPath = new URL("../src/features/mcp/OutletPhotoManager.tsx", import.meta.url);
 const masterPath = new URL("../src/features/mcp/McpMasterView.tsx", import.meta.url);
 const routePreviewPath = new URL("../src/features/mcp/RouteCustomerMediaPreview.tsx", import.meta.url);
 const readOwnerPath = new URL("../apps/backend/foundation/outlet-media-read.js", import.meta.url);
@@ -32,23 +33,26 @@ test("customer card keeps seven quick actions in two rows beside an independent 
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.checkin\s*\{[\s\S]*?width:\s*68px;/);
 });
 
-test("customer profile exposes full business details and private photo management", async () => {
-  const [profile, readOwner] = await Promise.all([
+test("customer profile exposes full business details and shared private photo management", async () => {
+  const [profile, manager, readOwner] = await Promise.all([
     readFile(profilePath, "utf8"),
+    readFile(managerPath, "utf8"),
     readFile(readOwnerPath, "utf8")
   ]);
 
   assert.match(profile, /Thông tin điểm bán/);
-  assert.match(profile, /Ảnh điểm bán/);
   assert.match(profile, /Điện thoại/);
   assert.match(profile, /Địa chỉ/);
   assert.match(profile, /Trạng thái ghé/);
   assert.match(profile, /Check-in/);
   assert.match(profile, /GPS điểm bán/);
   assert.match(profile, /Kết quả trong phiên/);
-  assert.match(profile, /\/api\/backend\/outlet-media\/customer-profile/);
-  assert.match(profile, /\/api\/backend\/outlet-media\/delete/);
-  assert.match(profile, /uploadOutletPhoto/);
+  assert.match(profile, /<OutletPhotoManager/);
+
+  assert.match(manager, /Ảnh điểm bán/);
+  assert.match(manager, /\/api\/backend\/outlet-media\/customer-profile/);
+  assert.match(manager, /\/api\/backend\/outlet-media\/delete/);
+  assert.match(manager, /uploadOutletPhoto/);
 
   assert.match(readOwner, /presignR2Get/);
   assert.match(readOwner, /status=eq\.ready/);
