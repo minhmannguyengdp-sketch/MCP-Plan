@@ -9,21 +9,18 @@ const workspaceStyles = await readFile(new URL("../src/app/order-create-workspac
 const bottomSheet = await readFile(new URL("../src/ui/overlay/BottomSheet.tsx", import.meta.url), "utf8");
 const proxy = await readFile(new URL("../src/app/api/backend/orders/route.ts", import.meta.url), "utf8");
 const serverPage = await readFile(new URL("../src/features/orders/OrdersPage.tsx", import.meta.url), "utf8");
-const sessionLoader = await readFile(new URL("../src/features/orders/load-order-session-options.ts", import.meta.url), "utf8");
 const gateway = await readFile(new URL("../apps/backend/foundation/gateway.js", import.meta.url), "utf8");
 
-test("orders tab exposes the real create-order entry point with backend-owned sessions", () => {
+test("orders tab exposes the real create-order entry point with proxied sessions", () => {
   assert.match(page, />\+ Tạo đơn</);
   assert.match(page, /<OrderCreateSheet/);
   assert.match(page, /sessions=\{sessions\}/);
+  assert.match(page, /async function loadOrderSessions\(customers: RouteCustomerItem\[\]\)/);
+  assert.match(page, /new URLSearchParams\(\{ routeId \}\)/);
+  assert.match(page, /`\/api\/backend\/mcp-settings\/session-status\?\$\{query\.toString\(\)\}`/);
+  assert.match(page, /Form chưa được mở để tránh hiển thị sai khách hoặc trộn khách giữa các tuyến/);
   assert.match(serverPage, /api\.getRouteCustomersData\(\)/);
-  assert.match(serverPage, /loadOrderSessionOptions\(customers\.map\(\(customer\) => customer\.routeId\)\)/);
-  assert.doesNotMatch(serverPage, /loadMcpSessions|supabase/i);
-  assert.match(sessionLoader, /backendApiBaseUrl/);
-  assert.match(sessionLoader, /backendApiRequestHeaders/);
-  assert.match(sessionLoader, /"\/api\/mcp-settings\/session-status"/);
-  assert.match(sessionLoader, /target\.searchParams\.set\("routeId", routeId\)/);
-  assert.doesNotMatch(sessionLoader, /SUPABASE|restRows|service_role/i);
+  assert.doesNotMatch(serverPage, /session-status|loadMcpSessions|supabase/i);
 });
 
 test("customer step is session-first, single-select and keeps manual customer entry", () => {
