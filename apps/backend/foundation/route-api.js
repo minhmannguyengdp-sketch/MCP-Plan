@@ -1,3 +1,4 @@
+import { archiveRoute, archiveRouteCustomer } from "./archive-intents.js";
 import { unwrapIdempotentMutationResult } from "./idempotency.js";
 import { updateRouteCustomer } from "./route-customer-update-mutations.js";
 import { createRoute, updateRoute } from "./route-mutations.js";
@@ -65,12 +66,38 @@ export async function handleRouteApi(req, url, context, config, { fetchImpl = fe
     );
   }
 
+  const routeArchiveMatch = pathname.match(/^\/api\/routes\/([^/]+)\/archive$/);
+  if (method === "POST" && routeArchiveMatch) {
+    return mutationResponse(
+      await archiveRoute(
+        decodePathId(routeArchiveMatch[1], "invalid_route_id"),
+        context,
+        config,
+        { fetchImpl }
+      ),
+      200
+    );
+  }
+
   const routeMatch = pathname.match(/^\/api\/routes\/([^/]+)$/);
   if (method === "PATCH" && routeMatch) {
     return mutationResponse(
       await updateRoute(
         decodePathId(routeMatch[1], "invalid_route_id"),
         await readJsonBody(req),
+        context,
+        config,
+        { fetchImpl }
+      ),
+      200
+    );
+  }
+
+  const routeCustomerArchiveMatch = pathname.match(/^\/api\/route-customers\/([^/]+)\/archive$/);
+  if (method === "POST" && routeCustomerArchiveMatch) {
+    return mutationResponse(
+      await archiveRouteCustomer(
+        decodePathId(routeCustomerArchiveMatch[1], "invalid_route_customer_id"),
         context,
         config,
         { fetchImpl }
