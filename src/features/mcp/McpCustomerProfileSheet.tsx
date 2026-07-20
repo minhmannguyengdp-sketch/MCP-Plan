@@ -1,19 +1,11 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import type { McpDayLine } from "@/features/mcp-day/mcp-day.types";
-import {
-  MAX_OUTLET_PHOTOS,
-  buildOutletPhotoDrafts,
-  outletMediaData,
-  outletMediaError,
-  outletMediaJson,
-  uploadOutletPhoto,
-  type OutletPhotoDraft
-} from "./outlet-media-client";
+import { outletMediaData, outletMediaError } from "./outlet-media-client";
 import type { McpCustomerProfileFocus } from "./mcp-customer-profile-events";
+import { OutletPhotoManager } from "./OutletPhotoManager";
 import styles from "./McpCustomerProfileSheet.module.css";
 
 type CustomerGeo = {
@@ -42,28 +34,8 @@ type CustomerProfile = {
   syncStatus?: string | null;
 };
 
-type CustomerMedia = {
-  id: string;
-  sessionId?: string | null;
-  mediaType: string;
-  mimeType?: string | null;
-  byteSize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  status: string;
-  capturedBy?: string | null;
-  capturedAt?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-  viewUrl: string;
-  viewExpiresAt: string;
-};
-
 type ProfilePayload = {
   customer: CustomerProfile;
-  media: CustomerMedia[];
-  mediaLimit: number;
-  mediaCount: number;
 };
 
 function formatDateTime(value?: string | null) {
@@ -125,31 +97,12 @@ export function McpCustomerProfileSheet({
   onClose: () => void;
   onOpenActions?: () => void;
 }) {
-  const router = useRouter();
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const draftsRef = useRef<OutletPhotoDraft[]>([]);
   const [profile, setProfile] = useState<ProfilePayload | null>(null);
-  const [drafts, setDrafts] = useState<OutletPhotoDraft[]>([]);
   const [loading, setLoading] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-
   const routeCustomerId = line?.routeCustomerId || "";
-  const busy = loading || processing || saving || Boolean(deletingId);
-
-  useEffect(() => {
-    draftsRef.current = drafts;
-  }, [drafts]);
-
-  useEffect(
-    () => () => {
-      for (const photo of draftsRef.current) URL.revokeObjectURL(photo.previewUrl);
-    },
-    []
-  );
+  const busy = loading || mediaBusy;
 
   async function loadProfile() {
     if (!routeCustomerId) {
@@ -182,100 +135,10 @@ export function McpCustomerProfileSheet({
 
   useEffect(() => {
     if (open) return;
-    for (const photo of draftsRef.current) URL.revokeObjectURL(photo.previewUrl);
-    setDrafts([]);
     setProfile(null);
     setMessage(null);
+    setMediaBusy(false);
   }, [open]);
-
-  async function addSelectedFiles(files: FileList | null) {
-    if (!files?.length) return;
-    const readyCount = profile?.media.length || 0;
-    const available = MAX_OUTLET_PHOTOS - readyCount - drafts.length;
-    if (available <= 0) {
-      setMessage(`Điểm bán chỉ lưu tối đa ${MAX_OUTLET_PHOTOS} ảnh.`);
-      return;
-    }
-    setProcessing(true);
-    setMessage(null);
-    try {
-      const additions = await buildOutletPhotoDrafts(files, available);
-      setDrafts((current) => [...current, ...additions]);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Không xử lý được ảnh");
-    } finally {
-      setProcessing(false);
-      if (cameraInputRef.current) cameraInputRef.current.value = "";
-      if (galleryInputRef.current) galleryInputRef.current.value = "";
-    }
-  }
-
-  function removeDraft(clientUploadId: string) {
-    setDrafts((current) => {
-      const target = current.find((photo) => photo.clientUploadId === clientUploadId);
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      return current.filter((photo) => photo.clientUploadId !== clientUploadId);
-    });
-  }
-
-  async function savePhotos() {
-    if (!routeCustomerId) return;
-    const pending = drafts.filter((photo) => photo.status !== "done");
-    if (!pending.length) return;
-    setSaving(true);
-    setMessage(null);
-    const succeeded = new Set<string>();
-    const failed = new Set<string>();
-    for (const photo of pending) {
-      setDrafts((current) =>
-        current.map((item) =>
-          item.clientUploadId === photo.clientUploadId ? { ...item, status: "uploading" } : item
-        )
-      );
-      try {
-        await uploadOutletPhoto(photo, { routeCustomerId, sessionId });
-        succeeded.add(photo.clientUploadId);
-      } catch {
-        failed.add(photo.clientUploadId);
-      }
-    }
-
-    setDrafts((current) => {
-      for (const photo of current) {
-        if (succeeded.has(photo.clientUploadId)) URL.revokeObjectURL(photo.previewUrl);
-      }
-      return current
-        .filter((photo) => !succeeded.has(photo.clientUploadId))
-        .map((photo) =>
-          failed.has(photo.clientUploadId) ? { ...photo, status: "error" as const } : photo
-        );
-    });
-
-    await loadProfile();
-    router.refresh();
-    setSaving(false);
-    setMessage(
-      failed.size
-        ? `Đã tải ${succeeded.size} ảnh. Còn ${failed.size} ảnh lỗi, bấm Thử lại.`
-        : `Đã bổ sung ${succeeded.size} ảnh cho điểm bán.`
-    );
-  }
-
-  async function deletePhoto(mediaId: string) {
-    if (!window.confirm("Xóa ảnh này khỏi điểm bán? Ảnh trên R2 cũng sẽ được xóa.")) return;
-    setDeletingId(mediaId);
-    setMessage(null);
-    try {
-      await outletMediaJson("/api/backend/outlet-media/delete", { mediaId });
-      await loadProfile();
-      router.refresh();
-      setMessage("Đã xóa ảnh điểm bán.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Không xóa được ảnh");
-    } finally {
-      setDeletingId(null);
-    }
-  }
 
   function close() {
     if (busy) return;
@@ -289,116 +152,15 @@ export function McpCustomerProfileSheet({
   }
 
   const customer = profile?.customer;
-  const media = profile?.media || [];
-  const limit = profile?.mediaLimit || MAX_OUTLET_PHOTOS;
-  const remaining = Math.max(0, limit - media.length - drafts.length);
   const mapLink = customer ? mapsUrl(customer) : null;
-
   const mediaSection = (
-    <section className={styles.section} data-customer-media-section="true">
-      <div className={styles.sectionHead}>
-        <div>
-          <strong>Ảnh điểm bán</strong>
-          <small>{media.length}/{limit} ảnh đã lưu · URL xem ảnh tự hết hạn sau 5 phút</small>
-        </div>
-        <span className={media.length ? styles.readyBadge : styles.missingBadge}>
-          {media.length ? `${media.length} ảnh` : "Chưa có ảnh"}
-        </span>
-      </div>
-
-      {media.length ? (
-        <div className={styles.mediaGrid}>
-          {media.map((item, index) => (
-            <figure className={styles.mediaCard} key={item.id}>
-              <a href={item.viewUrl} target="_blank" rel="noreferrer" aria-label={`Mở ảnh điểm bán ${index + 1}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.viewUrl} alt={`Ảnh điểm bán ${index + 1}`} />
-              </a>
-              <figcaption>
-                <span>{formatDateTime(item.capturedAt)}</span>
-                <button
-                  type="button"
-                  onClick={() => void deletePhoto(item.id)}
-                  disabled={busy}
-                  aria-label={`Xóa ảnh điểm bán ${index + 1}`}
-                >
-                  {deletingId === item.id ? "Đang xóa" : "Xóa"}
-                </button>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      ) : loading ? (
-        <div className={styles.empty}>Đang tải ảnh…</div>
-      ) : (
-        <div className={styles.empty}>Khách này chưa có ảnh cửa hàng.</div>
-      )}
-
-      {drafts.length ? (
-        <div className={styles.draftGrid}>
-          {drafts.map((photo) => (
-            <figure className={styles.draftCard} key={photo.clientUploadId}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo.previewUrl} alt="Ảnh điểm bán đang chờ tải" />
-              <figcaption>
-                <span>
-                  {photo.status === "uploading"
-                    ? "Đang tải"
-                    : photo.status === "error"
-                      ? "Lỗi tải"
-                      : "Chờ tải"}
-                </span>
-                {photo.status !== "uploading" ? (
-                  <button type="button" onClick={() => removeDraft(photo.clientUploadId)} disabled={busy}>
-                    Bỏ
-                  </button>
-                ) : null}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      ) : null}
-
-      <div className={styles.mediaActions}>
-        <button
-          className="button"
-          type="button"
-          onClick={() => cameraInputRef.current?.click()}
-          disabled={busy || remaining <= 0}
-        >
-          📷 Chụp
-        </button>
-        <button
-          className="button"
-          type="button"
-          onClick={() => galleryInputRef.current?.click()}
-          disabled={busy || remaining <= 0}
-        >
-          ▧ Thư viện
-        </button>
-        {drafts.length ? (
-          <button className="button primary" type="button" onClick={() => void savePhotos()} disabled={busy}>
-            {saving ? "Đang tải…" : drafts.some((photo) => photo.status === "error") ? "Thử lại" : `Lưu ${drafts.length} ảnh`}
-          </button>
-        ) : null}
-      </div>
-      <input
-        ref={cameraInputRef}
-        className={styles.fileInput}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={(event: ChangeEvent<HTMLInputElement>) => void addSelectedFiles(event.target.files)}
-      />
-      <input
-        ref={galleryInputRef}
-        className={styles.fileInput}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={(event: ChangeEvent<HTMLInputElement>) => void addSelectedFiles(event.target.files)}
-      />
-    </section>
+    <OutletPhotoManager
+      routeCustomerId={routeCustomerId}
+      sessionId={sessionId}
+      active={open && Boolean(routeCustomerId)}
+      onBusyChange={setMediaBusy}
+      onChanged={loadProfile}
+    />
   );
 
   const detailSection = (
@@ -447,13 +209,9 @@ export function McpCustomerProfileSheet({
       footer={
         <div className={styles.footer}>
           {onOpenActions ? (
-            <button className="button primary" type="button" onClick={openActions} disabled={busy}>
-              Thao tác bán hàng
-            </button>
+            <button className="button primary" type="button" onClick={openActions} disabled={busy}>Thao tác bán hàng</button>
           ) : null}
-          <button className="button" type="button" onClick={close} disabled={busy}>
-            Đóng
-          </button>
+          <button className="button" type="button" onClick={close} disabled={busy}>Đóng</button>
         </div>
       }
     >
