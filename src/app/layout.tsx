@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { InteractionFeedbackProvider } from "@/ui/feedback/InteractionFeedbackProvider";
 import "./globals.css";
 import "./mobile.css";
+import "./order-create-workspace.css";
 import "./order-popups.css";
 import "./outlet-profile.css";
 import "./polish.css";
