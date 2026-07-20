@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const page = await readFile(new URL("../src/features/orders/OrdersClientPage.tsx", import.meta.url), "utf8");
 const sheet = await readFile(new URL("../src/features/orders/OrderCreateSheet.tsx", import.meta.url), "utf8");
 const sheetStyles = await readFile(new URL("../src/features/orders/OrderCreateSheet.module.css", import.meta.url), "utf8");
+const sheetFixStyles = await readFile(new URL("../src/features/orders/OrderCreateSheet.mobile-fix.module.css", import.meta.url), "utf8");
 const bottomSheet = await readFile(new URL("../src/ui/overlay/BottomSheet.tsx", import.meta.url), "utf8");
 const proxy = await readFile(new URL("../src/app/api/backend/orders/route.ts", import.meta.url), "utf8");
 const serverPage = await readFile(new URL("../src/features/orders/OrdersPage.tsx", import.meta.url), "utf8");
@@ -35,38 +36,58 @@ test("create-order workspace is true fullscreen without the legacy drag handle",
   assert.match(bottomSheet, /padding: 0/);
   assert.match(bottomSheet, /variant === "workspace" \? null : <div className="sheet-handle"/);
   assert.match(bottomSheet, /data-fullscreen=/);
+  assert.match(sheetFixStyles, /:global\(\.bottom-sheet-workspace\)[\s\S]*height: 100% !important/);
+  assert.match(sheetFixStyles, /:global\(\.bottom-sheet-workspace \.sheet-body\)[\s\S]*overflow: hidden !important/);
 });
 
-test("mobile order flow exposes customer, catalog and cart as explicit panels", () => {
+test("mobile order flow exposes customer, catalog and cart as explicit guarded panels", () => {
   assert.match(sheet, /type MobilePanel = "customer" \| "catalog" \| "cart"/);
   assert.match(sheet, /data-mobile-panel=\{mobilePanel\}/);
-  assert.match(sheet, /className=\{styles\.mobileTabs\}/);
+  assert.match(sheet, /fixStyles\.mobileTabs/);
   assert.match(sheet, />1\. Khách</);
   assert.match(sheet, />2\. Sản phẩm</);
   assert.match(sheet, />3\. Đơn</);
+  assert.match(sheet, /disabled=\{!customerReady \|\| saving\}/);
+  assert.match(sheet, /disabled=\{!customerReady \|\| items\.length === 0 \|\| saving\}/);
   assert.match(sheetStyles, /grid-template-rows: auto minmax\(0, 1fr\)/);
   assert.match(sheetStyles, /workspace\[data-mobile-panel="customer"\] \.catalogSection/);
   assert.match(sheetStyles, /workspace:not\(\[data-mobile-panel="cart"\]\) \.rightPane/);
   assert.doesNotMatch(sheetStyles, /\.workspace \{[\s\S]{0,220}overflow-y: auto/);
 });
 
-test("product selection uses a full-row touch target and immediate visible feedback", () => {
-  assert.match(sheet, /className=\{styles\.productRow\}/);
-  assert.match(sheet, /onClick=\{\(\) => addProduct\(product\)\}/);
+test("product selection is add-only, full-row and visibly confirmed", () => {
+  assert.match(sheet, /styles\.productRow/);
+  assert.match(sheet, /fixStyles\.productRow/);
+  assert.match(sheet, /event\.preventDefault\(\)/);
+  assert.match(sheet, /event\.stopPropagation\(\)/);
+  assert.match(sheet, /addProduct\(product\)/);
   assert.match(sheet, /aria-label=\{`Thêm \$\{product\.name\} vào đơn`\}/);
   assert.match(sheet, /setAddedNotice\(`/);
   assert.match(sheet, /aria-live="assertive"/);
   assert.match(sheet, /Trong đơn: \{selectedQuantity\}/);
   assert.match(sheetStyles, /\.productRow \{[\s\S]*min-height: 54px/);
+  assert.match(sheetFixStyles, /grid-auto-rows: max-content/);
+  assert.match(sheetFixStyles, /\.productCard \{[\s\S]*min-height: 62px/);
   assert.match(sheetStyles, /touch-action: manipulation/);
 });
 
-test("primary create action routes users to missing business prerequisites", () => {
+test("primary create action requires a separate cart review gesture", () => {
   assert.match(sheet, /function runPrimaryAction\(\)/);
   assert.match(sheet, /setMobilePanel\("customer"\)/);
   assert.match(sheet, /setMobilePanel\("catalog"\)/);
-  assert.match(sheet, /const primaryLabel = !customerReady \? "Chọn khách" : items\.length === 0 \? "Thêm sản phẩm" : "Tạo đơn"/);
+  assert.match(sheet, /if \(mobilePanel !== "cart"\) \{[\s\S]*setMobilePanel\("cart"\);[\s\S]*return;/);
+  assert.doesNotMatch(sheet, /setMobilePanel\("cart"\);\s*void submit\(\);/);
+  assert.match(sheet, /mobilePanel === "cart"[\s\S]*\? "Tạo đơn"[\s\S]*: "Xem lại đơn"/);
+  assert.match(sheet, /submitInFlightRef\.current/);
   assert.match(sheet, /Xem đơn \(\{totalQuantity\}\)/);
+});
+
+test("unfinished drafts are protected and the mobile footer stays visible", () => {
+  assert.match(sheet, /function requestClose\(\)/);
+  assert.match(sheet, /window\.confirm\("Đơn đang nhập chưa lưu\. Đóng và bỏ nội dung này\?"\)/);
+  assert.match(sheet, /onClose=\{requestClose\}/);
+  assert.match(sheetFixStyles, /\.cartButton \{[\s\S]*display: none !important/);
+  assert.match(sheetFixStyles, /\.primaryAction \{[\s\S]*grid-column: 2 !important/);
 });
 
 test("product selection is realtime, filterable and keeps a visible cart", () => {
