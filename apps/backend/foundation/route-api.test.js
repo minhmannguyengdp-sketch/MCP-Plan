@@ -70,19 +70,42 @@ test("route API intercepts route and route-customer writes before legacy fallbac
   }
 });
 
-test("archive routes are not claimed by the DB-only route API owner", async () => {
-  for (const path of [
-    "/api/routes/route-1/archive",
-    "/api/route-customers/route-customer-1/archive"
+test("archive routes are claimed by the cross-system archive intent owner", async () => {
+  for (const item of [
+    { path: "/api/routes/route-1/archive", targetId: "route-1" },
+    { path: "/api/route-customers/route-customer-1/archive", targetId: "route-customer-1" }
   ]) {
+    const calls = [];
+    const fetchImpl = async (url, init) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({
+        mode: "replay",
+        intent: {
+          id: "mai-replay",
+          status: "completed",
+          response_payload: {
+            targetId: item.targetId,
+            deleteJobId: "msdj-replay",
+            deleted: true,
+            deletedMediaCount: 1
+          }
+        }
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+
     const result = await handleRouteApi(
-      request("POST", {}),
-      new URL(`http://local${path}`),
+      request("POST"),
+      new URL(`http://local${item.path}`),
       context,
       config,
-      { fetchImpl: async () => { throw new Error("provider_must_not_be_called"); } }
+      { fetchImpl }
     );
-    assert.equal(result, null, path);
+
+    assert.equal(result.statusCode, 200, item.path);
+    assert.equal(result.payload.data.targetId, item.targetId, item.path);
+    assert.equal(result.payload.meta.idempotency.replayed, true, item.path);
+    assert.equal(calls.length, 1, item.path);
+    assert.equal(new URL(calls[0].url).pathname.split("/").at(-1), "mcp_claim_archive_intent", item.path);
   }
 });
 
