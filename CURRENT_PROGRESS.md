@@ -3,12 +3,13 @@
 > Đọc file này trước khi tiếp tục.  
 > Cập nhật: **2026-07-20**  
 > Phase: **A / NPP-F05 / A5.5.2**  
-> Trạng thái: **SOURCE 30/30 — RUNTIME 14/30 — PRODUCTION ROLLOUT PENDING**
+> Trạng thái: **SOURCE 30/30 — RUNTIME 14/30 — VERCEL UI DEPLOY TRIGGERED — BACKEND ROLLOUT PENDING**
 
 ## Quyết định hiện tại
 
 - NPP-F05/A5.5.2 đã khép đủ original source inventory `30/30`.
-- Không ghi runtime PASS cho PR #64–#70 khi chưa rollout migration/backend và có authenticated smoke/cleanup evidence.
+- Không ghi runtime PASS cho PR #64–#71 khi chưa rollout migration/backend và có authenticated smoke/cleanup evidence.
+- Đã có phê duyệt riêng cho Vercel frontend-only rollout của PR #72; không suy diễn thành phê duyệt migration hoặc VPS `pullmcp`.
 - Chưa bắt đầu NPP-F06 hoặc Order Core trước khi chốt lượt rollout Foundation đang nợ.
 - Hoãn mobile production test/fix MCP sang pass riêng; không hủy các live-smoke gate.
 - Không đụng `milktea-backend` hoặc port `3002`.
@@ -28,19 +29,44 @@ Original routes remaining:          0
 Runtime verified:                  14/30
 ```
 
-## PR #70 — S2c cross-system archive intents
+## PR #72 — large searchable order workspace
 
 ```text
-PR:                    #70 MERGED / SOURCE PASS
-Merge SHA:             a0de1b15eeb84b12d1fcb5f7bc1f3ce789a40cc0
-Foundation F0.2:       #592 PASS
-F05 Browser Smoke:     #156 PASS
+PR:                    #72 MERGED / CI PASS
+Merge SHA:             757cab25c5348bf96a2cc1410ca0a0677c454970
+Foundation F0.2:       #600 PASS
+Backend/schema change: NONE
+VPS pullmcp:           NOT REQUIRED FOR THIS UI SLICE
+Vercel deploy:         TRIGGERED BY THIS COMMIT
+```
+
+UX boundary:
+
+```text
+workspace sheet up to 1180px / 94dvh
+-> desktop two-column catalog + live cart
+-> realtime product search after 250ms
+-> category and brand filters
+-> no 30-row UI cap
+-> compact text with touchable controls
+-> near-full-screen single-column mobile fallback
+```
+
+## PR #70/#71 — S2c cross-system archive intents
+
+```text
+PR #70:                MERGED / SOURCE PASS
+PR #70 merge SHA:      a0de1b15eeb84b12d1fcb5f7bc1f3ce789a40cc0
+PR #71 concurrency:    MERGED / SOURCE PASS
+PR #71 merge SHA:      ec355b7118aca66d086d68a0b3b0326b4f26ba06
+Foundation F0.2:       PASS
 Supabase migrations:   20260720223000_add_archive_intents.sql
                        20260720223500_link_archive_intent_delete_job_terminal.sql
+                       20260720224500_lock_archive_intent_claims.sql
+                       20260720224600_preserve_archive_terminal_failure.sql
 Migration applied:     NO
 VPS pullmcp:           NO
 Production smoke:      NO
-Vercel deploy:         NO
 ```
 
 Public operations closed:
@@ -66,10 +92,12 @@ Guarantees:
 - same key/same payload replays one persisted terminal result;
 - same key with another target or payload conflicts;
 - one target cannot create competing storage-delete jobs;
-- intent and newly claimed delete job are linked in the same PostgreSQL job transaction;
+- claim races are serialized by idempotency key then target;
+- intent and delete-job claims remain separate RPC transactions, with persisted re-read across the gap;
 - the archive owner reuses `outlet-media.js`; it does not duplicate R2 deletion logic;
 - R2 failure blocks parent hard-delete and leaves work reclaimable;
 - a cleanup-completed job finalizes its linked intent and audit;
+- failed terminal state remains stable until an explicit retry claim;
 - browser roles cannot mutate intent/job persistence directly;
 - no PostgreSQL/R2 fake transaction and no object key/provider detail in the public result.
 
@@ -101,7 +129,7 @@ Migration: 20260719200000_a5_5_2_session_lifecycle_idempotency.sql
 
 ## Production debt still pending
 
-PR #64–#70 source PASS is not production runtime evidence. The rollout must use temporary guarded fixtures only and include:
+PR #64–#71 source PASS is not production runtime evidence. The rollout must use temporary guarded fixtures only and include:
 
 ```text
 ordered pending migrations
@@ -121,9 +149,10 @@ MCP/R2/mobile test still pending: AppShell/feedback mobile, R2 create/view/delet
 
 ## Point to continue
 
-1. Do not deploy automatically; wait for explicit production rollout approval.
-2. On approval, apply all pending migrations in repository order.
-3. Run `pullmcp`, verify PM2 and Foundation health on port `3001`.
-4. Run guarded authenticated smoke for the 16 pending original operations, including both archive intents and complete cleanup.
-5. Only after evidence passes, update runtime coverage from `14/30` to `30/30`.
-6. Then begin NPP-F06: production DB versus repository migrations/functions/policies/grants reconciliation.
+1. Verify the Vercel production deployment created by this `deploy:` commit and smoke the large order workspace.
+2. Do not apply pending migrations or run `pullmcp` without separate production backend approval.
+3. On backend approval, apply all pending migrations in repository order.
+4. Run `pullmcp`, verify PM2 and Foundation health on port `3001`.
+5. Run guarded authenticated smoke for the 16 pending original operations, including both archive intents and complete cleanup.
+6. Only after evidence passes, update runtime coverage from `14/30` to `30/30`.
+7. Then begin NPP-F06: production DB versus repository migrations/functions/policies/grants reconciliation.
