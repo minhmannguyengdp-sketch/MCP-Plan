@@ -85,7 +85,7 @@ export function RouteCustomerMediaPreview({
       <div className={styles.sectionHead}>
         <div>
           <strong>Ảnh điểm bán</strong>
-          <small>Ảnh riêng tư của khách · bấm ảnh để xem lớn</small>
+          <small>Ảnh riêng tư của khách · vuốt ngang hoặc bấm ảnh để xem lớn</small>
         </div>
         <span className={media.length ? styles.readyBadge : styles.missingBadge}>
           {loading ? "Đang tải" : media.length ? `${media.length} ảnh` : "Chưa có ảnh"}
@@ -102,9 +102,9 @@ export function RouteCustomerMediaPreview({
           </button>
         </>
       ) : media.length ? (
-        <div className={styles.mediaGrid}>
+        <div className={styles.previewScroller} data-route-customer-media-gallery="true">
           {media.map((item, index) => (
-            <figure className={styles.mediaCard} key={item.id}>
+            <figure className={styles.previewCard} key={item.id}>
               <a
                 href={item.viewUrl}
                 target="_blank"
@@ -116,6 +116,7 @@ export function RouteCustomerMediaPreview({
               </a>
               <figcaption>
                 <span>{formatCapturedAt(item.capturedAt)}</span>
+                <strong>{index + 1}/{media.length}</strong>
               </figcaption>
             </figure>
           ))}

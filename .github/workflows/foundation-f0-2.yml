@@ -52,6 +52,9 @@ jobs:
       - name: Verify route master caller contract
         run: npm run test:route-master-caller
 
+      - name: Verify route customer photo contracts
+        run: npm run test:route-customer-photo
+
       - name: Verify retired route settings mutation boundary
         run: node --test test/a5-5-2-route-settings-caller-contract.test.mjs
 

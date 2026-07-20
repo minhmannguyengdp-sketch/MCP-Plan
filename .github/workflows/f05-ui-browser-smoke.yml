@@ -27,6 +27,7 @@ on:
       - "test/ui/mcp-settings-dialog-browser-smoke.mjs"
       - "test/ui/interaction-feedback-**"
       - "test/ui/app-shell-browser-acceptance-smoke.mjs"
+      - "test/ui/route-customer-photo-management-browser-smoke.mjs"
   workflow_dispatch:
 
 permissions:
@@ -88,6 +89,7 @@ jobs:
           node test/ui/interaction-feedback-browser-smoke.mjs 2>&1 | tee test-results/f05-ui-smoke/interaction-feedback-smoke.log
           node test/ui/app-shell-browser-acceptance-smoke.mjs 2>&1 | tee test-results/f05-ui-smoke/app-shell-browser-acceptance.log
           node test/ui/mcp-settings-dialog-browser-smoke.mjs 2>&1 | tee test-results/f05-ui-smoke/mcp-settings-dialog.log
+          node test/ui/route-customer-photo-management-browser-smoke.mjs 2>&1 | tee test-results/f05-ui-smoke/route-customer-photo-management.log
 
       - name: Upload browser smoke evidence
         if: always()

@@ -209,7 +209,6 @@ export async function prepareOutletMediaUpload(body, context, config, { fetchImp
   const geoAccuracy = number(body.geoAccuracy ?? body.geo_accuracy);
 
   if (!routeCustomerId) fail("route_customer_id_required");
-  if (!sessionId) fail("session_id_required");
   if (!clientUploadId) fail("client_upload_id_required");
   if (!ALLOWED_MIME_TYPES.has(mimeType)) fail("invalid_media_mime_type");
   if (!Number.isInteger(byteSize) || byteSize < 1 || byteSize > MAX_IMAGE_BYTES) fail("invalid_media_byte_size");
@@ -232,7 +231,6 @@ export async function prepareOutletMediaUpload(body, context, config, { fetchImp
     const signed = presignR2Put(requireR2(config), media.object_key, mimeType);
     return {
       mediaId: media.id,
-      objectKey: media.object_key,
       mimeType: media.mime_type,
       status: media.status,
       ...signed
@@ -294,7 +292,12 @@ export async function deleteOutletMedia(body, context, config, { fetchImpl = fet
     }, { fetchImpl });
     const result = await deleteClaimedMedia(media, context, config, fetchImpl);
     if (!result.deleted) fail("outlet_media_delete_incomplete", 502, { mediaId });
-    return result;
+    return {
+      mediaId: result.mediaId,
+      deleted: result.deleted,
+      status: result.status || null,
+      alreadyDeleted: Boolean(result.alreadyDeleted)
+    };
   } catch (error) {
     throw normalizeProviderError(error);
   }
