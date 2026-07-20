@@ -90,6 +90,42 @@ function terminalPayload(intent, targetType, targetId, fallback = {}) {
   };
 }
 
+function replayResult(intent, targetType, targetId) {
+  const intentId = text(intent.id);
+  return {
+    data: terminalPayload(intent, targetType, targetId),
+    meta: {
+      idempotency: {
+        replayed: true,
+        intentId,
+        originalRequestId: text(object(intent.raw_payload).request_context?.requestId)
+      }
+    }
+  };
+}
+
+async function recoverCompletedArchive(operation, targetType, targetId, context, config, fetchImpl) {
+  const refreshed = await claimIntent(operation, targetType, targetId, context, config, fetchImpl);
+  const intent = object(refreshed.intent);
+  const intentId = text(intent.id);
+  if (!intentId) return null;
+
+  if (refreshed.mode === "replay" && intent.status === "completed") {
+    return replayResult(intent, targetType, targetId);
+  }
+
+  const job = object(refreshed.deleteJob || refreshed.delete_job);
+  const jobId = text(intent.delete_job_id || intent.deleteJobId || job.id);
+  if (!jobId || job.status !== "completed") return null;
+
+  const payload = terminalPayload({ ...intent, delete_job_id: jobId, deleteJob: job }, targetType, targetId);
+  const finished = await finishIntent(intentId, true, payload, null, context, config, fetchImpl);
+  return {
+    data: terminalPayload(finished, targetType, targetId, payload),
+    meta: { idempotency: { replayed: true, intentId } }
+  };
+}
+
 async function executeArchive(options, context, config, fetchImpl) {
   const { operation, targetType, targetId, deleteTarget } = options;
   const claimed = await claimIntent(operation, targetType, targetId, context, config, fetchImpl);
@@ -98,16 +134,7 @@ async function executeArchive(options, context, config, fetchImpl) {
   if (!intentId) fail("archive_intent_invalid", 502);
 
   if (claimed.mode === "replay" && intent.status === "completed") {
-    return {
-      data: terminalPayload(intent, targetType, targetId),
-      meta: {
-        idempotency: {
-          replayed: true,
-          intentId,
-          originalRequestId: text(object(intent.raw_payload).request_context?.requestId)
-        }
-      }
-    };
+    return replayResult(intent, targetType, targetId);
   }
 
   try {
@@ -120,20 +147,25 @@ async function executeArchive(options, context, config, fetchImpl) {
     };
   } catch (error) {
     const code = errorCode(error);
-    const linkedJob = object(claimed.deleteJob || claimed.delete_job);
-    const linkedJobId = text(intent.delete_job_id || intent.deleteJobId || linkedJob.id);
-    const linkedJobCompleted = linkedJob.status === "completed";
     const parentAlreadyAbsent =
       (targetType === "route" && code === "route_not_found") ||
       (targetType === "route_customer" && code === "route_customer_not_found");
 
-    if (parentAlreadyAbsent && linkedJobId && linkedJobCompleted) {
-      const payload = terminalPayload({ ...intent, delete_job_id: linkedJobId }, targetType, targetId);
-      const finished = await finishIntent(intentId, true, payload, null, context, config, fetchImpl);
-      return {
-        data: terminalPayload(finished, targetType, targetId, payload),
-        meta: { idempotency: { replayed: true, intentId } }
-      };
+    if (parentAlreadyAbsent) {
+      let recovered;
+      try {
+        recovered = await recoverCompletedArchive(
+          operation,
+          targetType,
+          targetId,
+          context,
+          config,
+          fetchImpl
+        );
+      } catch (recoveryError) {
+        throw normalizeProviderError(recoveryError);
+      }
+      if (recovered) return recovered;
     }
 
     await finishIntent(intentId, false, null, code, context, config, fetchImpl).catch(() => null);

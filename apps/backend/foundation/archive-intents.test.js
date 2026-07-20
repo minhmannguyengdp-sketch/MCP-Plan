@@ -151,24 +151,40 @@ test("route-customer archive keeps the exact operation and canonical target owne
   assert.equal(result.data.targetId, "route-customer-1");
 });
 
-test("missing parent is only replayed when the claimed intent proves a completed linked job", async () => {
+test("concurrent missing-parent response re-reads the intent and replays the completed job", async () => {
   const calls = [];
-  const fetchImpl = async (input, init = {}) => {
+  let claimCount = 0;
+  const fetchImpl = async (input) => {
     const rpc = rpcName(input);
     calls.push(rpc);
     if (rpc === "mcp_claim_archive_intent") {
+      claimCount += 1;
+      if (claimCount === 1) {
+        return json({
+          mode: "execute",
+          intent: { id: "mai-route-1", status: "processing", delete_job_id: null },
+          deleteJob: null
+        });
+      }
       return json({
-        mode: "resume",
-        intent: { id: "mai-route-1", status: "processing", delete_job_id: "msdj-route-1" },
-        deleteJob: { id: "msdj-route-1", status: "completed", archive_media_count: 1 }
+        mode: "replay",
+        intent: {
+          id: "mai-route-1",
+          status: "completed",
+          delete_job_id: "msdj-route-1",
+          response_payload: {
+            targetType: "route",
+            targetId: "route-1",
+            deleteJobId: "msdj-route-1",
+            deleted: true,
+            deletedMediaCount: 1
+          },
+          raw_payload: { request_context: { requestId: "first-concurrent-request" } }
+        },
+        deleteJob: { id: "msdj-route-1", status: "completed" }
       });
     }
     if (rpc === "mcp_claim_route_media_delete") return json({ message: "route_not_found" }, 400);
-    if (rpc === "mcp_finish_archive_intent") {
-      const body = JSON.parse(init.body);
-      assert.equal(body.p_succeeded, true);
-      return json({ id: "mai-route-1", status: "completed", response_payload: body.p_response_payload });
-    }
     throw new Error(`unexpected_rpc:${rpc}`);
   };
 
@@ -176,9 +192,10 @@ test("missing parent is only replayed when the claimed intent proves a completed
   assert.deepEqual(calls, [
     "mcp_claim_archive_intent",
     "mcp_claim_route_media_delete",
-    "mcp_finish_archive_intent"
+    "mcp_claim_archive_intent"
   ]);
   assert.equal(result.data.deleted, true);
   assert.equal(result.data.deleteJobId, "msdj-route-1");
   assert.equal(result.meta.idempotency.replayed, true);
+  assert.equal(result.meta.idempotency.originalRequestId, "first-concurrent-request");
 });
