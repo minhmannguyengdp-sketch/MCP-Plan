@@ -48,6 +48,8 @@ browser stable Idempotency-Key
 12. Terminal failure stores a neutral error code and remains retryable; it does not mint a second intent.
 13. Browser, anon and authenticated database roles cannot execute archive-intent RPCs or mutate intent/job tables directly.
 14. Trusted request, installation and actor context comes from Foundation, never from the client body.
+15. Claim races are serialized in a fixed order: idempotency key first, target second. This classifies concurrent same-key and same-target requests instead of leaking a provider unique violation.
+16. Intent claim and delete-job claim are separate RPC transactions. If another request finishes the job inside that gap, a missing-parent response must re-read the persisted intent/job before returning an error.
 
 ## State model
 
@@ -84,11 +86,12 @@ created_at/updated_at/completed_at
 
 1. Add archive-intent table, constraints, grants and typed service-role RPCs.
 2. Pass Foundation `idempotencyKey` into the storage lifecycle context.
-3. Claim/link the archive intent in the same PostgreSQL transaction that claims the target and delete job.
+3. Serialize intent claims by key and target; link the exact intent from the storage-job trigger in the same PostgreSQL transaction that creates or updates that job.
 4. Complete/fail the linked intent when the storage delete job reaches a terminal result.
-5. Make both browser callers use stable idempotent operations.
-6. Add migration, owner, caller, replay/conflict, retry/reclaim and no-direct-provider contracts.
-7. Run Foundation, backend, typecheck, production build and browser smoke.
+5. Re-read the intent/job when parent deletion reports not-found across the two-RPC claim gap.
+6. Make both browser callers use stable idempotent operations.
+7. Add migration, owner, caller, replay/conflict, retry/reclaim and no-direct-provider contracts.
+8. Run Foundation, backend, typecheck, production build and browser smoke.
 
 ## Non-scope
 
