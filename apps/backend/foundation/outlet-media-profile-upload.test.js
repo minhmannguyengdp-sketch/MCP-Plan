@@ -41,9 +41,19 @@ test("profile media migration keeps the existing owner and makes session optiona
   assert.match(migration, /if nullif\(btrim\(coalesce\(p_session_id, ''\)\), ''\) is not null then/i);
   assert.match(migration, /perform public\.mcp_assert_session_mutable\(v_session\.id\)/i);
   assert.match(migration, /v_route_customer\.route_id is distinct from v_session\.route_id/i);
+  assert.match(migration, /from public\.mcp_route_customers[\s\S]*for update/i);
   assert.doesNotMatch(migration, /raise exception 'session_id_required'/i);
   assert.doesNotMatch(migration, /grant .* to (?:anon|authenticated)/i);
   assert.match(migration, /to service_role/i);
+});
+
+test("profile media migration enforces the three-photo limit in the database owner", () => {
+  assert.match(migration, /select count\(\*\) into v_active_media_count/i);
+  assert.match(migration, /installation_id = p_installation_id/i);
+  assert.match(migration, /route_customer_id = p_route_customer_id/i);
+  assert.match(migration, /status in \('pending', 'ready', 'deleting', 'delete_failed'\)/i);
+  assert.match(migration, /if v_active_media_count >= 3 then/i);
+  assert.match(migration, /raise exception 'outlet_media_limit_reached'/i);
 });
 
 test("upload-init passes null session to the canonical RPC for fixed-route profile photos", async () => {
