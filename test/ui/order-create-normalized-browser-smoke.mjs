@@ -53,7 +53,7 @@ async function existingSessionCustomerFlow(browser) {
   const page = await context.newPage();
   const dialog = await openOrderSheet(page);
 
-  const sessionSelect = dialog.getByLabel("Phiên / tuyến *", { exact: true });
+  const sessionSelect = dialog.locator("label").filter({ hasText: "Phiên / tuyến" }).locator("select");
   await sessionSelect.waitFor({ state: "visible" });
   assert.equal(await sessionSelect.inputValue(), "session-active", "active session must be selected first");
   await dialog.getByText("Tuyến phiên đang chạy", { exact: true }).first().waitFor({ state: "visible" });
