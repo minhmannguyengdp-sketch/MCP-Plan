@@ -76,6 +76,7 @@ export function OutletPhotoManager({
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -172,6 +173,7 @@ export function OutletPhotoManager({
     if (!routeCustomerId || busy) return;
     const pending = drafts.filter((photo) => photo.status !== "done");
     if (!pending.length) return;
+    setRetrying(pending.some((photo) => photo.status === "error"));
     setSaving(true);
     setMessage(null);
     const succeeded = new Set<string>();
@@ -212,6 +214,7 @@ export function OutletPhotoManager({
       );
     } finally {
       setSaving(false);
+      setRetrying(false);
     }
   }
 
@@ -291,7 +294,7 @@ export function OutletPhotoManager({
         <button className="button" type="button" onClick={() => galleryInputRef.current?.click()} disabled={busy || remaining <= 0}>▧ Thư viện</button>
         {drafts.length ? (
           <button className="button primary" type="button" onClick={() => void savePhotos()} disabled={busy}>
-            {drafts.some((photo) => photo.status === "error") ? "Thử lại" : saving ? "Đang tải…" : `Lưu ${drafts.length} ảnh`}
+            {retrying || drafts.some((photo) => photo.status === "error") ? "Thử lại" : saving ? "Đang tải…" : `Lưu ${drafts.length} ảnh`}
           </button>
         ) : null}
       </div>
