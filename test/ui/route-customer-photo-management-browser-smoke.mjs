@@ -38,6 +38,15 @@ function deferredGate(fail = false) {
   return { fail, started, released, markStarted, release };
 }
 
+async function waitForDisabled(locator, timeoutMs = 5000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (await locator.isDisabled().catch(() => false)) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("timeout_waiting_for_disabled_control");
+}
+
 await waitForHttp(`${appBase}/routes`);
 
 const browser = await chromium.launch({ headless: true });
@@ -286,7 +295,9 @@ deleteGate = activeDeleteGate;
 await manager.getByRole("button", { name: "Xóa ảnh điểm bán 1", exact: true }).click();
 await activeDeleteGate.started;
 assert.equal(await manager.getByRole("button", { name: "📷 Chụp", exact: true }).isDisabled(), true, "camera must lock during delete");
-assert.equal(await editDialog.getByRole("button", { name: "Lưu điểm bán", exact: true }).isDisabled(), true, "edit submit must lock during media deletion");
+const editSubmitButton = editDialog.getByRole("button", { name: "Lưu điểm bán", exact: true });
+await waitForDisabled(editSubmitButton);
+assert.equal(await editSubmitButton.isDisabled(), true, "edit submit must lock during media deletion");
 activeDeleteGate.release();
 await manager.getByText("Đã xóa ảnh điểm bán.", { exact: true }).waitFor({ state: "visible" });
 assert.equal(await manager.getByRole("link", { name: /Mở ảnh điểm bán/ }).count(), deletingLinkCount - 1);
