@@ -40,11 +40,14 @@ function formatDateTime(value?: string | null) {
 
 function parseProfile(payload: unknown): OutletPhotoProfile {
   const data = outletMediaData(payload) as OutletPhotoProfile;
+  const requestedLimit = Number(data.mediaLimit);
   return {
     media: Array.isArray(data.media)
       ? data.media.filter((item) => item && typeof item.id === "string" && typeof item.viewUrl === "string")
       : [],
-    mediaLimit: Number.isFinite(Number(data.mediaLimit)) ? Number(data.mediaLimit) : MAX_OUTLET_PHOTOS
+    mediaLimit: Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? Math.min(MAX_OUTLET_PHOTOS, requestedLimit)
+      : MAX_OUTLET_PHOTOS
   };
 }
 
@@ -77,17 +80,18 @@ export function OutletPhotoManager({
   const [message, setMessage] = useState<string | null>(null);
 
   const media = profile?.media || [];
-  const limit = profile?.mediaLimit || MAX_OUTLET_PHOTOS;
+  const limit = Math.min(MAX_OUTLET_PHOTOS, profile?.mediaLimit || MAX_OUTLET_PHOTOS);
   const remaining = Math.max(0, limit - media.length - drafts.length);
-  const busy = loading || processing || saving || Boolean(deletingId);
+  const mutationBusy = processing || saving || Boolean(deletingId);
+  const busy = loading || mutationBusy;
 
   useEffect(() => {
     draftsRef.current = drafts;
   }, [drafts]);
 
   useEffect(() => {
-    onBusyChange?.(busy);
-  }, [busy, onBusyChange]);
+    onBusyChange?.(mutationBusy);
+  }, [mutationBusy, onBusyChange]);
 
   useEffect(
     () => () => {
@@ -138,14 +142,14 @@ export function OutletPhotoManager({
   async function addSelectedFiles(files: FileList | null) {
     if (!files?.length || busy) return;
     if (remaining <= 0) {
-      setMessage(`Điểm bán chỉ lưu tối đa ${limit} ảnh.`);
+      setMessage(`Điểm bán chỉ lưu tối đa ${MAX_OUTLET_PHOTOS} ảnh.`);
       return;
     }
     setProcessing(true);
     setMessage(null);
     try {
       const additions = await buildOutletPhotoDrafts(files, remaining);
-      setDrafts((current) => [...current, ...additions].slice(0, Math.max(0, limit - media.length)));
+      setDrafts((current) => [...current, ...additions].slice(0, Math.max(0, MAX_OUTLET_PHOTOS - media.length)));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Không xử lý được ảnh");
     } finally {
@@ -231,7 +235,7 @@ export function OutletPhotoManager({
   if (!active || !routeCustomerId) return null;
 
   return (
-    <section className={styles.section} data-outlet-photo-manager="true" data-route-customer-id={routeCustomerId}>
+    <section className={styles.section} data-outlet-photo-manager="true" data-route-customer-id={routeCustomerId} aria-busy={busy}>
       <div className={styles.sectionHead}>
         <div>
           <strong>Ảnh điểm bán</strong>
