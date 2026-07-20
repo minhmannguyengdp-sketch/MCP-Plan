@@ -8,5 +8,10 @@ export async function OrdersPage() {
     api.getRouteCustomersData()
   ]);
 
-  return <OrdersClientPage ordersResult={ordersResult} customers={routeCustomersResult.data.customers} />;
+  return (
+    <OrdersClientPage
+      ordersResult={ordersResult}
+      customers={routeCustomersResult.data.customers}
+    />
+  );
 }

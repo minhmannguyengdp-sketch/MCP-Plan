@@ -5,26 +5,39 @@ import { readFile } from "node:fs/promises";
 const page = await readFile(new URL("../src/features/orders/OrdersClientPage.tsx", import.meta.url), "utf8");
 const sheet = await readFile(new URL("../src/features/orders/OrderCreateSheet.tsx", import.meta.url), "utf8");
 const sheetStyles = await readFile(new URL("../src/features/orders/OrderCreateSheet.module.css", import.meta.url), "utf8");
-const sheetFixStyles = await readFile(new URL("../src/features/orders/OrderCreateSheet.mobile-fix.module.css", import.meta.url), "utf8");
 const workspaceStyles = await readFile(new URL("../src/app/order-create-workspace.css", import.meta.url), "utf8");
 const bottomSheet = await readFile(new URL("../src/ui/overlay/BottomSheet.tsx", import.meta.url), "utf8");
 const proxy = await readFile(new URL("../src/app/api/backend/orders/route.ts", import.meta.url), "utf8");
 const serverPage = await readFile(new URL("../src/features/orders/OrdersPage.tsx", import.meta.url), "utf8");
 const gateway = await readFile(new URL("../apps/backend/foundation/gateway.js", import.meta.url), "utf8");
 
-test("orders tab exposes the real create-order entry point", () => {
-  assert.match(page, />\+ Tạo đơn</);
+test("orders tab exposes the real create-order entry point with proxied sessions", () => {
+  assert.match(page, /createLoading \? "Đang tải phiên\.\.\." : "\+ Tạo đơn"/);
   assert.match(page, /<OrderCreateSheet/);
+  assert.match(page, /sessions=\{sessions\}/);
+  assert.match(page, /async function loadOrderSessions\(customers: RouteCustomerItem\[\]\)/);
+  assert.match(page, /new URLSearchParams\(\{ routeId \}\)/);
+  assert.match(page, /`\/api\/backend\/mcp-settings\/session-status\?\$\{query\.toString\(\)\}`/);
+  assert.match(page, /Form chưa được mở để tránh hiển thị sai khách hoặc trộn khách giữa các tuyến/);
   assert.match(serverPage, /api\.getRouteCustomersData\(\)/);
+  assert.doesNotMatch(serverPage, /session-status|loadMcpSessions|supabase/i);
 });
 
-test("create-order sheet supports existing and manual customers", () => {
+test("customer step is session-first, single-select and keeps manual customer entry", () => {
   assert.match(sheet, /type CustomerMode = "existing" \| "manual"/);
-  assert.match(sheet, />Khách đã có</);
-  assert.match(sheet, />Nhập khách</);
+  assert.match(sheet, /sessions: OrderSessionOption\[\]/);
+  assert.match(sheet, /selectedSessionId/);
+  assert.match(sheet, /activeCustomers\.filter\(\(customer\) => customer\.routeId === selectedSession\.routeId\)/);
+  assert.match(sheet, />Khách trong phiên</);
+  assert.match(sheet, /Chọn phiên → chọn khách/);
+  assert.match(sheet, /role="radiogroup"/);
+  assert.match(sheet, /role="radio"/);
+  assert.match(sheet, /aria-checked=\{routeCustomerId === customer\.id\}/);
+  assert.match(sheet, />Khách nhập tay</);
+  assert.match(sheet, /Khách nhập tay được lưu trong đơn như một snapshot độc lập/);
   assert.match(sheet, /routeCustomerId: customerMode === "existing"/);
   assert.match(sheet, /customer: customerMode === "manual"/);
-  assert.match(sheet, /không tự thêm vào tuyến/i);
+  assert.doesNotMatch(sheet, /activeCustomers\.slice\(0, 50\)/);
 });
 
 test("create-order workspace is true fullscreen without the legacy drag handle", () => {
@@ -44,7 +57,6 @@ test("create-order workspace is true fullscreen without the legacy drag handle",
 test("mobile order flow exposes customer, catalog and cart as explicit guarded panels", () => {
   assert.match(sheet, /type MobilePanel = "customer" \| "catalog" \| "cart"/);
   assert.match(sheet, /data-mobile-panel=\{mobilePanel\}/);
-  assert.match(sheet, /fixStyles\.mobileTabs/);
   assert.match(sheet, />1\. Khách</);
   assert.match(sheet, />2\. Sản phẩm</);
   assert.match(sheet, />3\. Đơn</);
@@ -53,22 +65,30 @@ test("mobile order flow exposes customer, catalog and cart as explicit guarded p
   assert.match(sheetStyles, /grid-template-rows: auto minmax\(0, 1fr\)/);
   assert.match(sheetStyles, /workspace\[data-mobile-panel="customer"\] \.catalogSection/);
   assert.match(sheetStyles, /workspace:not\(\[data-mobile-panel="cart"\]\) \.rightPane/);
-  assert.doesNotMatch(sheetStyles, /\.workspace \{[\s\S]{0,220}overflow-y: auto/);
+  assert.doesNotMatch(sheetStyles, /\.workspace \{[\s\S]{0,260}overflow-y: auto/);
 });
 
-test("product selection is add-only, full-row and visibly confirmed", () => {
-  assert.match(sheet, /styles\.productRow/);
-  assert.match(sheet, /fixStyles\.productRow/);
-  assert.match(sheet, /event\.preventDefault\(\)/);
-  assert.match(sheet, /event\.stopPropagation\(\)/);
-  assert.match(sheet, /addProduct\(product\)/);
-  assert.match(sheet, /aria-label=\{`Thêm \$\{product\.name\} vào đơn`\}/);
+test("catalog groups variants inside one product card", () => {
+  assert.match(sheet, /function groupCatalog\(products: ProductCatalogItem\[\]\)/);
+  assert.match(sheet, /const groups = new Map<string, ProductGroup>\(\)/);
+  assert.match(sheet, /productGroups\.map\(\(group\)/);
+  assert.match(sheet, /group\.variants\.map\(\(product\)/);
+  assert.match(sheet, /styles\.variantGrid/);
+  assert.match(sheet, /variantPrimaryLabel\(product\)/);
+  assert.match(sheet, /variantSecondaryLabel\(product\)/);
+  assert.match(sheet, /aria-label=\{`Thêm \$\{product\.name\}, \$\{variantPrimaryLabel\(product\)\} vào đơn`\}/);
+  assert.match(sheet, /\$\{productGroups\.length\} sản phẩm · \$\{products\.length\} vị/);
+  assert.match(sheetStyles, /\.variantGrid \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(150px, 1fr\)\)/);
+  assert.match(sheetStyles, /\.variantSelected \{/);
+  assert.doesNotMatch(sheet, /products\.map\(\(product\)/);
+});
+
+test("variant selection is add-only and visibly confirmed", () => {
+  assert.match(sheet, /onClick=\{\(\) => addProduct\(product\)\}/);
   assert.match(sheet, /setAddedNotice\(`/);
   assert.match(sheet, /aria-live="assertive"/);
-  assert.match(sheet, /Trong đơn: \{selectedQuantity\}/);
-  assert.match(sheetStyles, /\.productRow \{[\s\S]*min-height: 54px/);
-  assert.match(sheetFixStyles, /grid-auto-rows: max-content/);
-  assert.match(sheetFixStyles, /\.productCard \{[\s\S]*min-height: 62px/);
+  assert.match(sheet, /selectedQuantity \? `\$\{selectedQuantity\} trong đơn` : "\+ Thêm"/);
+  assert.match(sheetStyles, /\.variantButton \{[\s\S]*min-height: 64px/);
   assert.match(sheetStyles, /touch-action: manipulation/);
 });
 
@@ -80,15 +100,25 @@ test("primary create action requires a separate cart review gesture", () => {
   assert.doesNotMatch(sheet, /setMobilePanel\("cart"\);\s*void submit\(\);/);
   assert.match(sheet, /mobilePanel === "cart"[\s\S]*\? "Tạo đơn"[\s\S]*: "Xem lại đơn"/);
   assert.match(sheet, /submitInFlightRef\.current/);
-  assert.match(sheet, /Xem đơn \(\{totalQuantity\}\)/);
+  assert.match(sheet, /Đơn \(\{totalQuantity\}\)/);
+});
+
+test("cart controls are compact but keep quantity, price and subtotal ownership", () => {
+  assert.match(sheet, /styles\.cartItem/);
+  assert.match(sheet, /styles\.variantBadge/);
+  assert.match(sheet, /decreaseProduct\(item\.variantId\)/);
+  assert.match(sheet, /updateItem\(item\.variantId, "unitPrice"/);
+  assert.match(sheet, /styles\.lineTotal/);
+  assert.match(sheetStyles, /\.itemControls \{[\s\S]*grid-template-columns: minmax\(122px, 0\.9fr\) minmax\(108px, 0\.9fr\) auto/);
+  assert.match(sheetStyles, /\.removeItem \{[\s\S]*width: 30px/);
 });
 
 test("unfinished drafts are protected and the mobile footer stays visible", () => {
   assert.match(sheet, /function requestClose\(\)/);
   assert.match(sheet, /window\.confirm\("Đơn đang nhập chưa lưu\. Đóng và bỏ nội dung này\?"\)/);
   assert.match(sheet, /onClose=\{requestClose\}/);
-  assert.match(sheetFixStyles, /\.cartButton \{[\s\S]*display: none !important/);
-  assert.match(sheetFixStyles, /\.primaryAction \{[\s\S]*grid-column: 2 !important/);
+  assert.match(sheetStyles, /\.cartButton \{[\s\S]*display: none !important/);
+  assert.match(sheetStyles, /\.primaryAction \{[\s\S]*grid-column: 2/);
 });
 
 test("product selection is realtime, filterable and keeps a visible cart", () => {
@@ -99,7 +129,6 @@ test("product selection is realtime, filterable and keeps a visible cart", () =>
   assert.match(sheet, />Nhãn hàng</);
   assert.match(sheet, /selectedQuantityByVariant/);
   assert.match(sheet, />Đơn đang lên</);
-  assert.match(sheet, /decreaseProduct\(item\.variantId\)/);
   assert.doesNotMatch(sheet, /products\.slice\(0, 30\)/);
 });
 
