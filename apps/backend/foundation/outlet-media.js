@@ -89,7 +89,7 @@ export async function prepareOutletMediaUpload(body, context, config, { fetchImp
   if ((geoLat === null) !== (geoLng === null)) fail("geo_coordinates_incomplete");
   try {
     const media = await supabaseRpc(config, "mcp_prepare_outlet_media_upload", { p_installation_id: context.installation.id, p_route_customer_id: routeCustomerId, p_session_id: sessionId, p_client_upload_id: clientUploadId, p_mime_type: mimeType, p_expected_byte_size: byteSize, p_geo_lat: geoLat, p_geo_lng: geoLng, p_geo_accuracy: geoAccuracy, p_context: contextPayload(context) }, { fetchImpl });
-    return { mediaId: media.id, objectKey: media.object_key, mimeType: media.mime_type, status: media.status, ...presignR2Put(requireR2(config), media.object_key, mimeType) };
+    return { mediaId: media.id, mimeType: media.mime_type, status: media.status, ...presignR2Put(requireR2(config), media.object_key, mimeType) };
   } catch (error) { throw normalizeProviderError(error); }
 }
 
@@ -111,7 +111,8 @@ export async function deleteOutletMedia(body, context, config, { fetchImpl = fet
   const mediaId = text(body.mediaId || body.media_id); if (!mediaId) fail("media_id_required");
   try {
     const media = await supabaseRpc(config, "mcp_claim_outlet_media_delete", { p_installation_id: context.installation.id, p_media_id: mediaId, p_context: contextPayload(context) }, { fetchImpl });
-    const result = await deleteClaimedMedia(media, context, config, fetchImpl); if (!result.deleted) fail("outlet_media_delete_incomplete", 502, { mediaId }); return result;
+    const result = await deleteClaimedMedia(media, context, config, fetchImpl); if (!result.deleted) fail("outlet_media_delete_incomplete", 502, { mediaId });
+    return { mediaId: result.mediaId, deleted: result.deleted, status: result.status || null, alreadyDeleted: Boolean(result.alreadyDeleted) };
   } catch (error) { throw normalizeProviderError(error); }
 }
 
