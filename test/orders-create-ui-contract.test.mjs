@@ -9,16 +9,21 @@ const workspaceStyles = await readFile(new URL("../src/app/order-create-workspac
 const bottomSheet = await readFile(new URL("../src/ui/overlay/BottomSheet.tsx", import.meta.url), "utf8");
 const proxy = await readFile(new URL("../src/app/api/backend/orders/route.ts", import.meta.url), "utf8");
 const serverPage = await readFile(new URL("../src/features/orders/OrdersPage.tsx", import.meta.url), "utf8");
+const sessionLoader = await readFile(new URL("../src/features/orders/load-order-session-options.ts", import.meta.url), "utf8");
 const gateway = await readFile(new URL("../apps/backend/foundation/gateway.js", import.meta.url), "utf8");
 
-test("orders tab exposes the real create-order entry point with recent sessions", () => {
+test("orders tab exposes the real create-order entry point with backend-owned sessions", () => {
   assert.match(page, />\+ Tạo đơn</);
   assert.match(page, /<OrderCreateSheet/);
   assert.match(page, /sessions=\{sessions\}/);
   assert.match(serverPage, /api\.getRouteCustomersData\(\)/);
-  assert.match(serverPage, /loadMcpSessions\(/);
-  assert.match(serverPage, /dateFrom: vnDate\(-180\)/);
-  assert.match(serverPage, /session\.status !== "cancelled"/);
+  assert.match(serverPage, /loadOrderSessionOptions\(customers\.map\(\(customer\) => customer\.routeId\)\)/);
+  assert.doesNotMatch(serverPage, /loadMcpSessions|supabase/i);
+  assert.match(sessionLoader, /backendApiBaseUrl/);
+  assert.match(sessionLoader, /backendApiRequestHeaders/);
+  assert.match(sessionLoader, /"\/api\/mcp-settings\/session-status"/);
+  assert.match(sessionLoader, /target\.searchParams\.set\("routeId", routeId\)/);
+  assert.doesNotMatch(sessionLoader, /SUPABASE|restRows|service_role/i);
 });
 
 test("customer step is session-first, single-select and keeps manual customer entry", () => {
