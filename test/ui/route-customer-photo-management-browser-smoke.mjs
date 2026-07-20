@@ -256,20 +256,22 @@ await draftImages.first().waitFor({ state: "detached" });
 
 await galleryInput.setInputFiles(firstFile);
 await manager.getByRole("button", { name: "Lưu 1 ảnh", exact: true }).waitFor({ state: "visible" });
-putGate = deferredGate(true);
+const failingPutGate = deferredGate(true);
+putGate = failingPutGate;
 await manager.getByRole("button", { name: "Lưu 1 ảnh", exact: true }).click();
-await putGate.started;
+await failingPutGate.started;
 assert.equal(await manager.getByRole("button", { name: "📷 Chụp", exact: true }).isDisabled(), true, "camera must lock during upload");
 assert.equal(await manager.getByRole("button", { name: "▧ Thư viện", exact: true }).isDisabled(), true, "gallery must lock during upload");
-putGate.release();
+failingPutGate.release();
 await manager.getByRole("button", { name: "Thử lại", exact: true }).waitFor({ state: "visible" });
 await manager.getByText("Lỗi tải", { exact: true }).waitFor({ state: "visible" });
 
-putGate = deferredGate(false);
+const retryPutGate = deferredGate(false);
+putGate = retryPutGate;
 await manager.getByRole("button", { name: "Thử lại", exact: true }).click();
-await putGate.started;
+await retryPutGate.started;
 assert.equal(await manager.getByRole("button", { name: "Thử lại", exact: true }).isDisabled(), true, "retry must lock duplicate submissions");
-putGate.release();
+retryPutGate.release();
 await manager.getByText("Đã bổ sung 1 ảnh cho điểm bán.", { exact: true }).waitFor({ state: "visible" });
 assert.equal(await manager.getByRole("link", { name: /Mở ảnh điểm bán/ }).count(), 3);
 
@@ -279,12 +281,13 @@ const finalInit = [...events].reverse().find((event) => event.type === "init");
 assert.equal(finalInit.sessionId, null, "fixed-route profile upload must not invent a session id");
 
 const deletingLinkCount = await manager.getByRole("link", { name: /Mở ảnh điểm bán/ }).count();
-deleteGate = deferredGate(false);
+const activeDeleteGate = deferredGate(false);
+deleteGate = activeDeleteGate;
 await manager.getByRole("button", { name: "Xóa ảnh điểm bán 1", exact: true }).click();
-await deleteGate.started;
+await activeDeleteGate.started;
 assert.equal(await manager.getByRole("button", { name: "📷 Chụp", exact: true }).isDisabled(), true, "camera must lock during delete");
 assert.equal(await editDialog.getByRole("button", { name: "Lưu điểm bán", exact: true }).isDisabled(), true, "edit submit must lock during media deletion");
-deleteGate.release();
+activeDeleteGate.release();
 await manager.getByText("Đã xóa ảnh điểm bán.", { exact: true }).waitFor({ state: "visible" });
 assert.equal(await manager.getByRole("link", { name: /Mở ảnh điểm bán/ }).count(), deletingLinkCount - 1);
 assert.ok(events.some((event) => event.type === "delete"), "delete must go through outlet-media/delete");
