@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { useRegisterMobileAppMenu } from "@/ui/shell/MobileAppMenu";
+import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import type { McpDayData } from "@/features/mcp-day/mcp-day.types";
 import styles from "./VisitsSessionActionMenu.module.css";
 
@@ -26,8 +27,9 @@ type Summary = {
   };
 };
 
-type ApiPayload = { data?: Summary; error?: string };
+type ApiPayload = { data?: Summary; error?: string | { message?: string }; message?: string; detail?: string };
 type PanelMode = "report" | "export" | null;
+type ExportKind = "pdf" | "excel";
 
 function money(value: number) {
   return `${Math.round(value || 0).toLocaleString("vi-VN")}đ`;
@@ -39,6 +41,52 @@ function buildQuery(mcpDayData: McpDayData) {
   if (mcpDayData.run.routeId) params.set("routeId", mcpDayData.run.routeId);
   if (mcpDayData.run.date) params.set("date", mcpDayData.run.date);
   return params.toString();
+}
+
+function apiErrorMessage(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") return fallback;
+  const value = payload as ApiPayload;
+  if (typeof value.error === "string" && value.error.trim()) return value.error;
+  if (value.error && typeof value.error === "object" && value.error.message?.trim()) return value.error.message;
+  return value.detail || value.message || fallback;
+}
+
+function exportFilename(disposition: string | null, fallback: string) {
+  if (!disposition) return fallback;
+  const utf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8.replace(/^"|"$/g, ""));
+    } catch {
+      return utf8.replace(/^"|"$/g, "");
+    }
+  }
+  return disposition.match(/filename="([^"]+)"/i)?.[1] || disposition.match(/filename=([^;]+)/i)?.[1]?.trim() || fallback;
+}
+
+async function downloadSessionExport(url: string, fallbackFilename: string) {
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: { Accept: "application/pdf,text/csv,application/json;q=0.8,*/*;q=0.5" }
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(apiErrorMessage(payload, `Không tải được file (${response.status})`));
+  }
+
+  const blob = await response.blob();
+  if (!blob.size) throw new Error("File xuất trống. Vui lòng tải lại.");
+
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = exportFilename(response.headers.get("content-disposition"), fallbackFilename);
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
 }
 
 function CountList({ items, empty }: { items: CountItem[]; empty: string }) {
@@ -73,12 +121,15 @@ function FollowupList({ items }: { items: Summary["sections"]["followups"] }) {
 
 export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayData }) {
   const router = useRouter();
+  const closeInFlight = useRef(false);
   const [mode, setMode] = useState<PanelMode>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [exporting, setExporting] = useState<ExportKind | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const query = useMemo(() => buildQuery(mcpDayData), [mcpDayData]);
   const reportUrl = `/api/mcp-session-report${query ? `?${query}` : ""}`;
   const checklistHref = `/api/backend/exports/mcp-sessions.csv${query ? `?${query}` : ""}`;
@@ -92,7 +143,7 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
     fetch(reportUrl, { cache: "no-store", headers: { Accept: "application/json" } })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({})) as ApiPayload;
-        if (!response.ok) throw new Error(payload.error || `report_summary_${response.status}`);
+        if (!response.ok) throw new Error(apiErrorMessage(payload, `report_summary_${response.status}`));
         if (active) {
           setSummary(payload.data || null);
           setReportError(null);
@@ -116,23 +167,47 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
   }, []);
 
   const openExport = useCallback(() => {
+    setExportError(null);
     setMode("export");
   }, []);
 
+  const runExport = useCallback(async (kind: ExportKind) => {
+    if (exporting) return;
+    setExporting(kind);
+    setExportError(null);
+    try {
+      const routePart = mcpDayData.run.routeName.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "mcp";
+      const fallback = kind === "pdf"
+        ? `mcp-session-report-${routePart}-${mcpDayData.run.date}.pdf`
+        : `bc-phien-${routePart}-${mcpDayData.run.date}.csv`;
+      await downloadSessionExport(kind === "pdf" ? pdfHref : checklistHref, fallback);
+      setMode(null);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Không tải được file báo cáo");
+    } finally {
+      setExporting(null);
+    }
+  }, [checklistHref, exporting, mcpDayData.run.date, mcpDayData.run.routeName, pdfHref]);
+
   const closeSession = useCallback(async () => {
-    if (!mcpDayData.run.id || closing) return false;
+    if (!mcpDayData.run.id || closing || closeInFlight.current) return false;
     if (!window.confirm("Chốt phiên và lưu BC phiên chính thức?")) return false;
+    closeInFlight.current = true;
     setClosing(true);
     setCloseError(null);
     try {
-      const response = await fetch(`/api/backend/mcp-session-actions/${encodeURIComponent(mcpDayData.run.id)}`, {
-        method: "PATCH",
-        cache: "no-store",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "done", sessionDate: mcpDayData.run.date })
-      });
+      const response = await idempotentMutationFetch(
+        `/api/backend/mcp-session-actions/${encodeURIComponent(mcpDayData.run.id)}`,
+        {
+          method: "PATCH",
+          cache: "no-store",
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "done", sessionDate: mcpDayData.run.date })
+        },
+        { operation: "route-session.update" }
+      );
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `close_session_${response.status}`);
+      if (!response.ok) throw new Error(apiErrorMessage(payload, `Không chốt được phiên (${response.status})`));
       setSummary(null);
       setMode(null);
       router.refresh();
@@ -141,6 +216,7 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
       setCloseError(err instanceof Error ? err.message : "Không chốt được phiên");
       return false;
     } finally {
+      closeInFlight.current = false;
       setClosing(false);
     }
   }, [closing, mcpDayData.run.date, mcpDayData.run.id, router]);
@@ -180,18 +256,19 @@ export function VisitsSessionReportPanel({ mcpDayData }: { mcpDayData: McpDayDat
   useRegisterMobileAppMenu(menuRegistration);
 
   return <>
-    <BottomSheet open={mode === "export"} onClose={() => setMode(null)} title="Xuất dữ liệu phiên" description={description} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={() => setMode(null)}>Đóng</button></div>}>
+    <BottomSheet open={mode === "export"} onClose={() => { if (!exporting) setMode(null); }} title="Xuất dữ liệu phiên" description={description} footer={<div className="sheet-action-grid"><button className="button" type="button" onClick={() => setMode(null)} disabled={Boolean(exporting)}>Đóng</button></div>}>
       <div className={styles.menuList}>
-        <a className={styles.exportItem} href={pdfHref} onClick={() => setMode(null)}>
+        <button className={styles.exportItem} type="button" data-export-kind="pdf" onClick={() => void runExport("pdf")} disabled={Boolean(exporting)}>
           <span className={styles.menuIcon} aria-hidden="true">PDF</span>
-          <span className={styles.menuCopy}><strong>Báo cáo phiên PDF</strong><small>Bản trình bày để xem, lưu hoặc gửi.</small></span>
-          <span className={styles.menuChevron} aria-hidden="true">↗</span>
-        </a>
-        <a className={styles.exportItem} href={checklistHref} onClick={() => setMode(null)}>
-          <span className={styles.menuIcon} aria-hidden="true">XLS</span>
-          <span className={styles.menuCopy}><strong>Checklist khách Excel</strong><small>Dữ liệu chi tiết để đối soát và xử lý tiếp.</small></span>
-          <span className={styles.menuChevron} aria-hidden="true">↗</span>
-        </a>
+          <span className={styles.menuCopy}><strong>{exporting === "pdf" ? "Đang tải báo cáo PDF..." : "Báo cáo phiên PDF"}</strong><small>Bản trình bày để xem, lưu hoặc gửi.</small></span>
+          <span className={styles.menuChevron} aria-hidden="true">⇩</span>
+        </button>
+        <button className={styles.exportItem} type="button" data-export-kind="excel" onClick={() => void runExport("excel")} disabled={Boolean(exporting)}>
+          <span className={styles.menuIcon} aria-hidden="true">CSV</span>
+          <span className={styles.menuCopy}><strong>{exporting === "excel" ? "Đang tải checklist..." : "Checklist khách Excel (CSV)"}</strong><small>Dữ liệu chi tiết để đối soát và xử lý tiếp.</small></span>
+          <span className={styles.menuChevron} aria-hidden="true">⇩</span>
+        </button>
+        {exportError ? <p className="page-subtitle order-message" role="alert">{exportError}</p> : null}
       </div>
     </BottomSheet>
 
