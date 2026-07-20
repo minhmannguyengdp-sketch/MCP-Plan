@@ -6,6 +6,7 @@ const page = await readFile(new URL("../src/features/orders/OrdersClientPage.tsx
 const sheet = await readFile(new URL("../src/features/orders/OrderCreateSheet.tsx", import.meta.url), "utf8");
 const sheetStyles = await readFile(new URL("../src/features/orders/OrderCreateSheet.module.css", import.meta.url), "utf8");
 const sheetFixStyles = await readFile(new URL("../src/features/orders/OrderCreateSheet.mobile-fix.module.css", import.meta.url), "utf8");
+const workspaceStyles = await readFile(new URL("../src/app/order-create-workspace.css", import.meta.url), "utf8");
 const bottomSheet = await readFile(new URL("../src/ui/overlay/BottomSheet.tsx", import.meta.url), "utf8");
 const proxy = await readFile(new URL("../src/app/api/backend/orders/route.ts", import.meta.url), "utf8");
 const serverPage = await readFile(new URL("../src/features/orders/OrdersPage.tsx", import.meta.url), "utf8");
@@ -36,8 +37,8 @@ test("create-order workspace is true fullscreen without the legacy drag handle",
   assert.match(bottomSheet, /padding: 0/);
   assert.match(bottomSheet, /variant === "workspace" \? null : <div className="sheet-handle"/);
   assert.match(bottomSheet, /data-fullscreen=/);
-  assert.match(sheetFixStyles, /:global\(\.bottom-sheet-workspace\)[\s\S]*height: 100% !important/);
-  assert.match(sheetFixStyles, /:global\(\.bottom-sheet-workspace \.sheet-body\)[\s\S]*overflow: hidden !important/);
+  assert.match(workspaceStyles, /\.bottom-sheet-workspace\s*\{[\s\S]*height: 100% !important/);
+  assert.match(workspaceStyles, /\.bottom-sheet-workspace \.sheet-body\s*\{[\s\S]*overflow: hidden !important/);
 });
 
 test("mobile order flow exposes customer, catalog and cart as explicit guarded panels", () => {
