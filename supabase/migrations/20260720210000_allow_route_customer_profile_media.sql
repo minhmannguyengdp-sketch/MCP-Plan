@@ -22,6 +22,7 @@ declare
   v_session public.mcp_route_sessions%rowtype;
   v_route_customer public.mcp_route_customers%rowtype;
   v_media public.mcp_outlet_media%rowtype;
+  v_active_media_count integer;
   v_media_id text;
   v_extension text;
   v_object_key text;
@@ -45,12 +46,6 @@ begin
     raise exception 'geo_coordinates_incomplete' using errcode = '23514';
   end if;
 
-  select * into v_route_customer
-    from public.mcp_route_customers
-   where id = p_route_customer_id
-   for share;
-  if not found then raise exception 'route_customer_not_found' using errcode = '23503'; end if;
-
   if nullif(btrim(coalesce(p_session_id, '')), '') is not null then
     select * into v_session
       from public.mcp_route_sessions
@@ -58,9 +53,17 @@ begin
      for update;
     if not found then raise exception 'session_not_found' using errcode = '23503'; end if;
     perform public.mcp_assert_session_mutable(v_session.id);
-    if v_route_customer.route_id is distinct from v_session.route_id then
-      raise exception 'route_customer_route_mismatch' using errcode = '23514';
-    end if;
+  end if;
+
+  select * into v_route_customer
+    from public.mcp_route_customers
+   where id = p_route_customer_id
+   for update;
+  if not found then raise exception 'route_customer_not_found' using errcode = '23503'; end if;
+
+  if nullif(btrim(coalesce(p_session_id, '')), '') is not null
+     and v_route_customer.route_id is distinct from v_session.route_id then
+    raise exception 'route_customer_route_mismatch' using errcode = '23514';
   end if;
 
   select * into v_media
@@ -77,6 +80,16 @@ begin
       raise exception 'outlet_media_upload_conflict' using errcode = '23505';
     end if;
     return to_jsonb(v_media);
+  end if;
+
+  select count(*) into v_active_media_count
+    from public.mcp_outlet_media
+   where installation_id = p_installation_id
+     and route_customer_id = p_route_customer_id
+     and status in ('pending', 'ready', 'deleting', 'delete_failed');
+
+  if v_active_media_count >= 3 then
+    raise exception 'outlet_media_limit_reached' using errcode = '23514';
   end if;
 
   v_media_id := 'mom_' || replace(gen_random_uuid()::text, '-', '');
