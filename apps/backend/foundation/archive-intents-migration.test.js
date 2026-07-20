@@ -14,6 +14,10 @@ const locking = await readFile(
   new URL("../../../supabase/migrations/20260720224500_lock_archive_intent_claims.sql", import.meta.url),
   "utf8"
 );
+const failureGuard = await readFile(
+  new URL("../../../supabase/migrations/20260720224600_preserve_archive_terminal_failure.sql", import.meta.url),
+  "utf8"
+);
 
 test("archive intents persist exact key, payload, target and delete-job linkage", () => {
   assert.match(migration, /create table if not exists public\.mcp_archive_intents/i);
@@ -56,7 +60,13 @@ test("archive terminal result appends the Foundation audit event once", () => {
   assert.match(migration, /'replayed'/i);
   assert.match(migration, /case when coalesce\(p_succeeded, false\) then 'succeeded' else 'failed' end/i);
   assert.match(migration, /if v_intent\.status = 'completed'[\s\S]*return to_jsonb\(v_intent\)/i);
-  assert.match(migration, /if v_intent\.status = 'failed'[\s\S]*return to_jsonb\(v_intent\)/i);
+});
+
+test("failed archive remains terminal until a new claim moves it to processing", () => {
+  assert.match(failureGuard, /rename to mcp_finish_archive_intent_mutable/i);
+  assert.match(failureGuard, /v_intent\.status = 'failed'[\s\S]*coalesce\(p_succeeded, false\) is not true[\s\S]*return to_jsonb\(v_intent\)/i);
+  assert.match(failureGuard, /mcp_finish_archive_intent_mutable[\s\S]*from public, anon, authenticated, service_role/i);
+  assert.match(failureGuard, /grant execute on function public\.mcp_finish_archive_intent\([\s\S]*to service_role/i);
 });
 
 test("storage job creation links the exact target intent in the same transaction", () => {
