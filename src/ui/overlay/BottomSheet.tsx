@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -10,7 +10,7 @@ type BottomSheetProps = {
   children: ReactNode;
   footer?: ReactNode;
   onClose?: () => void;
-  variant?: "default" | "compact";
+  variant?: "default" | "compact" | "workspace";
 };
 
 const backdropStyle: CSSProperties = {
@@ -21,7 +21,7 @@ const backdropStyle: CSSProperties = {
   alignItems: "flex-end",
   justifyContent: "center",
   background: "rgba(16, 24, 40, 0.54)",
-  padding: "16px",
+  padding: "12px",
   overscrollBehavior: "contain",
   touchAction: "auto"
 };
@@ -49,6 +49,15 @@ const compactSheetStyle: CSSProperties = {
   boxShadow: "0 -18px 52px rgba(16, 24, 40, 0.22)"
 };
 
+const workspaceSheetStyle: CSSProperties = {
+  ...defaultSheetStyle,
+  width: "min(1180px, calc(100vw - 24px))",
+  height: "min(94dvh, 920px)",
+  maxHeight: "min(94dvh, 920px)",
+  borderRadius: "20px 20px 14px 14px",
+  boxShadow: "0 -28px 86px rgba(16, 24, 40, 0.32)"
+};
+
 const handleStyle: CSSProperties = {
   width: 44,
   height: 5,
@@ -74,6 +83,11 @@ const compactHeaderStyle: CSSProperties = {
   padding: "10px 14px 9px"
 };
 
+const workspaceHeaderStyle: CSSProperties = {
+  ...headerStyle,
+  padding: "10px 16px 9px"
+};
+
 const bodyStyle: CSSProperties = {
   flex: "1 1 auto",
   minHeight: 0,
@@ -89,6 +103,12 @@ const compactBodyStyle: CSSProperties = {
   padding: "10px 14px 12px"
 };
 
+const workspaceBodyStyle: CSSProperties = {
+  ...bodyStyle,
+  overflow: "hidden",
+  padding: "10px 12px 12px"
+};
+
 const footerStyle: CSSProperties = {
   flex: "0 0 auto",
   padding: "14px 20px calc(14px + env(safe-area-inset-bottom))",
@@ -101,13 +121,41 @@ const compactFooterStyle: CSSProperties = {
   padding: "9px 14px calc(9px + env(safe-area-inset-bottom))"
 };
 
+const workspaceFooterStyle: CSSProperties = {
+  ...footerStyle,
+  padding: "9px 14px calc(9px + env(safe-area-inset-bottom))"
+};
+
+function sheetStyle(variant: BottomSheetProps["variant"]) {
+  if (variant === "workspace") return workspaceSheetStyle;
+  if (variant === "compact") return compactSheetStyle;
+  return defaultSheetStyle;
+}
+
+function headerVariantStyle(variant: BottomSheetProps["variant"]) {
+  if (variant === "workspace") return workspaceHeaderStyle;
+  if (variant === "compact") return compactHeaderStyle;
+  return headerStyle;
+}
+
+function bodyVariantStyle(variant: BottomSheetProps["variant"]) {
+  if (variant === "workspace") return workspaceBodyStyle;
+  if (variant === "compact") return compactBodyStyle;
+  return bodyStyle;
+}
+
+function footerVariantStyle(variant: BottomSheetProps["variant"]) {
+  if (variant === "workspace") return workspaceFooterStyle;
+  if (variant === "compact") return compactFooterStyle;
+  return footerStyle;
+}
+
 export function BottomSheet({ title, description, open = false, children, footer, onClose, variant = "default" }: BottomSheetProps) {
   const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
   const sheetRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
-  const compact = variant === "compact";
 
   useEffect(() => {
     setMounted(true);
@@ -179,21 +227,23 @@ export function BottomSheet({ title, description, open = false, children, footer
     if (event.target === event.currentTarget) onCloseRef.current?.();
   }
 
+  const variantClass = variant === "default" ? "bottom-sheet" : `bottom-sheet bottom-sheet-${variant}`;
+
   return createPortal(
     <div className="sheet-backdrop" role="presentation" onClick={handleBackdropClick} style={backdropStyle}>
       <section
         ref={sheetRef}
-        className={compact ? "bottom-sheet bottom-sheet-compact" : "bottom-sheet"}
+        className={variantClass}
         data-variant={variant}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        style={compact ? compactSheetStyle : defaultSheetStyle}
+        style={sheetStyle(variant)}
       >
         <div className="sheet-handle" style={handleStyle} />
-        <header className="sheet-header" style={compact ? compactHeaderStyle : headerStyle}>
+        <header className="sheet-header" style={headerVariantStyle(variant)}>
           <div>
             <h2 id={titleId}>{title}</h2>
             {description ? <p id={descriptionId}>{description}</p> : null}
@@ -202,8 +252,8 @@ export function BottomSheet({ title, description, open = false, children, footer
             ×
           </button>
         </header>
-        <div className="sheet-body" style={compact ? compactBodyStyle : bodyStyle}>{children}</div>
-        {footer ? <footer className="sheet-footer" style={compact ? compactFooterStyle : footerStyle}>{footer}</footer> : null}
+        <div className="sheet-body" style={bodyVariantStyle(variant)}>{children}</div>
+        {footer ? <footer className="sheet-footer" style={footerVariantStyle(variant)}>{footer}</footer> : null}
       </section>
     </div>,
     document.body
