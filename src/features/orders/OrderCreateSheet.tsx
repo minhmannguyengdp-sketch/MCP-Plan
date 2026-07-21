@@ -6,6 +6,11 @@ import type { RouteCustomerItem } from "@/features/mcp/route-customers.types";
 import { idempotentMutationFetch } from "@/lib/api/idempotent-fetch";
 import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import type { OrderSessionOption } from "./order-create.types";
+import {
+  catalogFamilyLabel,
+  compareCatalogProducts,
+  groupCatalogCategories
+} from "./order-catalog-priority";
 import styles from "./OrderCreateSheet.module.css";
 
 type CustomerMode = "existing" | "manual";
@@ -92,15 +97,20 @@ function normalizeCatalogItems(value: unknown): ProductCatalogItem[] {
 }
 
 function variantPrimaryLabel(item: ProductCatalogItem) {
-  const variant = String(item.variantName || "").trim();
+  const rawVariant = String(item.variantName || "").trim();
+  const variant = normalizeText(rawVariant) === "mac dinh" ? "" : rawVariant;
   const size = String(item.sizeLabel || "").trim();
   if (variant && size && normalizeText(variant) !== normalizeText(size)) return `${variant} · ${size}`;
-  return variant || size || item.sku || "Mặc định";
+  return variant || size || item.sellUnit || item.sku || "Quy cách chuẩn";
 }
 
 function variantSecondaryLabel(item: ProductCatalogItem) {
+  const primary = normalizeText(variantPrimaryLabel(item));
   const pack = item.packUnit && item.packQuantity ? `${item.packUnit} ${item.packQuantity}` : "";
-  return [item.sellUnit, pack, item.sku].map((value) => String(value || "").trim()).filter(Boolean).join(" · ") || "Quy cách chuẩn";
+  const values = [item.sellUnit, pack, item.sku]
+    .map((value) => String(value || "").trim())
+    .filter((value) => value && normalizeText(value) !== primary);
+  return Array.from(new Set(values)).join(" · ") || "Chạm để thêm vào đơn";
 }
 
 function variantLabel(item: ProductCatalogItem) {
@@ -139,7 +149,7 @@ function groupCatalog(products: ProductCatalogItem[]): ProductGroup[] {
       ...group,
       variants: [...group.variants].sort((left, right) => variantPrimaryLabel(left).localeCompare(variantPrimaryLabel(right), "vi"))
     }))
-    .sort((left, right) => left.name.localeCompare(right.name, "vi"));
+    .sort(compareCatalogProducts);
 }
 
 function sessionLabel(session: OrderSessionOption) {
@@ -206,6 +216,7 @@ export function OrderCreateSheet({
   }, [customerSearch, scopedCustomers]);
   const selectedCustomer = activeCustomers.find((customer) => customer.id === routeCustomerId) || null;
   const productGroups = useMemo(() => groupCatalog(products), [products]);
+  const categorySections = useMemo(() => groupCatalogCategories(categoryOptions), [categoryOptions]);
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const selectedQuantityByVariant = useMemo(() => new Map(items.map((item) => [item.variantId, item.quantity])), [items]);
@@ -612,7 +623,7 @@ export function OrderCreateSheet({
 
           <section className={`${styles.section} ${styles.catalogSection}`}>
             <div className={styles.sectionHead}>
-              <div><strong>2. Chọn sản phẩm và vị</strong><small>Mỗi sản phẩm chỉ có một card; vị và quy cách nằm ngay bên trong</small></div>
+              <div><strong>2. Chọn sản phẩm và vị</strong><small>Ưu tiên trà sữa, sau đó mì cay; vị và quy cách nằm ngay trong card</small></div>
               <span className={styles.resultCount} aria-live="polite">{loadingProducts ? "Đang tìm..." : `${productGroups.length} sản phẩm · ${products.length} vị`}</span>
             </div>
 
@@ -638,10 +649,14 @@ export function OrderCreateSheet({
 
             <div className={styles.filterRow}>
               <label className={styles.compactField}>
-                <span>Nhóm hàng</span>
+                <span>Nhóm hàng · ưu tiên theo ngành</span>
                 <select value={productCategory} onChange={(event) => setProductCategory(event.target.value)} disabled={saving}>
                   <option value="">Tất cả nhóm</option>
-                  {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+                  {categorySections.map((section) => (
+                    <optgroup key={section.key} label={section.label}>
+                      {section.categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                    </optgroup>
+                  ))}
                 </select>
               </label>
               <label className={styles.compactField}>
@@ -662,18 +677,22 @@ export function OrderCreateSheet({
               {!loadingProducts && products.length === 0 && !productError ? <p className={styles.emptyState}>Không tìm thấy sản phẩm. Thử xóa bớt bộ lọc hoặc tìm bằng SKU.</p> : null}
               {productGroups.map((group) => {
                 const groupQuantity = group.variants.reduce((sum, variant) => sum + (selectedQuantityByVariant.get(variant.variantId) || 0), 0);
+                const family = catalogFamilyLabel(group.productId, group.category);
+                const choiceCount = group.variants.length > 1 ? `${group.variants.length} vị / quy cách` : "1 quy cách";
                 return (
-                  <article key={group.productId} className={`${styles.productCard} ${groupQuantity ? styles.productCardSelected : ""}`}>
+                  <article key={group.productId} className={`${styles.productCard} ${groupQuantity ? styles.productCardSelected : ""}`} data-family={family}>
                     <header className={styles.productHeader}>
                       <div className={styles.productIdentity}>
-                        <small>{[group.brand, group.category].filter(Boolean).join(" · ") || "Chưa phân nhóm"}</small>
+                        <small>{[family, group.category, group.brand].filter(Boolean).join(" · ")}</small>
                         <strong>{group.name}</strong>
                       </div>
-                      <span>{group.variants.length} vị{groupQuantity ? ` · ${groupQuantity} trong đơn` : ""}</span>
+                      <span>{groupQuantity ? `${groupQuantity} đã chọn` : choiceCount}</span>
                     </header>
                     <div className={styles.variantGrid}>
                       {group.variants.map((product) => {
                         const selectedQuantity = selectedQuantityByVariant.get(product.variantId) || 0;
+                        const primaryLabel = variantPrimaryLabel(product);
+                        const secondaryLabel = variantSecondaryLabel(product);
                         return (
                           <button
                             type="button"
@@ -681,10 +700,11 @@ export function OrderCreateSheet({
                             className={`${styles.variantButton} ${selectedQuantity ? styles.variantSelected : ""}`}
                             onClick={() => addProduct(product)}
                             disabled={!customerReady || saving}
-                            aria-label={`Thêm ${product.name}, ${variantPrimaryLabel(product)} vào đơn`}
+                            aria-label={`Thêm ${product.name}, ${primaryLabel} vào đơn`}
+                            title={`${product.name} · ${primaryLabel} · ${secondaryLabel}`}
                           >
-                            <span className={styles.variantName}>{variantPrimaryLabel(product)}</span>
-                            <small>{variantSecondaryLabel(product)}</small>
+                            <span className={styles.variantName}>{primaryLabel}</span>
+                            <small>{secondaryLabel}</small>
                             <span className={styles.variantFooter}>
                               <strong>{money.format(Number(product.price || 0))}</strong>
                               <em>{selectedQuantity ? `${selectedQuantity} trong đơn` : "+ Thêm"}</em>
