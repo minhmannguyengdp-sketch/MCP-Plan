@@ -1,13 +1,14 @@
 # Production deploy marker — Orders Control Center
 
-- Latest PR: `#78`
-- Merge SHA: `9322cdf6a0d3ced2a3e35c3d239390fe654a9900`
+- Latest PRs: `#78`, `#79`
+- Latest merge SHA: `5847db60f24994a8d9e83ee385f3ca6f97a1f8e3`
 - Scope: frontend-only professional order analytics and operations workspace
 - Semantics: current total is labeled `Doanh số đặt hàng`, not delivered revenue or collected cash
+- Lifecycle rule: only draft orders are pending or stale; confirmed orders are not inferred as delivery backlog
 - Filters: period, search, route, owner, status, source and operational attention
-- KPIs: order sales, orders, customers, average order, sales/customer, quantity, SKU/order and pending orders
+- KPIs: order sales, orders, customers, average order, sales/customer, quantity, SKU/order and draft orders
 - Analysis: daily trend plus customer, route, owner and source drill-down
-- Alerts: stale pending, possible duplicates, drafts, cancellations, zero-value orders and customer concentration
+- Alerts: stale drafts, possible duplicates, cancellations, zero-value orders and customer concentration
 - Export: CSV follows the active filter population
 - Validation: Foundation F0.2 PASS; Order Create Browser Smoke PASS
 - Database migration: not required
