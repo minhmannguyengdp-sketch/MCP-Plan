@@ -107,6 +107,30 @@ export type OrderDto = {
   status: string;
 };
 
+export type OrderItemDto = {
+  id: string;
+  productId: string | null;
+  variantId: string | null;
+  productName: string;
+  sku: string | null;
+  unit: string | null;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  lineTotal: number;
+  note: string | null;
+};
+
+export type OrderDetailDto = OrderDto & {
+  customerPhone: string | null;
+  area: string | null;
+  deliveryAddress: string | null;
+  subtotal: number;
+  discountTotal: number;
+  note: string | null;
+  items: OrderItemDto[];
+};
+
 export type ActionDto = {
   id: string;
   title: string;
