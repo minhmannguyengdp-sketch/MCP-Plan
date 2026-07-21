@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { RouteCustomerItem } from "@/features/mcp/route-customers.types";
 import type { ApiResult, OrderDto } from "@/lib/api/api.types";
 import { OperationalListCard } from "@/ui/cards/OperationalListCard";
 import { PageHeader } from "@/ui/layout/PageHeader";
-import { BottomSheet } from "@/ui/overlay/BottomSheet";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 import { OrderCreateSheet } from "./OrderCreateSheet";
+import { OrderDetailDrawer } from "./OrderDetailDrawer";
 import {
   buildOrderAnalytics,
   DEFAULT_ORDER_FILTERS,
@@ -282,30 +283,6 @@ function OrderCard({
   );
 }
 
-function OrderDetailSheet({ order, onClose }: { order: OrderDto | null; onClose: () => void }) {
-  return (
-    <BottomSheet
-      open={Boolean(order)}
-      onClose={onClose}
-      title={order ? order.code : "Chi tiết đơn"}
-      description={order ? `${order.accountName} · ${order.routeName}` : undefined}
-      footer={<div className="sheet-action-grid">{order ? <a className="button primary" href={orderExportHref(order)}>Xuất đơn hàng</a> : null}<button className="button" type="button" onClick={onClose}>Đóng</button></div>}
-    >
-      {order ? (
-        <div className="order-sheet-content">
-          <div className="order-total-card"><span>Doanh số đặt hàng</span><strong>{money.format(order.totalAmount)}</strong><small>{getStatusLabel(order.status)} · {order.source}</small></div>
-          <div className="grid">
-            <div className="metric-row"><span>Ngày</span><strong>{order.date}</strong></div>
-            <div className="metric-row"><span>Nhân viên phụ trách</span><strong>{order.owner}</strong></div>
-            <div className="metric-row"><span>SKU</span><strong>{order.skuCount}</strong></div>
-            <div className="metric-row"><span>Số lượng</span><strong>{order.quantity}</strong></div>
-          </div>
-        </div>
-      ) : null}
-    </BottomSheet>
-  );
-}
-
 export function OrdersClientPage({
   ordersResult,
   customers
@@ -313,7 +290,13 @@ export function OrdersClientPage({
   ordersResult: ApiResult<OrderDto[]>;
   customers: RouteCustomerItem[];
 }) {
-  const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const detailOrderId = searchParams.get("detail");
+  const detailNavigationOwnedRef = useRef(false);
+  const detailReturnFocusRef = useRef<HTMLElement | null>(null);
+  const previousDetailIdRef = useRef<string | null>(detailOrderId);
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [sessions, setSessions] = useState<OrderSessionOption[]>([]);
@@ -325,8 +308,18 @@ export function OrdersClientPage({
   const filteredOrders = useMemo(() => filterOrders(ordersResult.data, filters), [filters, ordersResult.data]);
   const analytics = useMemo(() => buildOrderAnalytics(filteredOrders), [filteredOrders]);
   const allAnalytics = useMemo(() => buildOrderAnalytics(ordersResult.data), [ordersResult.data]);
+  const detailOrder = useMemo(() => ordersResult.data.find((order) => order.id === detailOrderId) ?? null, [detailOrderId, ordersResult.data]);
   const activeFilterCount = [filters.search, filters.routeName, filters.owner, filters.source, filters.status, filters.customer]
     .filter(Boolean).length + (filters.period === DEFAULT_ORDER_FILTERS.period ? 0 : 1) + (filters.attention === "all" ? 0 : 1);
+
+  useEffect(() => {
+    const previousDetailId = previousDetailIdRef.current;
+    if (previousDetailId && !detailOrderId) {
+      detailNavigationOwnedRef.current = false;
+      window.requestAnimationFrame(() => detailReturnFocusRef.current?.focus());
+    }
+    previousDetailIdRef.current = detailOrderId;
+  }, [detailOrderId]);
 
   function updateFilter<Key extends keyof OrderFilters>(key: Key, value: OrderFilters[Key]) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -340,6 +333,25 @@ export function OrdersClientPage({
   function selectAlert(alert: OrderAlert) {
     if (alert.customer) return focusList({ customer: alert.customer, attention: "all" });
     if (alert.attention) return focusList({ attention: alert.attention, customer: "" });
+  }
+
+  function openOrderDetail(order: OrderDto) {
+    detailReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    detailNavigationOwnedRef.current = true;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("detail", order.id);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function closeOrderDetail() {
+    if (detailNavigationOwnedRef.current) {
+      router.back();
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("detail");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   async function openCreateOrder() {
@@ -427,11 +439,16 @@ export function OrdersClientPage({
       <section className={styles.section} id="orders-result-list">
         <div className={styles.sectionTitle}><div><h2>Đơn theo bộ lọc</h2><p>Drill-down từ KPI, khách, tuyến, nhân viên và cảnh báo đều về danh sách này.</p></div><span>{filteredOrders.length} đơn</span></div>
         <div className={styles.list}>
-          {filteredOrders.length ? filteredOrders.map((order) => <OrderCard key={order.id} order={order} possibleDuplicate={analytics.possibleDuplicateIds.has(order.id)} onSelect={setSelectedOrder} />) : <div className={styles.emptyOrders}><strong>Không có đơn phù hợp</strong><span>Thử xóa bớt bộ lọc hoặc đổi khoảng dữ liệu.</span><button className="button" type="button" onClick={() => setFilters(DEFAULT_ORDER_FILTERS)}>Đặt lại bộ lọc</button></div>}
+          {filteredOrders.length ? filteredOrders.map((order) => <OrderCard key={order.id} order={order} possibleDuplicate={analytics.possibleDuplicateIds.has(order.id)} onSelect={openOrderDetail} />) : <div className={styles.emptyOrders}><strong>Không có đơn phù hợp</strong><span>Thử xóa bớt bộ lọc hoặc đổi khoảng dữ liệu.</span><button className="button" type="button" onClick={() => setFilters(DEFAULT_ORDER_FILTERS)}>Đặt lại bộ lọc</button></div>}
         </div>
       </section>
 
-      <OrderDetailSheet order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      <OrderDetailDrawer
+        open={Boolean(detailOrderId)}
+        order={detailOrder}
+        possibleDuplicate={Boolean(detailOrder && allAnalytics.possibleDuplicateIds.has(detailOrder.id))}
+        onClose={closeOrderDetail}
+      />
       <OrderCreateSheet
         open={createOpen}
         customers={customers}
