@@ -47,6 +47,45 @@ async function openOrderSheet(page) {
   return dialog;
 }
 
+async function orderControlCenterFlow(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+  const page = await context.newPage();
+  await page.goto(`${appBase}/orders`, { waitUntil: "networkidle" });
+
+  await page.getByRole("heading", { name: "Trung tâm đơn hàng", exact: true }).waitFor({ state: "visible" });
+  await page.getByText("Đang đo doanh số đặt hàng", { exact: true }).waitFor({ state: "visible" });
+  await page.getByText("Doanh số theo khách", { exact: true }).waitFor({ state: "visible" });
+  await page.getByText("Cần chủ doanh nghiệp chú ý", { exact: true }).waitFor({ state: "visible" });
+  await page.getByText(/7\/7 đơn/).waitFor({ state: "visible" });
+
+  const routeSelect = page.locator("label").filter({ hasText: /^Tuyến/ }).locator("select");
+  await routeSelect.selectOption({ label: "Tuyến phiên đang chạy" });
+  await page.getByText(/4\/7 đơn/).waitFor({ state: "visible" });
+  assert.equal(await page.getByText("UI Other Route Customer", { exact: true }).count(), 0, "route drill-down must exclude other routes");
+
+  const customerPanel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Doanh số theo khách", exact: true }) });
+  await customerPanel.getByRole("button", { name: /UI Existing Customer/ }).click();
+  await page.getByRole("button", { name: "Khách: UI Existing Customer ×", exact: true }).waitFor({ state: "visible" });
+  assert.equal(await page.getByText("UI Second Customer", { exact: true }).count(), 0, "customer drill-down must own the order result list");
+
+  await page.getByRole("button", { name: /Xóa 2 bộ lọc/ }).click();
+  await page.getByText(/7\/7 đơn/).waitFor({ state: "visible" });
+
+  const attentionSelect = page.locator("label").filter({ hasText: /^Cần chú ý/ }).locator("select");
+  await attentionSelect.selectOption("possible_duplicate");
+  await page.getByText(/2\/7 đơn/).waitFor({ state: "visible" });
+  await page.locator("#orders-result-list").getByText("Nghi trùng", { exact: true }).first().waitFor({ state: "visible" });
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Xuất theo bộ lọc", exact: true }).click();
+  const download = await downloadPromise;
+  assert.match(download.suggestedFilename(), /^don-hang-theo-bo-loc-\d{4}-\d{2}-\d{2}\.csv$/);
+
+  await page.screenshot({ path: `${resultsDir}/00-orders-control-center.png`, fullPage: true });
+  await context.close();
+  return "PASS";
+}
+
 async function existingSessionCustomerFlow(browser) {
   await resetMock();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -159,6 +198,7 @@ await waitForHttp(`${appBase}/orders`);
 const browser = await chromium.launch({ headless: true });
 const evidence = {};
 try {
+  evidence.orderControlCenterFlow = await orderControlCenterFlow(browser);
   evidence.existingSessionCustomerFlow = await existingSessionCustomerFlow(browser);
   evidence.manualCustomerFlow = await manualCustomerFlow(browser);
   evidence.result = "PASS";

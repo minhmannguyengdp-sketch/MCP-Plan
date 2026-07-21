@@ -65,7 +65,7 @@ jobs:
         run: node --test test/a5-5-2-session-action-caller-contract.test.mjs test/a5-5-2-session-action-runtime-smoke-contract.test.mjs
 
       - name: Verify order and active-route idempotency contracts
-        run: node --test test/orders-create-ui-contract.test.mjs test/route-active-session-ui-contract.test.mjs
+        run: node --test test/orders-create-ui-contract.test.mjs test/orders-control-center-contract.test.mjs test/route-active-session-ui-contract.test.mjs
 
       - name: Verify check-in and F05 runtime contracts
         run: node --test test/mcp-session-checkin-ui-contract.test.mjs test/f05-runtime-smoke-script.test.mjs
