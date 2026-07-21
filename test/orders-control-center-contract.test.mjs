@@ -76,13 +76,28 @@ test("order detail is URL-owned and preserves list context", () => {
   assert.match(page, /useSearchParams\(\)/);
   assert.match(page, /searchParams\.get\("detail"\)/);
   assert.match(page, /params\.set\("detail", order\.id\)/);
-  assert.match(page, /router\.push\(`\$\{pathname\}\?\$\{params\.toString\(\)\}`/);
+  assert.match(page, /router\.push\(`/);
   assert.match(page, /router\.back\(\)/);
   assert.match(page, /params\.delete\("detail"\)/);
   assert.match(page, /router\.replace\(/);
   assert.match(page, /scroll: false/);
   assert.match(page, /detailReturnFocusRef/);
   assert.doesNotMatch(page, /OrderDetailSheet|setSelectedOrder/);
+});
+
+test("order detail loads persisted products and uses business-facing copy", () => {
+  assert.match(detail, /fetch\(`\/api\/backend\/orders\/\$\{encodeURIComponent\(routedOrderId\)\}`/);
+  assert.match(detail, /setDetail\(payload\.data\)/);
+  assert.match(detail, /detail\.items/);
+  assert.match(detail, />Sản phẩm</);
+  assert.match(detail, /item\.productName/);
+  assert.match(detail, /item\.quantity/);
+  assert.match(detail, /item\.unitPrice/);
+  assert.match(detail, /item\.discount/);
+  assert.match(detail, /item\.lineTotal/);
+  assert.match(detail, />Khách hàng và giao hàng</);
+  assert.match(detail, />Thông tin đơn</);
+  assert.doesNotMatch(detail, /Snapshot tại thời điểm ghi nhận|Số liệu tổng hợp từ API danh sách|ID hệ thống|Chưa có chi tiết từng dòng hàng|API đơn hiện chỉ trả/);
 });
 
 test("order detail uses a desktop drawer and a mobile fullscreen surface", () => {
@@ -93,11 +108,12 @@ test("order detail uses a desktop drawer and a mobile fullscreen surface", () =>
   assert.match(detail, /data-app-scroll-region/);
   assert.match(detail, /event\.key === "Escape"/);
   assert.match(detail, /event\.key !== "Tab"/);
-  assert.match(detail, /API đơn hiện chỉ trả tổng SKU, số lượng và giá trị/);
   assert.doesNotMatch(detail, /BottomSheet/);
   assert.match(detailStyles, /width: min\(680px, calc\(100vw - 72px\)\)/);
   assert.match(detailStyles, /height: 100dvh/);
   assert.match(detailStyles, /justify-content: flex-end/);
+  assert.match(detailStyles, /\.itemList/);
+  assert.match(detailStyles, /\.itemRow/);
   assert.match(detailStyles, /@media \(max-width: 720px\)/);
   assert.match(detailStyles, /width: 100vw/);
   assert.match(detailStyles, /border-radius: 0/);

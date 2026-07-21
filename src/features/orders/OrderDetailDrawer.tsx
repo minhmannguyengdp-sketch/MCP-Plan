@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
-import type { OrderDto } from "@/lib/api/api.types";
+import type { OrderDetailDto, OrderDto } from "@/lib/api/api.types";
 import styles from "./OrderDetailDrawer.module.css";
 
-const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
-const integer = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
+const money = new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
+  maximumFractionDigits: 0
+});
+const quantity = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
 
 function statusLabel(status: string) {
   if (status === "draft") return "Nháp";
@@ -23,8 +28,34 @@ function statusClass(status: string) {
   return `${styles.status} ${styles.cancelled}`;
 }
 
-function exportHref(order: OrderDto) {
-  return `/api/backend/exports/orders.csv?orderId=${encodeURIComponent(order.id)}`;
+function sourceLabel(source: string) {
+  if (source === "orders_tab") return "Tạo tại mục Đơn hàng";
+  if (source === "mcp_session_customer") return "Tạo khi đi tuyến";
+  if (source === "mcp") return "MCP";
+  if (source === "phone") return "Điện thoại";
+  return source || "Chưa xác định";
+}
+
+function exportHref(orderId: string) {
+  return `/api/backend/exports/orders.csv?orderId=${encodeURIComponent(orderId)}`;
+}
+
+function apiErrorMessage(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") return fallback;
+  const value = payload as {
+    error?: string | { code?: string; message?: string };
+    detail?: string;
+    message?: string;
+  };
+  const code = typeof value.error === "object" ? value.error.code : "";
+  if (code === "order_not_found") return "Không tìm thấy đơn hàng này.";
+  if (typeof value.error === "string" && value.error.trim()) return value.error;
+  if (value.error && typeof value.error === "object" && value.error.message?.trim()) return value.error.message;
+  return value.detail || value.message || fallback;
+}
+
+function itemDescription(item: OrderDetailDto["items"][number]) {
+  return Array.from(new Set([item.sku, item.unit, item.note].map((value) => String(value || "").trim()).filter(Boolean))).join(" · ");
 }
 
 type OrderDetailDrawerProps = {
@@ -35,7 +66,13 @@ type OrderDetailDrawerProps = {
 };
 
 export function OrderDetailDrawer({ open, order, possibleDuplicate, onClose }: OrderDetailDrawerProps) {
+  const searchParams = useSearchParams();
+  const routedOrderId = searchParams.get("detail") || order?.id || "";
   const [mounted, setMounted] = useState(false);
+  const [detail, setDetail] = useState<OrderDetailDto | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLElement | null>(null);
@@ -46,6 +83,38 @@ export function OrderDetailDrawer({ open, order, possibleDuplicate, onClose }: O
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    if (!open || !routedOrderId) {
+      setDetail(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setDetail(null);
+
+    void fetch(`/api/backend/orders/${encodeURIComponent(routedOrderId)}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    }).then(async (response) => {
+      const payload = await response.json().catch(() => ({})) as { data?: OrderDetailDto };
+      if (!response.ok) throw new Error(apiErrorMessage(payload, "Không tải được chi tiết đơn hàng."));
+      if (!payload.data || payload.data.id !== routedOrderId) throw new Error("Dữ liệu đơn hàng không hợp lệ.");
+      setDetail(payload.data);
+    }).catch((caught) => {
+      if (controller.signal.aborted) return;
+      setError(caught instanceof Error ? caught.message : "Không tải được chi tiết đơn hàng.");
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+
+    return () => controller.abort();
+  }, [open, reloadKey, routedOrderId]);
 
   useEffect(() => {
     if (!mounted || !open) return;
@@ -118,7 +187,8 @@ export function OrderDetailDrawer({ open, order, possibleDuplicate, onClose }: O
     if (event.target === event.currentTarget) onCloseRef.current();
   }
 
-  const averageLineValue = order && order.quantity > 0 ? order.totalAmount / order.quantity : 0;
+  const displayOrder = detail || order;
+  const showInitialLoading = Boolean(routedOrderId && !detail && !error);
 
   return createPortal(
     <div className={styles.backdrop} role="presentation" onClick={handleBackdropClick} data-order-detail-surface="backdrop">
@@ -135,76 +205,102 @@ export function OrderDetailDrawer({ open, order, possibleDuplicate, onClose }: O
         <header className={styles.header}>
           <div className={styles.heading}>
             <span>Chi tiết đơn hàng</span>
-            <h2 id={titleId}>{order ? order.code : "Không tìm thấy đơn"}</h2>
-            <p id={descriptionId}>{order ? `${order.accountName} · ${order.routeName}` : "Liên kết chi tiết không còn khớp với dữ liệu đang tải."}</p>
+            <h2 id={titleId}>{displayOrder?.code || "Đang tải đơn hàng"}</h2>
+            <p id={descriptionId}>{displayOrder ? `${displayOrder.accountName} · ${displayOrder.date}` : "Thông tin đơn hàng"}</p>
           </div>
           <div className={styles.headerActions}>
-            {order ? <strong className={statusClass(order.status)}>{statusLabel(order.status)}</strong> : null}
+            {displayOrder ? <strong className={statusClass(displayOrder.status)}>{statusLabel(displayOrder.status)}</strong> : null}
             <button ref={closeButtonRef} className={styles.closeButton} type="button" aria-label="Đóng chi tiết đơn" onClick={() => onCloseRef.current()}>×</button>
           </div>
         </header>
 
         <div className={styles.body}>
-          {order ? (
+          {showInitialLoading || loading ? (
+            <section className={styles.loadingCard} aria-live="polite">
+              <span className={styles.spinner} aria-hidden="true" />
+              <strong>Đang tải chi tiết đơn hàng</strong>
+            </section>
+          ) : error ? (
+            <section className={styles.errorCard} role="alert">
+              <strong>{error}</strong>
+              <span>Kiểm tra kết nối rồi tải lại.</span>
+              <button className="button primary" type="button" onClick={() => setReloadKey((value) => value + 1)}>Tải lại</button>
+            </section>
+          ) : detail ? (
             <>
-              <section className={styles.totalCard} aria-label="Tổng giá trị đơn">
-                <span>Doanh số đặt hàng</span>
-                <strong>{money.format(order.totalAmount)}</strong>
-                <small>{order.accountName} · {order.date}</small>
+              <section className={styles.totalCard} aria-label="Tổng tiền đơn hàng">
+                <span>Tổng cộng</span>
+                <strong>{money.format(detail.totalAmount)}</strong>
+                <small>{detail.items.length} dòng hàng · {quantity.format(detail.quantity)} sản phẩm</small>
               </section>
 
               {possibleDuplicate ? (
                 <section className={styles.warning} aria-label="Cảnh báo đơn nghi trùng">
-                  <strong>Đơn có dấu hiệu trùng</strong>
-                  <span>Cùng khách, ngày, giá trị, số lượng và số SKU với một đơn khác. Đây là cảnh báo đối chiếu, hệ thống không tự sửa hoặc xóa dữ liệu.</span>
+                  <strong>Đơn này có thể bị nhập trùng</strong>
+                  <span>Hãy đối chiếu với đơn cùng khách và cùng ngày trước khi xử lý tiếp.</span>
                 </section>
               ) : null}
 
               <section className={styles.section}>
-                <header><div><span>01</span><h3>Tổng quan</h3></div><small>Snapshot tại thời điểm ghi nhận</small></header>
-                <div className={styles.identityCard}>
-                  <div><span>Khách hàng</span><strong>{order.accountName}</strong></div>
-                  <div><span>Tuyến</span><strong>{order.routeName || "Chưa xác định"}</strong></div>
-                </div>
-                <dl className={styles.detailGrid}>
-                  <div><dt>Ngày đơn</dt><dd>{order.date}</dd></div>
-                  <div><dt>Nhân viên</dt><dd>{order.owner || "Chưa xác định"}</dd></div>
-                  <div><dt>Nguồn đơn</dt><dd>{order.source || "Chưa xác định"}</dd></div>
-                  <div><dt>Trạng thái</dt><dd>{statusLabel(order.status)}</dd></div>
+                <header>
+                  <h3>Sản phẩm</h3>
+                  <small>{detail.items.length} dòng</small>
+                </header>
+                {detail.items.length ? (
+                  <div className={styles.itemList}>
+                    {detail.items.map((item) => (
+                      <article className={styles.itemRow} key={item.id}>
+                        <div className={styles.itemMain}>
+                          <strong>{item.productName}</strong>
+                          {itemDescription(item) ? <span>{itemDescription(item)}</span> : null}
+                        </div>
+                        <div className={styles.itemPrice}>
+                          <span>{quantity.format(item.quantity)}{item.unit ? ` ${item.unit}` : ""} × {money.format(item.unitPrice)}</span>
+                          {item.discount > 0 ? <small>Giảm {money.format(item.discount)}</small> : null}
+                          <strong>{money.format(item.lineTotal)}</strong>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : <p className={styles.emptyItems}>Đơn này chưa có sản phẩm.</p>}
+                <dl className={styles.totalBreakdown}>
+                  <div><dt>Tạm tính</dt><dd>{money.format(detail.subtotal)}</dd></div>
+                  {detail.discountTotal > 0 ? <div><dt>Giảm giá</dt><dd>-{money.format(detail.discountTotal)}</dd></div> : null}
+                  <div className={styles.grandTotal}><dt>Tổng cộng</dt><dd>{money.format(detail.totalAmount)}</dd></div>
                 </dl>
               </section>
 
               <section className={styles.section}>
-                <header><div><span>02</span><h3>Cấu trúc đơn</h3></div><small>Số liệu tổng hợp từ API danh sách</small></header>
-                <div className={styles.metricGrid}>
-                  <article><span>SKU</span><strong>{integer.format(order.skuCount)}</strong><small>Mã hàng phát sinh</small></article>
-                  <article><span>Sản lượng</span><strong>{integer.format(order.quantity)}</strong><small>Tổng đơn vị đặt</small></article>
-                  <article><span>Bình quân/đơn vị</span><strong>{money.format(averageLineValue)}</strong><small>Tổng giá trị ÷ sản lượng</small></article>
-                </div>
-                <div className={styles.dataBoundary}>
-                  <strong>Chưa có chi tiết từng dòng hàng</strong>
-                  <span>API đơn hiện chỉ trả tổng SKU, số lượng và giá trị. Drawer không suy diễn tên sản phẩm, vị, đơn giá hoặc chiết khấu khi nguồn dữ liệu chưa cung cấp.</span>
-                </div>
+                <header><h3>Khách hàng và giao hàng</h3></header>
+                <dl className={styles.detailGrid}>
+                  <div><dt>Khách hàng</dt><dd>{detail.accountName}</dd></div>
+                  <div><dt>Số điện thoại</dt><dd>{detail.customerPhone || "Chưa có"}</dd></div>
+                  <div><dt>Tuyến / khu vực</dt><dd>{detail.routeName || detail.area || "Chưa có"}</dd></div>
+                  <div><dt>Địa chỉ giao hàng</dt><dd>{detail.deliveryAddress || "Chưa có"}</dd></div>
+                </dl>
               </section>
 
               <section className={styles.section}>
-                <header><div><span>03</span><h3>Định danh và nguồn</h3></div><small>Dùng để đối chiếu, xuất và hỗ trợ</small></header>
+                <header><h3>Thông tin đơn</h3></header>
                 <dl className={styles.detailGrid}>
-                  <div className={styles.fullRow}><dt>Mã đơn</dt><dd>{order.code}</dd></div>
-                  <div className={styles.fullRow}><dt>ID hệ thống</dt><dd className={styles.mono}>{order.id}</dd></div>
+                  <div><dt>Ngày đơn</dt><dd>{detail.date}</dd></div>
+                  <div><dt>Nhân viên</dt><dd>{detail.owner || "Chưa có"}</dd></div>
+                  <div><dt>Nguồn đơn</dt><dd>{sourceLabel(detail.source)}</dd></div>
+                  <div><dt>Trạng thái</dt><dd>{statusLabel(detail.status)}</dd></div>
+                  {detail.note ? <div className={styles.fullRow}><dt>Ghi chú</dt><dd>{detail.note}</dd></div> : null}
                 </dl>
               </section>
             </>
           ) : (
-            <section className={styles.notFound}>
-              <strong>Đơn không còn trong tập dữ liệu hiện tại</strong>
-              <span>Có thể bộ dữ liệu đã thay đổi hoặc URL chứa ID không hợp lệ. Đóng chi tiết để quay lại danh sách mà không mất bộ lọc.</span>
+            <section className={styles.errorCard}>
+              <strong>Không tìm thấy đơn hàng này.</strong>
+              <span>Đóng cửa sổ và chọn lại đơn từ danh sách.</span>
             </section>
           )}
         </div>
 
         <footer className={styles.footer}>
-          {order ? <a className="button primary" href={exportHref(order)}>Xuất đơn hàng</a> : null}
+          {displayOrder ? <a className="button primary" href={exportHref(displayOrder.id)}>Xuất đơn hàng</a> : null}
           <button className="button" type="button" onClick={() => onCloseRef.current()}>Đóng</button>
         </footer>
       </aside>
