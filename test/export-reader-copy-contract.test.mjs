@@ -20,6 +20,9 @@ const [
   marketCsv,
   sessionCsv,
   followupCsv,
+  testCsv,
+  routeCustomerCsv,
+  missingGpsCsv,
   csv,
   exportErrors,
   exportLinks
@@ -37,6 +40,9 @@ const [
   source("src/app/api/exports/market-reports.csv/route.ts"),
   source("src/app/api/exports/mcp-sessions.csv/route.ts"),
   source("src/app/api/exports/followups.csv/route.ts"),
+  source("src/app/api/exports/tests.csv/route.ts"),
+  source("src/app/api/exports/route-customers.csv/route.ts"),
+  source("src/app/api/exports/route-customers-needs-gps.csv/route.ts"),
   source("src/lib/export/csv.ts"),
   source("src/lib/export/supabase-rest.ts"),
   source("src/features/exports/ExportLinks.tsx")
@@ -81,15 +87,20 @@ test("export status, priority, source, dates and filenames are centrally normali
   assert.match(businessCopy, /export function reportFilename/);
 });
 
-test("CSV exports lead with business columns and translate technical headers", () => {
-  for (const dataExport of [orderCsv, marketCsv, sessionCsv, followupCsv]) {
-    assert.doesNotMatch(dataExport, /header: "Sale"|header: "Route ID"|header: "Session ID"|header: "Variant ID"|header: "Source ID"|header: "Sync"|header: "Next action"/);
+test("all primary CSV exports lead with business columns and translate technical headers", () => {
+  const exports = [orderCsv, marketCsv, sessionCsv, followupCsv, testCsv, routeCustomerCsv, missingGpsCsv];
+  for (const dataExport of exports) {
+    assert.doesNotMatch(dataExport, /header: "Sale"|header: "Route ID"|header: "Session ID"|header: "Variant ID"|header: "Source ID"|header: "Sync"|header: "Next action"|header: "Lat"|header: "Lng"/);
   }
   assert.match(orderCsv, /header: "Nhân viên phụ trách"/);
   assert.match(orderCsv, /header: "Số lượng"/);
   assert.match(marketCsv, /header: "Hành động tiếp theo"/);
   assert.match(sessionCsv, /header: "Kết quả ghé"/);
   assert.match(followupCsv, /header: "Mức ưu tiên"/);
+  assert.match(testCsv, /header: "Kết quả thử"/);
+  assert.match(routeCustomerCsv, /header: "Tên tuyến"/);
+  assert.match(routeCustomerCsv, /header: "Vĩ độ"/);
+  assert.match(missingGpsCsv, /điem-ban-can-cap-nhat-vi-tri|diem-ban-can-cap-nhat-vi-tri/);
 });
 
 test("CSV files are safe to open in spreadsheet software", () => {
@@ -107,6 +118,9 @@ test("export failures show reader messages while preserving an internal code", (
 test("export menus distinguish readable reports from operational data", () => {
   assert.match(exportLinks, /Dữ liệu Excel \/ CSV/);
   assert.match(exportLinks, /Báo cáo để đọc và in/);
+  assert.match(exportLinks, /Báo cáo để đọc và gửi/);
+  assert.match(exportLinks, /Bản in \/ PDF/);
+  assert.match(exportLinks, /Bảng chi tiết Excel \/ CSV/);
   assert.match(exportLinks, /Chọn file cần xuất/);
   assert.doesNotMatch(exportLinks, /Excel dữ liệu|PDF báo cáo|Tải Excel nền/);
 });
