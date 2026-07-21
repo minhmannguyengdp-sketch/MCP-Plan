@@ -46,8 +46,14 @@ test("business KPIs are derived from the filtered order population", () => {
   assert.doesNotMatch(page, /label="Doanh thu thực"/);
 });
 
+test("pending and stale semantics do not infer delivery backlog from confirmed orders", () => {
+  assert.match(analytics, /function isPending\(order: OrderDto\) \{\s*return order\.status === "draft";\s*\}/);
+  assert.match(analytics, /Đơn nháp tồn quá 3 ngày/);
+  assert.match(analytics, /Đơn đã bắt đầu nhưng chưa được chốt/);
+  assert.doesNotMatch(analytics, /order\.status === "draft" \|\| order\.status === "confirmed"/);
+});
+
 test("analytics detect operational risks without deleting or mutating orders", () => {
-  assert.match(analytics, /Đơn chờ xử lý quá 3 ngày/);
   assert.match(analytics, /Đơn có dấu hiệu trùng/);
   assert.match(analytics, /Cùng khách, ngày, giá trị, số lượng và số SKU/);
   assert.match(analytics, /Doanh số phụ thuộc khách lớn/);
