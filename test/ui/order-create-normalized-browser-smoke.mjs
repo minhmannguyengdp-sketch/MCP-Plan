@@ -74,7 +74,7 @@ async function orderControlCenterFlow(browser) {
   const attentionSelect = page.locator("label").filter({ hasText: /^Cần chú ý/ }).locator("select");
   await attentionSelect.selectOption("possible_duplicate");
   await page.getByText(/2\/7 đơn/).waitFor({ state: "visible" });
-  await page.getByText("Nghi trùng", { exact: true }).first().waitFor({ state: "visible" });
+  await page.locator("#orders-result-list").getByText("Nghi trùng", { exact: true }).first().waitFor({ state: "visible" });
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Xuất theo bộ lọc", exact: true }).click();
