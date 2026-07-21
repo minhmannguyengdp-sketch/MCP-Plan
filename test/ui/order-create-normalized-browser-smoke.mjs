@@ -235,10 +235,11 @@ async function shortOrderWorkspaceLayoutFlow(browser, viewport = { width: 496, h
   await continueButton.click();
   const productList = dialog.locator("[data-order-product-list]");
   await productList.waitFor({ state: "visible" });
+  const productCards = productList.locator("article");
+  await productCards.first().waitFor({ state: "visible" });
   const productBox = await productList.boundingBox();
   assert.ok(productBox && productBox.height >= 70, "short product list must retain usable viewport height");
   const sheetFooterBox = await dialog.locator(".sheet-footer").boundingBox();
-  const productCards = productList.locator("article");
   const visibleProductBoxes = [];
   for (let index = 0; index < await productCards.count(); index += 1) {
     const box = await productCards.nth(index).boundingBox();
