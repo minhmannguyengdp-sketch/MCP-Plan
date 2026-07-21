@@ -43,14 +43,32 @@ async function prove(definition, fixtures) {
     : definition.name === "routeCustomerArchive"
       ? `/api/route-customers/${encodeURIComponent(fixtures.archiveConflictCustomerId)}/archive`
       : path;
-  await mustConflict(conflictPath, { method: definition.method, body: { ...requestPlan.body, ...requestPlan.conflict }, idempotencyKey: key, requestId: `npp-f05-${definition.name}-conflict-${stamp}` });
+  const conflict = await mustConflict(conflictPath, { method: definition.method, body: { ...requestPlan.body, ...requestPlan.conflict }, idempotencyKey: key, requestId: `npp-f05-${definition.name}-conflict-${stamp}` });
   const audits = await auditRows(definition.operation, key);
   ensure(audits.some((row) => row.outcome === "succeeded"), `${definition.name}_audit_success_missing`);
   ensure(audits.some((row) => row.outcome === "replayed"), `${definition.name}_audit_replay_missing`);
   const records = await idempotencyRows(definition.operation, key);
   ensure(records.length === 1 && records[0].status === "completed", `${definition.name}_idempotency_invalid`);
+  const succeededAudits = audits.filter((row) => row.outcome === "succeeded");
+  const replayAudits = audits.filter((row) => row.outcome === "replayed");
+  const contextRows = [...audits, ...records];
+  const installationId = String(process.env.MCP_INSTALLATION_ID || "");
+  const actorId = String(records[0]?.actor_id || succeededAudits[0]?.actor_id || "");
+  ensure(contextRows.every((row) => row.installation_id === installationId), `${definition.name}_installation_context_mismatch`);
+  ensure(actorId && contextRows.every((row) => row.actor_id === actorId), `${definition.name}_actor_context_mismatch`);
   const data = object(first.payload.data);
-  return { firstRequestId, aggregateId: String(data.routeId || data.orderId || data.sessionId || data.id || "") };
+  return {
+    aggregateId: String(data.routeId || data.orderId || data.sessionId || data.id || ""),
+    execute: { ok: first.response.ok, canonical: first.payload.requestId === firstRequestId && typeof first.payload.receivedAt === "string", requestId: firstRequestId },
+    replay: { persisted: replayed(second.payload), sameResult: sameJson(first.payload.data, second.payload.data) },
+    conflict: { status: conflict.response.status, canonical: conflict.payload.requestId === conflict.requestId && typeof conflict.payload.receivedAt === "string" },
+    context: { persisted: true, installationId, actorId },
+    idempotency: { rowCount: records.length, status: records[0].status, attemptCount: Number(records[0].attempt_count) },
+    audit: { succeeded: succeededAudits.length, replayed: replayAudits.length, appendOnly: succeededAudits.length === 1 && replayAudits.length === 1 },
+    // A successful HTTP call is not itself a business-invariant proof. Each operation needs
+    // an explicit persisted before/after verifier before the complete smoke may report PASS.
+    invariants: { verified: false }
+  };
 }
 
 export function createLiveF05SmokeDriver() {
@@ -104,6 +122,7 @@ export function createLiveF05SmokeDriver() {
       ensure(result.response.status === 404, `${path}_expected_canonical_404`);
       ensure(result.payload.requestId === result.requestId, `${path}_request_id_missing`);
       ensure(typeof result.payload.receivedAt === "string", `${path}_received_at_missing`);
+      return { status: result.response.status, canonical: true, requestId: result.requestId };
     },
     async proveArchiveLifecycle(fixtures) {
       const targetIds = [fixtures.routeId, fixtures.routeCustomerId].map(encodeURIComponent).join(",");
@@ -114,7 +133,15 @@ export function createLiveF05SmokeDriver() {
       const jobs = await db(`mcp_storage_delete_jobs?id=in.(${jobIds})&select=id,status,attempt_count,completed_at`);
       ensure(jobs.length === 2, "archive_delete_job_count_invalid");
       ensure(jobs.every((job) => job.status === "completed" && Number(job.attempt_count) >= 1 && job.completed_at), "archive_delete_job_not_finalized");
-      return { retry: "PASS", reclaim: "PASS", finalizer: "PASS", noFakeCrossSystemTransaction: "PASS" };
+      return {
+        intentCount: intents.length,
+        jobCount: jobs.length,
+        minimumJobAttempts: Math.min(...jobs.map((job) => Number(job.attempt_count))),
+        reclaimedJobs: jobs.filter((job) => Number(job.attempt_count) >= 2).length,
+        finalizedIntents: intents.filter((intent) => intent.status === "completed").length,
+        finalizedJobs: jobs.filter((job) => job.status === "completed" && job.completed_at).length,
+        separateIntentAndJobTransactions: intents.every((intent) => intent.id !== intent.delete_job_id)
+      };
     },
     async cleanupTemporaryFixtures() {
       const errors = [];
@@ -128,6 +155,7 @@ export function createLiveF05SmokeDriver() {
       if (errors.length) throw new AggregateError(errors, "smoke_cleanup_routes_failed");
     },
     async verifyCleanup(fixtures) {
+      let databaseRowsRemaining = 0;
       const exactRows = [
         ...createdAggregates,
         { table: "mcp_route_customers", id: fixtures?.routeCustomerId },
@@ -137,13 +165,16 @@ export function createLiveF05SmokeDriver() {
       ].filter((item) => item.id);
       for (const { table, id } of exactRows) {
         const rows = await db(`${table}?id=eq.${encodeURIComponent(id)}&select=id`);
-        ensure(rows.length === 0, `smoke_cleanup_${table}_${id}_remains`);
+        databaseRowsRemaining += rows.length;
       }
       const targetIds = [...createdRouteIds, fixtures?.routeId, fixtures?.emptyRouteId, fixtures?.archiveConflictRouteId].filter(Boolean);
       if (targetIds.length) {
         const media = await db(`mcp_outlet_media?route_id=in.(${targetIds.map(encodeURIComponent).join(",")})&select=id`);
-        ensure(media.length === 0, "smoke_cleanup_r2_media_rows_remain");
+        databaseRowsRemaining += media.length;
       }
+      // Database metadata cannot prove provider deletion. Until the driver owns temporary R2
+      // objects and verifies their absence against R2, the complete smoke must remain FAIL.
+      return { databaseRowsRemaining, r2ProviderVerified: false, r2ObjectsRemaining: null };
     }
   };
 }
