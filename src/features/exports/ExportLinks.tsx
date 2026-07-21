@@ -11,11 +11,11 @@ type ExportGroup = {
 };
 
 export const MCP_EXCEL_LINKS: ExportLink[] = [
-  { label: "Điểm bán và vị trí", href: "/api/backend/exports/route-customers.csv", tone: "primary", hint: "Danh sách điểm bán, vị trí và liên kết bản đồ" },
-  { label: "Phiên đi tuyến", href: "/api/backend/exports/mcp-sessions.csv", hint: "Danh sách điểm bán và trạng thái ghé trong phiên" },
-  { label: "Đơn hàng và sản phẩm", href: "/api/backend/exports/orders.csv", hint: "Thông tin đơn hàng và chi tiết sản phẩm" },
-  { label: "Báo cáo thị trường", href: "/api/backend/exports/market-reports.csv", hint: "Đối thủ, thương hiệu đang dùng và nhu cầu" },
-  { label: "Việc cần theo dõi", href: "/api/backend/exports/followups.csv", hint: "Việc cần làm, ngày hẹn, người phụ trách" },
+  { label: "Danh sách điểm bán", href: "/api/backend/exports/route-customers.csv", tone: "primary", hint: "Tên, địa chỉ, vị trí và liên kết bản đồ" },
+  { label: "Chi tiết phiên bán hàng", href: "/api/backend/exports/mcp-sessions.csv", hint: "Điểm bán, kết quả ghé và phát sinh trong phiên" },
+  { label: "Đơn hàng và sản phẩm", href: "/api/backend/exports/orders.csv", hint: "Thông tin đơn hàng và từng dòng sản phẩm" },
+  { label: "Ghi nhận thị trường", href: "/api/backend/exports/market-reports.csv", hint: "Đối thủ, sản phẩm đang dùng, nhu cầu và cơ hội" },
+  { label: "Việc cần theo dõi", href: "/api/backend/exports/followups.csv", hint: "Việc cần làm, ngày hẹn và người phụ trách" },
   { label: "Kết quả thử sản phẩm", href: "/api/backend/exports/tests.csv", hint: "Sản phẩm đã thử và kết quả theo điểm bán" }
 ];
 
@@ -23,12 +23,12 @@ export const MCP_PDF_LINKS: ExportLink[] = [];
 
 function groupsFromLinks(excelLinks: ExportLink[], pdfLinks: ExportLink[]) {
   const groups: ExportGroup[] = [];
-  if (excelLinks.length) groups.push({ title: "Excel dữ liệu", links: excelLinks });
-  if (pdfLinks.length) groups.push({ title: "PDF báo cáo", links: pdfLinks });
+  if (excelLinks.length) groups.push({ title: "Dữ liệu Excel / CSV", links: excelLinks });
+  if (pdfLinks.length) groups.push({ title: "Báo cáo để đọc và in", links: pdfLinks });
   return groups;
 }
 
-export function ExportMenu({ label = "Xuất", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS, groups, primary = false }: { label?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[]; groups?: ExportGroup[]; primary?: boolean }) {
+export function ExportMenu({ label = "Xuất file", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS, groups, primary = false }: { label?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[]; groups?: ExportGroup[]; primary?: boolean }) {
   const items = groups || groupsFromLinks(excelLinks, pdfLinks);
   return <details className="export-menu">
     <summary className={primary ? "button primary export-menu-trigger" : "button export-menu-trigger"}>{label} ▾</summary>
@@ -44,11 +44,11 @@ export function ExportMenu({ label = "Xuất", excelLinks = MCP_EXCEL_LINKS, pdf
   </details>;
 }
 
-export function ExportLinksPanel({ title = "Xuất file", subtitle = "Tải Excel nền hoặc mở bản in PDF vận hành.", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS }: { title?: string; subtitle?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[] }) {
+export function ExportLinksPanel({ title = "Xuất file", subtitle = "Tải dữ liệu để đối chiếu hoặc mở báo cáo để in và lưu PDF.", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS }: { title?: string; subtitle?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[] }) {
   return <section className="card" style={{ marginBottom: 16 }}>
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
       <div><strong>{title}</strong><p className="page-subtitle" style={{ margin: "4px 0 0" }}>{subtitle}</p></div>
-      <ExportMenu label="Xuất" excelLinks={excelLinks} pdfLinks={pdfLinks} primary />
+      <ExportMenu label="Chọn file cần xuất" excelLinks={excelLinks} pdfLinks={pdfLinks} primary />
     </div>
   </section>;
 }
