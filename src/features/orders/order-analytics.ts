@@ -126,7 +126,7 @@ function isWithinPeriod(order: OrderDto, period: OrderPeriod, latestDate: string
 }
 
 function isPending(order: OrderDto) {
-  return order.status === "draft" || order.status === "confirmed";
+  return order.status === "draft";
 }
 
 function isStale(order: OrderDto, latestDate: string | null) {
@@ -266,8 +266,8 @@ function buildAlerts(orders: OrderDto[], customers: OrderBreakdownRow[], latestD
 
   if (staleCount) alerts.push({
     key: "stale",
-    title: "Đơn chờ xử lý quá 3 ngày",
-    description: "Đơn nháp hoặc đã chốt nhưng chưa chuyển sang trạng thái hoàn tất.",
+    title: "Đơn nháp tồn quá 3 ngày",
+    description: "Đơn đã bắt đầu nhưng chưa được chốt sau ít nhất 3 ngày dữ liệu.",
     count: staleCount,
     tone: "high",
     attention: "stale"
