@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const page = await readFile(new URL("../src/features/orders/OrdersClientPage.tsx", import.meta.url), "utf8");
 const sheet = await readFile(new URL("../src/features/orders/OrderCreateSheet.tsx", import.meta.url), "utf8");
 const sheetStyles = await readFile(new URL("../src/features/orders/OrderCreateSheet.module.css", import.meta.url), "utf8");
+const catalogPriority = await readFile(new URL("../src/features/orders/order-catalog-priority.ts", import.meta.url), "utf8");
 const workspaceStyles = await readFile(new URL("../src/app/order-create-workspace.css", import.meta.url), "utf8");
 const bottomSheet = await readFile(new URL("../src/ui/overlay/BottomSheet.tsx", import.meta.url), "utf8");
 const proxy = await readFile(new URL("../src/app/api/backend/orders/route.ts", import.meta.url), "utf8");
@@ -74,13 +75,31 @@ test("catalog groups variants inside one product card", () => {
   assert.match(sheet, /productGroups\.map\(\(group\)/);
   assert.match(sheet, /group\.variants\.map\(\(product\)/);
   assert.match(sheet, /styles\.variantGrid/);
-  assert.match(sheet, /variantPrimaryLabel\(product\)/);
-  assert.match(sheet, /variantSecondaryLabel\(product\)/);
-  assert.match(sheet, /aria-label=\{`Thêm \$\{product\.name\}, \$\{variantPrimaryLabel\(product\)\} vào đơn`\}/);
+  assert.match(sheet, /const primaryLabel = variantPrimaryLabel\(product\)/);
+  assert.match(sheet, /const secondaryLabel = variantSecondaryLabel\(product\)/);
+  assert.match(sheet, /aria-label=\{`Thêm \$\{product\.name\}, \$\{primaryLabel\} vào đơn`\}/);
+  assert.match(sheet, /title=\{`\$\{product\.name\} · \$\{primaryLabel\} · \$\{secondaryLabel\}`\}/);
   assert.match(sheet, /\$\{productGroups\.length\} sản phẩm · \$\{products\.length\} vị/);
   assert.match(sheetStyles, /\.variantGrid \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(150px, 1fr\)\)/);
   assert.match(sheetStyles, /\.variantSelected \{/);
   assert.doesNotMatch(sheet, /products\.map\(\(product\)/);
+});
+
+test("catalog filter and card order follow distributor business priority", () => {
+  const milkTeaIndex = catalogPriority.indexOf('label: "Nguyên liệu trà sữa"');
+  const spicyIndex = catalogPriority.indexOf('label: "Mì cay & đồ ăn"');
+  const packagingIndex = catalogPriority.indexOf('label: "Bao bì & dụng cụ"');
+  assert.ok(milkTeaIndex > 0);
+  assert.ok(spicyIndex > milkTeaIndex);
+  assert.ok(packagingIndex > spicyIndex);
+  assert.match(catalogPriority, /categories: \[\s*"Trà",\s*"Sữa",\s*"Siro",\s*"Bột",\s*"Topping"/);
+  assert.match(catalogPriority, /if \(prefix === "T"\) return 0/);
+  assert.match(catalogPriority, /if \(normalizedCategory === normalizeCategory\("Mì cay"\)\) return 1/);
+  assert.match(sheet, /\.sort\(compareCatalogProducts\)/);
+  assert.match(sheet, /const categorySections = useMemo\(\(\) => groupCatalogCategories\(categoryOptions\)/);
+  assert.match(sheet, /categorySections\.map\(\(section\) => \(/);
+  assert.match(sheet, /<optgroup key=\{section\.key\} label=\{section\.label\}>/);
+  assert.doesNotMatch(sheet, /categoryOptions\.map\(\(category\)/);
 });
 
 test("variant selection is add-only and visibly confirmed", () => {
@@ -88,6 +107,9 @@ test("variant selection is add-only and visibly confirmed", () => {
   assert.match(sheet, /setAddedNotice\(`/);
   assert.match(sheet, /aria-live="assertive"/);
   assert.match(sheet, /selectedQuantity \? `\$\{selectedQuantity\} trong đơn` : "\+ Thêm"/);
+  assert.match(sheet, /normalizeText\(rawVariant\) === "mac dinh" \? "" : rawVariant/);
+  assert.match(sheet, /return variant \|\| size \|\| item\.sellUnit \|\| item\.sku \|\| "Quy cách chuẩn"/);
+  assert.match(sheet, /"Chạm để thêm vào đơn"/);
   assert.match(sheetStyles, /\.variantButton \{[\s\S]*min-height: 64px/);
   assert.match(sheetStyles, /touch-action: manipulation/);
 });
@@ -125,7 +147,7 @@ test("product selection is realtime, filterable and keeps a visible cart", () =>
   assert.match(sheet, /setTimeout\(\(\) => \{[\s\S]*loadProducts\(productSearch, productCategory, productBrand\)/);
   assert.match(sheet, /params\.set\("category", category\)/);
   assert.match(sheet, /params\.set\("brand", brand\)/);
-  assert.match(sheet, />Nhóm hàng</);
+  assert.match(sheet, />Nhóm hàng · ưu tiên theo ngành</);
   assert.match(sheet, />Nhãn hàng</);
   assert.match(sheet, /selectedQuantityByVariant/);
   assert.match(sheet, />Đơn đang lên</);
