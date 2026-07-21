@@ -97,7 +97,7 @@ test("order detail loads persisted products and uses business-facing copy", () =
   assert.match(detail, /item\.lineTotal/);
   assert.match(detail, />Khách hàng và giao hàng</);
   assert.match(detail, />Thông tin đơn</);
-  assert.doesNotMatch(detail, /API đơn|Snapshot|Drawer|ID hệ thống|Chưa có chi tiết từng dòng hàng/);
+  assert.doesNotMatch(detail, /Snapshot tại thời điểm ghi nhận|Số liệu tổng hợp từ API danh sách|ID hệ thống|Chưa có chi tiết từng dòng hàng|API đơn hiện chỉ trả/);
 });
 
 test("order detail uses a desktop drawer and a mobile fullscreen surface", () => {
