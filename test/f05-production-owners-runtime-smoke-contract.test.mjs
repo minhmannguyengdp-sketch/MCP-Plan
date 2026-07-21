@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emptyEvidence, finalizeEvidence, passOperation } from "./runtime/f05-production-smoke-evidence.mjs";
+import { emptyEvidence, finalizeEvidence, recordOperationProof } from "./runtime/f05-production-smoke-evidence.mjs";
 import { assertF05ProductionSmokeGuard, redactSmokeError } from "./runtime/f05-production-smoke-guard.mjs";
 import { MUTATION_INVENTORY, RETIRED_SETTINGS_POSTS, SMOKE_PREFIX, SMOKE_SESSION_DATE } from "./runtime/f05-production-smoke-inventory.mjs";
 import { runF05ProductionOwnersSmoke } from "./runtime/f05-production-smoke-runner.mjs";
@@ -11,6 +11,18 @@ const expectedOperations = [
   "order.create", "route.create", "route.update", "route-session.open", "session-customer.status.update",
   "route-session.update", "route-session.delete-empty", "route-customer.update", "route-customer.archive", "route.archive"
 ];
+
+function completeOperationProof() {
+  return {
+    execute: { ok: true, canonical: true, requestId: "request-1" },
+    replay: { persisted: true, sameResult: true },
+    conflict: { status: 409, canonical: true },
+    context: { persisted: true, installationId: "installation-a", actorId: "actor-a" },
+    idempotency: { rowCount: 1, status: "completed", attemptCount: 2 },
+    audit: { succeeded: 1, replayed: 1, appendOnly: true },
+    invariants: { verified: true }
+  };
+}
 
 test("complete F05 runtime inventory is exact and legacy settings POSTs stay absent", () => {
   assert.deepEqual(MUTATION_INVENTORY.map((item) => item.operation), expectedOperations);
@@ -44,11 +56,11 @@ test("runner always cleans up and emits complete machine-readable PASS evidence"
   const calls = [];
   const driver = {
     async createTemporaryFixtures() { calls.push("create"); return { smoke: true }; },
-    async proveOperation(operation) { calls.push(operation.name); return {}; },
-    async proveRetiredPost(path) { calls.push(path); },
-    async proveArchiveLifecycle() { calls.push("archive-lifecycle"); return { retry: "PASS", reclaim: "PASS", finalizer: "PASS", noFakeCrossSystemTransaction: "PASS" }; },
+    async proveOperation(operation) { calls.push(operation.name); return completeOperationProof(); },
+    async proveRetiredPost(path) { calls.push(path); return { status: 404, canonical: true, requestId: "retired-request" }; },
+    async proveArchiveLifecycle() { calls.push("archive-lifecycle"); return { intentCount: 2, jobCount: 2, minimumJobAttempts: 2, reclaimedJobs: 1, finalizedIntents: 2, finalizedJobs: 2, separateIntentAndJobTransactions: true }; },
     async cleanupTemporaryFixtures() { calls.push("cleanup"); },
-    async verifyCleanup() { calls.push("verify-cleanup"); }
+    async verifyCleanup() { calls.push("verify-cleanup"); return { databaseRowsRemaining: 0, r2ProviderVerified: true, r2ObjectsRemaining: 0 }; }
   };
   const evidence = await runF05ProductionOwnersSmoke(driver);
   assert.equal(evidence.NPP_F05_PRODUCTION_OWNERS_RUNTIME_SMOKE, "PASS");
@@ -74,9 +86,22 @@ test("runner executes cleanup after a primary failure and never upgrades incompl
 
 test("evidence cannot report PASS with pending archive or cleanup proof", () => {
   const evidence = emptyEvidence();
-  for (const { name } of MUTATION_INVENTORY) passOperation(evidence, name);
+  for (const { name } of MUTATION_INVENTORY) recordOperationProof(evidence, name, completeOperationProof());
   for (const path of RETIRED_SETTINGS_POSTS) evidence.retiredSettingsPosts[path] = "PASS";
   assert.equal(finalizeEvidence(evidence).NPP_F05_PRODUCTION_OWNERS_RUNTIME_SMOKE, "FAIL");
+});
+
+test("runner rejects synthetic PASS labels, missing invariants, and DB-only cleanup", async () => {
+  const base = {
+    async createTemporaryFixtures() { return {}; },
+    async proveRetiredPost() { return { status: 404, canonical: true, requestId: "request" }; },
+    async proveArchiveLifecycle() { return { intentCount: 2, jobCount: 2, minimumJobAttempts: 2, reclaimedJobs: 1, finalizedIntents: 2, finalizedJobs: 2, separateIntentAndJobTransactions: true }; },
+    async cleanupTemporaryFixtures() {},
+    async verifyCleanup() { return { databaseRowsRemaining: 0, r2ProviderVerified: true, r2ObjectsRemaining: 0 }; }
+  };
+  await assert.rejects(runF05ProductionOwnersSmoke({ ...base, async proveOperation() { return { execute: "PASS", replay: "PASS", conflict: "PASS" }; } }), /npp_f05_production_smoke_failed/);
+  await assert.rejects(runF05ProductionOwnersSmoke({ ...base, async proveOperation() { return { ...completeOperationProof(), invariants: { verified: false } }; } }), /npp_f05_production_smoke_failed/);
+  await assert.rejects(runF05ProductionOwnersSmoke({ ...base, async proveOperation() { return completeOperationProof(); }, async verifyCleanup() { return { databaseRowsRemaining: 0, r2ProviderVerified: false, r2ObjectsRemaining: null }; } }), /npp_f05_production_smoke_failed/);
 });
 
 test("live driver targets only captured temporary IDs and never prints provider keys", async () => {
