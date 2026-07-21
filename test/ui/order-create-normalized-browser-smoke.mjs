@@ -39,6 +39,44 @@ function orderRequests(state) {
   return state.requests.filter((request) => request.method === "POST" && request.path === "/api/orders");
 }
 
+async function installOrderDetailMock(page) {
+  await page.route("**/api/backend/orders/*", async (route) => {
+    const orderId = decodeURIComponent(new URL(route.request().url()).pathname.split("/").pop() || "order-base-001");
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          id: orderId,
+          code: "DH-UI-BASE-001",
+          date: "2099-12-30",
+          accountName: "UI Existing Customer",
+          customerPhone: "0900000001",
+          routeName: "Tuyến phiên đang chạy",
+          area: "Bình Đại",
+          deliveryAddress: "12 Đường Browser Smoke",
+          owner: "Sale A",
+          source: "orders_tab",
+          status: "confirmed",
+          subtotal: 500000,
+          discountTotal: 0,
+          totalAmount: 500000,
+          note: "Giao buổi sáng",
+          skuCount: 3,
+          quantity: 10,
+          items: [
+            { id: "item-1", productId: "product-syrup", variantId: "variant-strawberry", productName: "Siro Hưng Phát", sku: "HP-SIRO-DAU-750", unit: "chai", quantity: 4, unitPrice: 50000, discount: 0, lineTotal: 200000, note: "Dâu · 750ml" },
+            { id: "item-2", productId: "product-syrup", variantId: "variant-peach", productName: "Siro Hưng Phát", sku: "HP-SIRO-DAO-750", unit: "chai", quantity: 3, unitPrice: 60000, discount: 0, lineTotal: 180000, note: "Đào · 750ml" },
+            { id: "item-3", productId: "product-tea", variantId: "variant-tea-jasmine", productName: "Trà Lài Hưng Phát", sku: "HP-TRA-LAI-500", unit: "gói", quantity: 3, unitPrice: 40000, discount: 0, lineTotal: 120000, note: "Lài · 500g" }
+          ]
+        },
+        requestId: "order-detail-browser-smoke",
+        receivedAt: new Date().toISOString()
+      })
+    });
+  });
+}
+
 async function openOrderSheet(page) {
   await page.goto(`${appBase}/orders`, { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "+ Tạo đơn", exact: true }).click();
@@ -50,6 +88,7 @@ async function openOrderSheet(page) {
 async function orderControlCenterFlow(browser) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
   const page = await context.newPage();
+  await installOrderDetailMock(page);
   await page.goto(`${appBase}/orders`, { waitUntil: "networkidle" });
 
   await page.getByRole("heading", { name: "Trung tâm đơn hàng", exact: true }).waitFor({ state: "visible" });
@@ -76,9 +115,11 @@ async function orderControlCenterFlow(browser) {
   const mobileDrawer = page.locator("[data-order-detail-surface='drawer']");
   await mobileDrawer.waitFor({ state: "visible" });
   assert.match(page.url(), /[?&]detail=/, "opening detail must own a shareable URL");
-  await mobileDrawer.getByText("Tổng quan", { exact: true }).waitFor({ state: "visible" });
-  await mobileDrawer.getByText("Cấu trúc đơn", { exact: true }).waitFor({ state: "visible" });
-  await mobileDrawer.getByText("Chưa có chi tiết từng dòng hàng", { exact: true }).waitFor({ state: "visible" });
+  await mobileDrawer.getByRole("heading", { name: "Sản phẩm", exact: true }).waitFor({ state: "visible" });
+  await mobileDrawer.getByText("Siro Hưng Phát", { exact: true }).first().waitFor({ state: "visible" });
+  await mobileDrawer.getByText("Khách hàng và giao hàng", { exact: true }).waitFor({ state: "visible" });
+  await mobileDrawer.getByText("12 Đường Browser Smoke", { exact: true }).waitFor({ state: "visible" });
+  assert.equal(await mobileDrawer.getByText(/API|Snapshot|ID hệ thống/).count(), 0, "detail copy must stay business-facing");
   const mobileBox = await mobileDrawer.boundingBox();
   assert.ok(mobileBox && mobileBox.width >= 389 && mobileBox.height >= 843, "mobile order detail must be fullscreen");
   assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Đóng chi tiết đơn", "detail must move focus into the dialog");
@@ -112,6 +153,7 @@ async function orderControlCenterFlow(browser) {
 async function desktopOrderDetailFlow(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
+  await installOrderDetailMock(page);
   await page.goto(`${appBase}/orders`, { waitUntil: "networkidle" });
   const firstOrderCard = page.locator("#orders-result-list article").first();
   await firstOrderCard.scrollIntoViewIfNeeded();
@@ -119,6 +161,7 @@ async function desktopOrderDetailFlow(browser) {
 
   const drawer = page.locator("[data-order-detail-surface='drawer']");
   await drawer.waitFor({ state: "visible" });
+  await drawer.getByText("Trà Lài Hưng Phát", { exact: true }).waitFor({ state: "visible" });
   const box = await drawer.boundingBox();
   const layoutWidth = await page.evaluate(() => document.documentElement.clientWidth);
   assert.ok(box, "desktop order detail drawer must have a bounding box");
