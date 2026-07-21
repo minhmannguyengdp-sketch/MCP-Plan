@@ -30,9 +30,13 @@ export function htmlResponse(title: string, body: string) {
 }
 
 export function kv(items: Array<[string, Cell]>) {
-  return `<div class="kv">${items.map(([k, v]) => `<b>${esc(k)}</b><span>${esc(v)}</span>`).join("")}</div>`;
+  return `<div class="kv">${items.map(([key, value]) => `<b>${esc(key)}</b><span>${esc(value)}</span>`).join("")}</div>`;
 }
 
 export function table<T>(columns: Array<{ header: string; value: (row: T, index: number) => Cell; className?: string }>, rows: T[]) {
-  return `<table><thead><tr>${columns.map((c) => `<th class="${esc(c.className || "")}">${esc(c.header)}</th>`).join("")}</tr></thead><tbody>${rows.map((row, index) => `<tr>${columns.map((c) => `<td class="${esc(c.className || "")}">${esc(c.value(row, index))}</td>`).join("") || `<tr><td colspan="${columns.length}" class="center muted">Không có dữ liệu trong kỳ báo cáo</td></tr>`}</tbody></table>`;
+  const header = columns.map((column) => `<th class="${esc(column.className || "")}">${esc(column.header)}</th>`).join("");
+  const body = rows.length
+    ? rows.map((row, index) => `<tr>${columns.map((column) => `<td class="${esc(column.className || "")}">${esc(column.value(row, index))}</td>`).join("")}</tr>`).join("")
+    : `<tr><td colspan="${columns.length}" class="center muted">Không có dữ liệu trong kỳ báo cáo</td></tr>`;
+  return `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
 }
