@@ -58,7 +58,7 @@ async function orderControlCenterFlow(browser) {
   await page.getByText("Cần chủ doanh nghiệp chú ý", { exact: true }).waitFor({ state: "visible" });
   await page.getByText(/7\/7 đơn/).waitFor({ state: "visible" });
 
-  const routeSelect = page.getByLabel("Tuyến", { exact: true });
+  const routeSelect = page.locator("label").filter({ hasText: /^Tuyến/ }).locator("select");
   await routeSelect.selectOption({ label: "Tuyến phiên đang chạy" });
   await page.getByText(/4\/7 đơn/).waitFor({ state: "visible" });
   assert.equal(await page.getByText("UI Other Route Customer", { exact: true }).count(), 0, "route drill-down must exclude other routes");
@@ -71,7 +71,7 @@ async function orderControlCenterFlow(browser) {
   await page.getByRole("button", { name: /Xóa 2 bộ lọc/ }).click();
   await page.getByText(/7\/7 đơn/).waitFor({ state: "visible" });
 
-  const attentionSelect = page.getByLabel("Cần chú ý", { exact: true });
+  const attentionSelect = page.locator("label").filter({ hasText: /^Cần chú ý/ }).locator("select");
   await attentionSelect.selectOption("possible_duplicate");
   await page.getByText(/2\/7 đơn/).waitFor({ state: "visible" });
   await page.getByText("Nghi trùng", { exact: true }).first().waitFor({ state: "visible" });
