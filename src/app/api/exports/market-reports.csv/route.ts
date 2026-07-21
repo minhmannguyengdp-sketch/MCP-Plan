@@ -1,3 +1,4 @@
+import { reportFilename, reportStatus } from "@/lib/export/business-report";
 import { csvResponse, yyyyMMdd } from "@/lib/export/csv";
 import { errorResponse, restRows } from "@/lib/export/supabase-rest";
 
@@ -22,29 +23,29 @@ export async function GET(request: Request) {
       limit: Number(params.get("limit") || 5000),
       filters: { report_date: params.get("date"), sales: params.get("sales"), route_name: params.get("routeName") }
     });
-    return csvResponse(`mcp-market-reports-${yyyyMMdd()}.csv`, [
-      { key: "report_date", header: "Ngày BC" },
-      { key: "sales", header: "Sale" },
+    return csvResponse(reportFilename("du-lieu-thi-truong", [yyyyMMdd()], "csv"), [
+      { key: "report_date", header: "Ngày ghi nhận" },
+      { key: "sales", header: "Nhân viên phụ trách" },
       { key: "route_name", header: "Tuyến" },
       { key: "market_area", header: "Khu vực" },
-      { key: "market_type", header: "Loại BC" },
-      { key: "total_shops", header: "Số shop" },
+      { key: "market_type", header: "Loại ghi nhận" },
+      { key: "total_shops", header: "Số điểm bán" },
+      { key: "customer_name", header: "Điểm bán", value: (row) => rawText(row, "context.customerName") },
       { key: "competitor_summary", header: "Đối thủ" },
-      { key: "price_summary", header: "Giá" },
+      { key: "selected_competitors", header: "Đối thủ đã chọn", value: (row) => rawText(row, "selected.competitors") },
+      { key: "company_product_summary", header: "Sản phẩm khách đang dùng" },
+      { key: "selected_used_products", header: "Sản phẩm đã chọn", value: (row) => rawText(row, "selected.usedProducts") },
+      { key: "price_summary", header: "Mức giá" },
       { key: "demand_summary", header: "Nhu cầu" },
-      { key: "company_product_summary", header: "SP công ty" },
-      { key: "opportunity_summary", header: "Cơ hội" },
+      { key: "opportunity_summary", header: "Cơ hội bán hàng" },
       { key: "risk_summary", header: "Rủi ro" },
-      { key: "next_action", header: "Next action" },
+      { key: "next_action", header: "Hành động tiếp theo" },
       { key: "note", header: "Ghi chú" },
-      { key: "selected_competitors", header: "Tick đối thủ", value: (row) => rawText(row, "selected.competitors") },
-      { key: "selected_used_products", header: "Tick SP/brand đang dùng", value: (row) => rawText(row, "selected.usedProducts") },
-      { key: "customer_name", header: "Khách", value: (row) => rawText(row, "context.customerName") },
-      { key: "route_customer_id", header: "Route Customer ID", value: (row) => rawText(row, "context.routeCustomerId") },
-      { key: "sync_status", header: "Sync" },
-      { key: "created_at", header: "Tạo lúc" },
-      { key: "updated_at", header: "Cập nhật lúc" },
-      { key: "synced_at", header: "Sync lúc" }
+      { key: "route_customer_id", header: "Mã điểm bán trong tuyến", value: (row) => rawText(row, "context.routeCustomerId") },
+      { key: "sync_status", header: "Trạng thái đồng bộ", value: (row) => reportStatus(row.sync_status as string | null) },
+      { key: "created_at", header: "Thời điểm tạo" },
+      { key: "updated_at", header: "Cập nhật gần nhất" },
+      { key: "synced_at", header: "Thời điểm đồng bộ" }
     ], rows);
   } catch (error) {
     return errorResponse(error);
