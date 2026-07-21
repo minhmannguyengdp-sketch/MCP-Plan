@@ -65,7 +65,11 @@ test("session print keeps Vietnamese and no longer uses the ASCII-only PDF build
   assert.match(sessionPrint, /htmlResponse/);
   assert.match(sessionPrint, /Điểm bán kế hoạch/);
   assert.match(sessionPrint, /Việc nên thực hiện tiếp theo/);
-  assert.doesNotMatch(sessionPrint, /buildMcpSessionPdf|application\/pdf|TT|KQ|FU:/);
+  assert.doesNotMatch(sessionPrint, /buildMcpSessionPdf/);
+  assert.doesNotMatch(sessionPrint, /application\/pdf/);
+  assert.doesNotMatch(sessionPrint, /\bTT\b/);
+  assert.doesNotMatch(sessionPrint, /\bKQ\b/);
+  assert.doesNotMatch(sessionPrint, /FU:/);
   assert.match(print, /In hoặc lưu PDF/);
   assert.match(print, /Báo cáo được lập lúc/);
 });

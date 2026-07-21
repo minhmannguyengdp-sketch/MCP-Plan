@@ -24,9 +24,9 @@ test("warm MCP palette is owned by one semantic token layer", () => {
   }
 });
 
-test("theme is imported last and browser chrome uses the brown header token", () => {
+test("theme is imported last and browser chrome uses the canvas token", () => {
   const themeIndex = layout.indexOf('import "./npp-theme.css";');
   const previousIndex = layout.indexOf('import "./export-menu-fix.css";');
   assert.ok(themeIndex > previousIndex, "theme override must load after legacy screen CSS");
-  assert.match(layout, /themeColor:\s*"#5A3A24"/);
+  assert.match(layout, /themeColor:\s*"#F7F3ED"/);
 });

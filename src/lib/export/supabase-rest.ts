@@ -8,6 +8,7 @@ type RequestOptions = {
   select?: string;
   order?: string;
   limit?: number;
+  offset?: number;
   filters?: Record<string, QueryValue>;
 };
 
@@ -44,6 +45,7 @@ export async function restRows<T>(table: string, options: RequestOptions = {}) {
   params.set("select", options.select || "*");
   if (options.order) params.set("order", options.order);
   if (options.limit) params.set("limit", String(options.limit));
+  if (options.offset) params.set("offset", String(options.offset));
   Object.entries(options.filters || {}).forEach(([key, value]) => {
     const next = filterValue(value);
     if (next) params.set(key, next);
