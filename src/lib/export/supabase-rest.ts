@@ -1,3 +1,5 @@
+import { reportErrorMessage } from "@/lib/export/business-report";
+
 type QueryValue = string | number | boolean | null | undefined;
 
 const RAW_FILTER_PREFIXES = ["eq.", "neq.", "gte.", "lte.", "lt.", "gt.", "ilike.", "like.", "is.", "in."];
@@ -60,5 +62,10 @@ export async function restRows<T>(table: string, options: RequestOptions = {}) {
 }
 
 export function errorResponse(error: unknown) {
-  return Response.json({ ok: false, error: error instanceof Error ? error.message : "export_failed" }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  const code = error instanceof Error ? error.message : "export_failed";
+  return Response.json({
+    ok: false,
+    error: reportErrorMessage(code),
+    code
+  }, { status: 400, headers: { "Cache-Control": "no-store" } });
 }
