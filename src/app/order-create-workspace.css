@@ -66,6 +66,10 @@
     padding: 2px !important;
   }
 
+  .bottom-sheet-workspace [data-mobile-panel] > div:nth-child(2) > section > div:first-child {
+    display: none;
+  }
+
   .bottom-sheet-workspace .sheet-footer {
     min-height: 38px;
     padding: 2px 6px !important;
