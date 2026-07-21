@@ -82,6 +82,7 @@ export async function mustConflict(path, options = {}) {
   );
   ensure(result.payload.requestId === result.requestId, `${path}: conflict_request_id_mismatch`);
   ensure(typeof result.payload.receivedAt === "string", `${path}: conflict_received_at_missing`);
+  return result;
 }
 
 export async function db(path) {
@@ -108,7 +109,7 @@ export function auditRows(operation, idempotencyKey) {
     "mcp_audit_events" +
       `?operation=eq.${encodeURIComponent(operation)}` +
       `&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}` +
-      "&select=request_id,action,outcome,status_code,aggregate_id&order=occurred_at.asc"
+      "&select=request_id,action,outcome,status_code,aggregate_id,installation_id,npp_code,actor_id,actor_type,actor_authentication&order=occurred_at.asc"
   );
 }
 
@@ -117,6 +118,6 @@ export function idempotencyRows(operation, idempotencyKey) {
     "mcp_idempotency_records" +
       `?operation=eq.${encodeURIComponent(operation)}` +
       `&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}` +
-      "&select=status,attempt_count,response_status,original_request_id,last_request_id,aggregate_id"
+      "&select=status,attempt_count,response_status,original_request_id,last_request_id,aggregate_id,installation_id,npp_code,actor_id,actor_type,actor_authentication"
   );
 }
