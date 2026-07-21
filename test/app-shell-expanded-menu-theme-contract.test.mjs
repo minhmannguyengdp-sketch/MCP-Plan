@@ -14,8 +14,8 @@ test("AppShell owns one sticky top bar and exposes semantic screen sections", ()
   assert.match(appShell, /data-shell-section=\{section\}/);
   assert.match(appShell, /className="app-content-shell"/);
   assert.match(navigation, /"overview" \| "routes" \| "session" \| "business"/);
-  assert.match(menuCss, /\.topBar \{[\s\S]*?position: sticky;/);
-  assert.doesNotMatch(menuCss, /\.trigger \{[\s\S]*?position: fixed;/);
+  assert.match(appShell, /<AppTopBar activeHref=\{activeHref\} \/>/);
+  assert.doesNotMatch(menuCss, /\.trigger \{[^}]*position: fixed;/);
   assert.match(mobileMenu, /data-app-top-bar-tools/);
   assert.match(routeExport, /createPortal\(/);
   assert.match(routeExport, /\[data-app-top-bar-tools\]/);

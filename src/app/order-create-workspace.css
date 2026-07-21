@@ -41,3 +41,39 @@
     padding-left: 6px !important;
   }
 }
+
+@media (max-width: 900px) and (max-height: 420px) {
+  .bottom-sheet-workspace .sheet-header {
+    min-height: 38px !important;
+    padding: 3px 8px !important;
+  }
+
+  .bottom-sheet-workspace .sheet-header h2 {
+    font-size: 15px;
+    line-height: 1.1;
+  }
+
+  .bottom-sheet-workspace .sheet-header p {
+    margin-top: 1px;
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .bottom-sheet-workspace .sheet-close {
+    width: 34px;
+    min-height: 34px;
+  }
+
+  .bottom-sheet-workspace .sheet-body {
+    padding: 3px !important;
+  }
+
+  .bottom-sheet-workspace .sheet-footer {
+    min-height: 42px;
+    padding: 3px 6px !important;
+  }
+
+  .bottom-sheet-workspace .sheet-footer button {
+    min-height: 36px !important;
+  }
+}
