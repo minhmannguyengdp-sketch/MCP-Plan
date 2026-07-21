@@ -1,3 +1,4 @@
+import { reportFilename, reportStatus } from "@/lib/export/business-report";
 import { csvResponse, yyyyMMdd } from "@/lib/export/csv";
 import { errorResponse, restRows } from "@/lib/export/supabase-rest";
 
@@ -115,31 +116,32 @@ export async function GET(request: Request) {
       ...files.filter((file) => !customerFileIds.has(key(file.id))).map((file) => exportRow(file))
     ];
 
-    return csvResponse(`mcp-tests-${yyyyMMdd()}.csv`, [
-      { key: "route_id", header: "Route ID" },
-      { key: "route_name", header: "Tuyến" },
+    return csvResponse(reportFilename("ket-qua-thu-san-pham", [yyyyMMdd()], "csv"), [
       { key: "session_date", header: "Ngày phiên" },
-      { key: "session_id", header: "Session ID" },
-      { key: "session_customer_id", header: "Session Customer ID" },
-      { key: "test_date", header: "Ngày test" },
-      { key: "sales", header: "Sale" },
-      { key: "file_id", header: "File ID" },
-      { key: "file_title", header: "Hồ sơ test" },
-      { key: "file_status", header: "Trạng thái file" },
-      { key: "customer_row_id", header: "Test Customer ID" },
-      { key: "customer_name", header: "Tên khách" },
-      { key: "phone", header: "SĐT" },
+      { key: "route_name", header: "Tuyến" },
+      { key: "test_date", header: "Ngày thử sản phẩm" },
+      { key: "sales", header: "Nhân viên phụ trách" },
+      { key: "file_title", header: "Tên phiếu thử" },
+      { key: "file_status", header: "Trạng thái phiếu", value: (row) => reportStatus(row.file_status) },
+      { key: "customer_name", header: "Tên điểm bán" },
+      { key: "phone", header: "Số điện thoại" },
       { key: "area", header: "Khu vực" },
-      { key: "customer_status", header: "Trạng thái khách" },
-      { key: "product_name", header: "Sản phẩm test" },
-      { key: "product_id", header: "Product ID" },
-      { key: "result_status", header: "Kết quả" },
+      { key: "customer_status", header: "Kết quả ghé", value: (row) => reportStatus(row.customer_status) },
+      { key: "product_name", header: "Sản phẩm được thử" },
+      { key: "result_status", header: "Kết quả thử", value: (row) => reportStatus(row.result_status) },
       { key: "result_note", header: "Ghi chú kết quả" },
-      { key: "customer_note", header: "Ghi chú khách" },
-      { key: "file_note", header: "Ghi chú file" },
-      { key: "file_sync_status", header: "Sync" },
-      { key: "created_at", header: "Tạo lúc" },
-      { key: "updated_at", header: "Cập nhật lúc" }
+      { key: "customer_note", header: "Ghi chú điểm bán" },
+      { key: "file_note", header: "Ghi chú chung" },
+      { key: "file_sync_status", header: "Trạng thái đồng bộ", value: (row) => reportStatus(row.file_sync_status) },
+      { key: "route_id", header: "Mã tuyến" },
+      { key: "session_id", header: "Mã phiên" },
+      { key: "session_customer_id", header: "Mã điểm bán trong phiên" },
+      { key: "file_id", header: "Mã phiếu thử" },
+      { key: "customer_row_id", header: "Mã điểm bán trong phiếu" },
+      { key: "product_id", header: "Mã sản phẩm" },
+      { key: "result_id", header: "Mã kết quả" },
+      { key: "created_at", header: "Thời điểm tạo" },
+      { key: "updated_at", header: "Cập nhật gần nhất" }
     ], rows);
   } catch (error) {
     return errorResponse(error);

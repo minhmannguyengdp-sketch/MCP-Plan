@@ -1,3 +1,4 @@
+import { reportFilename, reportSource, reportStatus, reportYesNo } from "@/lib/export/business-report";
 import { csvResponse, yyyyMMdd } from "@/lib/export/csv";
 import { errorResponse, restRows } from "@/lib/export/supabase-rest";
 
@@ -65,7 +66,8 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const params = url.searchParams;
-    const session = params.get("sessionId") || !params.get("routeId") || !params.get("date") ? await findSession(params) : null;
+    const shouldFindSession = Boolean(params.get("sessionId") || !params.get("routeId") || !params.get("date"));
+    const session = shouldFindSession ? await findSession(params) : null;
     const routeId = String(params.get("routeId") || session?.route_id || "");
     const sessionDate = String(params.get("date") || session?.session_date || "").slice(0, 10);
 
@@ -83,29 +85,29 @@ export async function GET(request: Request) {
       runStatus: run.status || String(session?.status || "")
     }));
 
-    return csvResponse(`mcp-session-checklist-${sessionDate || yyyyMMdd()}.csv`, [
-      { key: "sessionId", header: "Session ID" },
-      { key: "routeId", header: "Route ID" },
-      { key: "sessionDate", header: "Ngày" },
+    return csvResponse(reportFilename("chi-tiet-phien-ban-hang", [sessionDate || yyyyMMdd()], "csv"), [
+      { key: "sessionDate", header: "Ngày phiên" },
       { key: "routeName", header: "Tên tuyến" },
-      { key: "owner", header: "Sale" },
-      { key: "runStatus", header: "Trạng thái phiên" },
-      { key: "sessionCustomerId", header: "Session Customer ID" },
-      { key: "routeCustomerId", header: "Route Customer ID" },
-      { key: "customerId", header: "Customer ID" },
-      { key: "accountName", header: "Tên khách" },
-      { key: "phone", header: "SĐT" },
+      { key: "owner", header: "Nhân viên phụ trách" },
+      { key: "runStatus", header: "Trạng thái phiên", value: (row) => reportStatus(row.runStatus) },
+      { key: "sortOrder", header: "Thứ tự ghé" },
+      { key: "accountName", header: "Tên điểm bán" },
+      { key: "phone", header: "Số điện thoại" },
       { key: "area", header: "Khu vực" },
       { key: "address", header: "Địa chỉ" },
-      { key: "sortOrder", header: "Thứ tự" },
-      { key: "source", header: "Nguồn" },
-      { key: "status", header: "Trạng thái ghé" },
+      { key: "source", header: "Nguồn điểm bán", value: (row) => reportSource(row.source) },
+      { key: "status", header: "Kết quả ghé", value: (row) => reportStatus(row.status) },
       { key: "statusReason", header: "Lý do" },
-      { key: "hasOrder", header: "Có đơn", value: (row) => row.hasOrder ? "Có" : "" },
-      { key: "hasTest", header: "Có test", value: (row) => row.hasTest ? "Có" : "" },
-      { key: "hasReport", header: "Có BC", value: (row) => row.hasReport ? "Có" : "" },
-      { key: "followupCount", header: "Số follow-up" },
-      { key: "note", header: "Ghi chú" }
+      { key: "hasOrder", header: "Có đơn hàng", value: (row) => reportYesNo(row.hasOrder) },
+      { key: "hasTest", header: "Có thử sản phẩm", value: (row) => reportYesNo(row.hasTest) },
+      { key: "hasReport", header: "Có ghi nhận thị trường", value: (row) => reportYesNo(row.hasReport) },
+      { key: "followupCount", header: "Số việc cần theo dõi" },
+      { key: "note", header: "Ghi chú" },
+      { key: "sessionId", header: "Mã phiên" },
+      { key: "routeId", header: "Mã tuyến" },
+      { key: "sessionCustomerId", header: "Mã điểm bán trong phiên" },
+      { key: "routeCustomerId", header: "Mã điểm bán trong tuyến" },
+      { key: "customerId", header: "Mã khách hàng" }
     ], rows);
   } catch (error) {
     return errorResponse(error);

@@ -6,8 +6,13 @@ export type CsvColumn<T> = {
   value?: (row: T) => CsvValue;
 };
 
+function spreadsheetSafe(value: CsvValue) {
+  const normalized = value == null ? "" : String(value).replace(/\r?\n/g, " ");
+  return /^[=+\-@]/.test(normalized) ? `'${normalized}` : normalized;
+}
+
 function cell(value: CsvValue) {
-  const text = value == null ? "" : String(value);
+  const text = spreadsheetSafe(value);
   return `"${text.replace(/"/g, '""')}"`;
 }
 
@@ -18,8 +23,9 @@ export function csvResponse<T>(filename: string, columns: CsvColumn<T>[], rows: 
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store"
+      "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff"
     }
   });
 }
