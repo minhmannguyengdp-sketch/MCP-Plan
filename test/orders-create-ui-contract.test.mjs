@@ -96,7 +96,7 @@ test("catalog filter and card order follow distributor business priority", () =>
   assert.match(catalogPriority, /if \(prefix === "T"\) return 0/);
   assert.match(catalogPriority, /if \(normalizedCategory === normalizeCategory\("Mì cay"\)\) return 1/);
   assert.match(sheet, /\.sort\(compareCatalogProducts\)/);
-  assert.match(sheet, /const categorySections = useMemo\(\(\) => groupCatalogCategories\(categoryOptions\)\)/);
+  assert.match(sheet, /const categorySections = useMemo\(\(\) => groupCatalogCategories\(categoryOptions\)/);
   assert.match(sheet, /categorySections\.map\(\(section\) => \(/);
   assert.match(sheet, /<optgroup key=\{section\.key\} label=\{section\.label\}>/);
   assert.doesNotMatch(sheet, /categoryOptions\.map\(\(category\)/);
