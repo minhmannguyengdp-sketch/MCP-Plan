@@ -12,6 +12,8 @@ The command verifies standalone order creation; route create/update; session ope
 
 Every persisted-idempotent mutation must prove first execution, same-key replay, different-payload conflict, canonical envelope/request ID, trusted context, one completed idempotency record, append-only succeeded/replayed audit events, and its business invariant. Archive evidence is separate: intent, R2/delete job, retry/reclaim, and finalizer must each pass. The tool must never describe PostgreSQL and R2 as one transaction.
 
+The evidence layer accepts observed facts, not caller-provided `"PASS"` labels. Missing before/after invariant checks, an archive job with only one attempt, database-only media cleanup, or an unverified R2 provider result forces the overall result to `FAIL`. The initial live driver intentionally reports those capabilities as unproven until their real provider verifiers exist; it cannot manufacture a green closure result from HTTP success alone.
+
 ## Mandatory guard
 
 The command refuses to start unless all values are explicitly present and identities match:
@@ -37,6 +39,7 @@ Never paste this command with real values into CI logs, issues, PRs, chat, or sh
 * Cleanup runs from `finally`, archives only captured temporary route IDs, and then checks temporary rows and outlet-media references are absent.
 * A failed cleanup makes the whole command fail. It is forbidden to manually delete unrelated production data to make evidence green.
 * Archive PASS requires separate persisted intent/delete-job evidence, including retry/reclaim/finalizer behavior and final R2 absence.
+* A zero-row `mcp_outlet_media` query is not proof that R2 objects are gone. Cleanup PASS additionally requires a provider-level absence check for the exact temporary objects created by that run.
 
 ## Evidence
 
