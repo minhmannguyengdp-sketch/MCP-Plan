@@ -177,6 +177,86 @@ async function desktopOrderDetailFlow(browser) {
   return "PASS";
 }
 
+function boxesOverlap(first, second) {
+  return first.x < second.x + second.width && first.x + first.width > second.x && first.y < second.y + second.height && first.y + first.height > second.y;
+}
+
+async function shortOrderWorkspaceLayoutFlow(browser, viewport = { width: 496, height: 309 }) {
+  await resetMock();
+  const context = await browser.newContext({ viewport });
+  const page = await context.newPage();
+  const dialog = await openOrderSheet(page);
+  const sessionSelect = dialog.locator("label").filter({ hasText: "Phiên / tuyến" }).locator("select");
+  await sessionSelect.waitFor({ state: "visible" });
+
+  const customerList = dialog.locator("[data-order-customer-list]");
+  const customers = customerList.getByRole("radio");
+  await customers.nth(1).waitFor({ state: "visible" });
+  const listStyle = await customerList.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { overflowY: style.overflowY, height: element.clientHeight, scrollHeight: element.scrollHeight };
+  });
+  assert.match(listStyle.overflowY, /auto|scroll/, "short customer list must own vertical scrolling");
+  assert.ok(listStyle.height > 0, "short customer list must retain usable height");
+
+  const pageViewport = page.viewportSize();
+  const listBox = await customerList.boundingBox();
+  assert.ok(listBox, "short customer list must have a bounding box");
+  const fullyVisibleRows = [];
+  for (let index = 0; index < await customers.count(); index += 1) {
+    const box = await customers.nth(index).boundingBox();
+    if (box && pageViewport && box.y >= listBox.y && box.y + box.height <= listBox.y + listBox.height && box.y + box.height <= pageViewport.height) fullyVisibleRows.push(box);
+  }
+  assert.ok(fullyVisibleRows.length >= 2, "496x309 must show at least two complete customer rows");
+
+  const firstCustomer = customers.first();
+  await firstCustomer.click();
+  assert.equal(await firstCustomer.getAttribute("aria-checked"), "true", "short layout must retain selected customer state");
+  const continueButton = dialog.getByRole("button", { name: "Tiếp tục với UI Existing Customer", exact: true });
+  await continueButton.waitFor({ state: "visible" });
+  const footer = dialog.locator("[data-order-customer-footer]");
+  const footerStyle = await footer.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, opacity: style.opacity, position: style.position };
+  });
+  assert.notEqual(footerStyle.background, "rgba(0, 0, 0, 0)", "customer CTA footer must be opaque");
+  assert.equal(footerStyle.opacity, "1", "customer CTA footer must not create a translucent overlay");
+  const footerBox = await footer.boundingBox();
+  assert.ok(footerBox, "customer CTA footer must have a bounding box");
+  for (const rowBox of fullyVisibleRows) assert.equal(boxesOverlap(footerBox, rowBox), false, "customer CTA footer must not overlap a customer row");
+  for (const rowBox of fullyVisibleRows.slice(0, 2)) {
+    const rowOwnsPaintPoint = await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("[role='radio']")), {
+      x: rowBox.x + rowBox.width / 2,
+      y: rowBox.y + rowBox.height / 2
+    });
+    assert.equal(rowOwnsPaintPoint, true, "no overlay may intercept the visible customer row paint area");
+  }
+
+  await continueButton.click();
+  const productList = dialog.locator("[data-order-product-list]");
+  await productList.waitFor({ state: "visible" });
+  const productCards = productList.locator("article");
+  await productCards.first().waitFor({ state: "visible" });
+  const productBox = await productList.boundingBox();
+  assert.ok(productBox && productBox.height >= 70, "short product list must retain usable viewport height");
+  const sheetFooterBox = await dialog.locator(".sheet-footer").boundingBox();
+  const visibleProductBoxes = [];
+  for (let index = 0; index < await productCards.count(); index += 1) {
+    const box = await productCards.nth(index).boundingBox();
+    if (!box) continue;
+    const visibleTop = Math.max(box.y, productBox.y);
+    const visibleBottom = Math.min(box.y + box.height, productBox.y + productBox.height);
+    if (visibleBottom > visibleTop) visibleProductBoxes.push({ ...box, y: visibleTop, height: visibleBottom - visibleTop });
+  }
+  const lastProductBox = visibleProductBoxes.at(-1);
+  assert.ok(lastProductBox && sheetFooterBox, "visible product and sheet footer must be measurable");
+  assert.equal(boxesOverlap(lastProductBox, sheetFooterBox), false, "sheet footer must not cover the last visible product row");
+
+  await page.screenshot({ path: `${resultsDir}/00c-order-create-${viewport.width}x${viewport.height}.png`, fullPage: true });
+  await context.close();
+  return "PASS";
+}
+
 async function existingSessionCustomerFlow(browser) {
   await resetMock();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -291,6 +371,8 @@ const evidence = {};
 try {
   evidence.orderControlCenterFlow = await orderControlCenterFlow(browser);
   evidence.desktopOrderDetailFlow = await desktopOrderDetailFlow(browser);
+  evidence.shortOrderWorkspace496x309 = await shortOrderWorkspaceLayoutFlow(browser);
+  evidence.shortOrderWorkspace480x320 = await shortOrderWorkspaceLayoutFlow(browser, { width: 480, height: 320 });
   evidence.existingSessionCustomerFlow = await existingSessionCustomerFlow(browser);
   evidence.manualCustomerFlow = await manualCustomerFlow(browser);
   evidence.result = "PASS";

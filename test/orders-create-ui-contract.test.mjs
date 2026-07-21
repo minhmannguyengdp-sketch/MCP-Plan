@@ -143,6 +143,19 @@ test("unfinished drafts are protected and the mobile footer stays visible", () =
   assert.match(sheetStyles, /\.primaryAction \{[\s\S]*grid-column: 2/);
 });
 
+test("short order workspace gives lists the scroll ownership and isolates the customer CTA", () => {
+  assert.match(sheet, /data-order-customer-list/);
+  assert.match(sheet, /data-order-customer-footer/);
+  assert.match(sheet, /data-order-product-list/);
+  assert.match(sheetStyles, /\.customerPickerFooter \{[\s\S]*background: #fff/);
+  assert.match(sheetStyles, /@media \(max-width: 900px\) and \(max-height: 420px\)/);
+  assert.match(sheetStyles, /\.customerPicker \{[\s\S]*grid-template-rows: 32px minmax\(0, 1fr\) 34px/);
+  assert.match(sheetStyles, /\.customerList \{[\s\S]*flex: 1 1 auto;[\s\S]*overflow-y: auto/);
+  assert.match(workspaceStyles, /@media \(max-width: 900px\) and \(max-height: 420px\)/);
+  assert.match(workspaceStyles, /\.bottom-sheet-workspace \.sheet-header \{[\s\S]*min-height: 34px !important/);
+  assert.match(workspaceStyles, /\.bottom-sheet-workspace \.sheet-header p \{[\s\S]*display: none/);
+});
+
 test("product selection is realtime, filterable and keeps a visible cart", () => {
   assert.match(sheet, /setTimeout\(\(\) => \{[\s\S]*loadProducts\(productSearch, productCategory, productBrand\)/);
   assert.match(sheet, /params\.set\("category", category\)/);

@@ -150,7 +150,7 @@
 .sessionSummary,
 .selectedCustomerSummary,
 .customerList,
-.customerContinue {
+.customerPickerFooter {
   grid-column: 1 / -1;
 }
 
@@ -377,6 +377,15 @@
   justify-self: end;
   padding-inline: 14px;
   font-size: 11px;
+}
+
+.customerPickerFooter {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  padding-top: 7px;
 }
 
 .hint {
@@ -882,28 +891,41 @@
 
   .customerPicker,
   .manualGrid {
-    grid-template-columns: 1fr;
     min-height: 0;
-    overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 2px;
   }
 
   .customerPicker {
-    grid-template-rows: auto auto auto auto minmax(120px, 1fr) auto;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .manualGrid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
   .sessionField,
   .sessionSummary,
   .selectedCustomerSummary,
   .customerList,
-  .customerContinue {
+  .customerPickerFooter {
     grid-column: 1;
   }
 
   .customerList {
     grid-template-columns: 1fr;
-    overflow: visible;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .customerPickerFooter {
+    width: 100%;
   }
 
   .customerContinue {
@@ -1036,6 +1058,165 @@
 
   .primaryAction {
     min-width: 116px;
+  }
+}
+
+@media (max-width: 900px) and (max-height: 420px) {
+  .workspace {
+    gap: 3px;
+  }
+
+  .mobileTabs {
+    gap: 2px;
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  .mobileTabs button {
+    min-height: 30px;
+    border-radius: 6px;
+    padding: 2px 4px;
+  }
+
+  .mobileTabs button span {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .mobileTabs button small {
+    font-size: 7px;
+    line-height: 1;
+  }
+
+  .section {
+    gap: 4px;
+    border-radius: 9px;
+    padding: 4px;
+  }
+
+  .sectionHead {
+    align-items: center;
+    min-height: 17px;
+  }
+
+  .sectionHead strong {
+    font-size: 11px;
+    line-height: 1.1;
+  }
+
+  .sectionHead small,
+  .selectionBadge,
+  .sessionSummary,
+  .selectedCustomerSummary {
+    display: none;
+  }
+
+  .modeTabs {
+    gap: 2px;
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  .modeTabs button {
+    display: block;
+    min-height: 30px;
+    border-radius: 6px;
+    padding: 5px 6px;
+  }
+
+  .modeTabs button strong {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .modeTabs button small {
+    display: none;
+  }
+
+  .customerPicker {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    grid-template-rows: 32px minmax(0, 1fr) 34px;
+    gap: 3px 5px;
+  }
+
+  .sessionField,
+  .customerPicker > .compactField:not(.sessionField) {
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .sessionField {
+    grid-column: 1;
+  }
+
+  .customerPicker > .compactField:not(.sessionField) {
+    grid-column: 2;
+  }
+
+  .compactField {
+    display: block;
+  }
+
+  .compactField > span {
+    display: none;
+  }
+
+  .compactField input,
+  .compactField select {
+    min-height: 32px;
+    height: 32px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .customerList {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .customerList button {
+    min-height: 46px;
+    padding: 4px 6px;
+  }
+
+  .customerPickerFooter {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    padding-top: 2px;
+  }
+
+  .customerContinue {
+    min-height: 32px;
+    height: 32px;
+    padding: 3px 10px;
+  }
+
+  .searchToolbar,
+  .filterRow {
+    gap: 3px;
+  }
+
+  .toolButton {
+    min-height: 32px;
+    height: 32px;
+  }
+
+  .productResults {
+    gap: 4px;
+  }
+
+  .productCard {
+    gap: 4px;
+    padding: 5px 7px;
+  }
+
+  .variantButton {
+    min-height: 48px;
+    padding: 4px 6px;
   }
 }
 
