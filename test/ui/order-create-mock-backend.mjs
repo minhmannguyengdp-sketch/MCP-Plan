@@ -88,6 +88,100 @@ const products = [
   }
 ];
 
+const orders = [
+  {
+    id: "order-base-001",
+    code: "DH-UI-BASE-001",
+    date: "2099-12-30",
+    accountName: "UI Existing Customer",
+    routeName: "Tuyến phiên đang chạy",
+    owner: "Sale A",
+    source: "orders_tab",
+    skuCount: 3,
+    quantity: 10,
+    totalAmount: 500000,
+    status: "confirmed"
+  },
+  {
+    id: "order-base-002",
+    code: "DH-UI-BASE-002",
+    date: "2099-12-30",
+    accountName: "UI Existing Customer",
+    routeName: "Tuyến phiên đang chạy",
+    owner: "Sale A",
+    source: "orders_tab",
+    skuCount: 3,
+    quantity: 10,
+    totalAmount: 500000,
+    status: "confirmed"
+  },
+  {
+    id: "order-base-003",
+    code: "DH-UI-BASE-003",
+    date: "2099-12-30",
+    accountName: "UI Second Customer",
+    routeName: "Tuyến phiên đang chạy",
+    owner: "Sale A",
+    source: "mcp_session_customer",
+    skuCount: 2,
+    quantity: 8,
+    totalAmount: 300000,
+    status: "delivered"
+  },
+  {
+    id: "order-base-004",
+    code: "DH-UI-BASE-004",
+    date: "2099-12-29",
+    accountName: "UI Other Route Customer",
+    routeName: "Tuyến phiên đã chốt",
+    owner: "Sale B",
+    source: "mcp_session_customer",
+    skuCount: 4,
+    quantity: 16,
+    totalAmount: 700000,
+    status: "delivered"
+  },
+  {
+    id: "order-base-005",
+    code: "DH-UI-BASE-005",
+    date: "2099-12-20",
+    accountName: "UI Other Route Customer",
+    routeName: "Tuyến phiên đã chốt",
+    owner: "Sale B",
+    source: "phone",
+    skuCount: 1,
+    quantity: 4,
+    totalAmount: 200000,
+    status: "confirmed"
+  },
+  {
+    id: "order-base-006",
+    code: "DH-UI-BASE-006",
+    date: "2099-12-28",
+    accountName: "UI Existing Customer",
+    routeName: "Tuyến phiên đang chạy",
+    owner: "Sale A",
+    source: "phone",
+    skuCount: 1,
+    quantity: 2,
+    totalAmount: 100000,
+    status: "cancelled"
+  },
+  {
+    id: "order-base-007",
+    code: "DH-UI-BASE-007",
+    date: "2099-12-27",
+    accountName: "UI Draft Customer",
+    routeName: "Tuyến phiên đã chốt",
+    owner: "Sale B",
+    source: "orders_tab",
+    skuCount: 0,
+    quantity: 0,
+    totalAmount: 0,
+    status: "draft"
+  }
+];
+
 function initialState() {
   return {
     sequence: 1,
@@ -191,7 +285,7 @@ const server = http.createServer(async (request, response) => {
       return json(response, 200, state);
     }
     if (request.method === "GET" && url.pathname === "/api/orders") {
-      return json(response, 200, canonical(request, []));
+      return json(response, 200, canonical(request, orders));
     }
     if (request.method === "GET" && url.pathname === "/api/routes/customers/data") {
       return json(response, 200, canonical(request, {
