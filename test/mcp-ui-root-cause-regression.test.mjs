@@ -22,6 +22,7 @@ test("MCP setting POST and PATCH mutations use stable idempotency and canonical 
   assert.match(canonicalSettingsPage, /method === "POST" \|\| method === "PATCH"/);
   assert.match(canonicalSettingsPage, /operation: `report-setting-item\.\$\{method\.toLowerCase\(\)\}`/);
   assert.match(canonicalSettingsPage, /payload\.error\?\.message/);
-  assert.match(canonicalSettingsPage, /method: editId \? "PATCH" : "POST"/);
+  assert.match(canonicalSettingsPage, /function saveNewItem\(\)[\s\S]*?method: "POST"/);
+  assert.match(canonicalSettingsPage, /function saveEditedItem\(\)[\s\S]*?method: "PATCH"/);
   assert.match(canonicalSettingsPage, /body: JSON\.stringify\(\{ itemId: item\.id, status:/);
 });

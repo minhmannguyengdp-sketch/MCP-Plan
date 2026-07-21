@@ -1,0 +1,44 @@
+name: Dashboard persisted browser smoke
+
+on:
+  pull_request:
+    paths:
+      - "src/features/dashboard/**"
+      - "src/lib/export/supabase-rest.ts"
+      - "test/ui/dashboard-persisted-*"
+      - ".github/workflows/dashboard-persisted-browser-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false playwright@1.54.1
+      - run: npx playwright install --with-deps chromium
+      - name: Build
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3112
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: 00000000-0000-0000-0000-000000000001
+          SUPABASE_URL: http://127.0.0.1:3112
+          SUPABASE_ANON_KEY: dashboard-browser-smoke
+        run: npm run build
+      - name: Run browser smoke
+        env:
+          BACKEND_API_BASE_URL: http://127.0.0.1:3112
+          BACKEND_API_TOKEN: 0123456789abcdef0123456789abcdef
+          MCP_LEGACY_ACTOR_ID: 00000000-0000-0000-0000-000000000001
+          SUPABASE_URL: http://127.0.0.1:3112
+          SUPABASE_ANON_KEY: dashboard-browser-smoke
+        run: |
+          node test/ui/dashboard-persisted-mock.mjs > /tmp/dashboard-mock.log 2>&1 &
+          npm start -- -p 3000 > /tmp/dashboard-next.log 2>&1 &
+          for i in {1..60}; do curl -fsS http://127.0.0.1:3000 >/dev/null && break; sleep 1; done
+          node test/ui/dashboard-persisted-browser-smoke.mjs
