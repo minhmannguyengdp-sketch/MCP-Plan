@@ -1,4 +1,3 @@
-import { createApiClient } from "@/lib/api/api-client";
 import type { DashboardActionDto, DashboardRouteHealthDto } from "@/lib/api/api.types";
 import { restRows } from "@/lib/export/supabase-rest";
 import { CompactKpiStrip } from "@/ui/cards/CompactKpiStrip";
@@ -8,9 +7,18 @@ import { PageHeader } from "@/ui/layout/PageHeader";
 import { AppShell } from "@/ui/shell/AppShell";
 import { SourceBadge } from "@/ui/status/SourceBadge";
 import { businessOwner, businessText, isTechnicalSourceText } from "@/lib/ui/business-text";
+import {
+  compareSessionsNewestFirst,
+  derivePersistedRouteOverview,
+  vietnamBusinessDate,
+  type DashboardReportRow,
+  type DashboardRouteRow,
+  type DashboardSessionRow,
+  type PersistedRouteOverview
+} from "./persisted-overview";
 
 type Row = Record<string, unknown>;
-type RestOptions = { select?: string; order?: string; limit?: number; filters?: Record<string, string | number | boolean | null | undefined> };
+type RestOptions = { select?: string; order?: string; limit?: number; offset?: number; filters?: Record<string, string | number | boolean | null | undefined> };
 type HomeCard = {
   href: string;
   eyebrow: string;
@@ -31,8 +39,16 @@ type HomeAlert = {
 };
 
 type HomeFacts = {
-  sessions: Row[];
-  reports: Row[];
+  routes: DashboardRouteRow[];
+  sessions: DashboardSessionRow[];
+  reports: DashboardReportRow[];
+};
+
+type OperationalOverview = {
+  kpis: { label: string; value: string | number; hint: string; trend: string }[];
+  routeHealth: (DashboardRouteHealthDto & { sessionId: string | null; sessionState: string; followups: number })[];
+  actions: DashboardActionDto[];
+  insights: { label: string; value: string }[];
 };
 
 function text(value: unknown) {
@@ -67,9 +83,11 @@ function getStatusClass(status: "good" | "watch" | "risk") {
 }
 
 function sessionStatusText(status: string) {
+  if (status === "active") return "Đang mở";
   if (status === "done" || status === "completed") return "Đã chốt";
   if (status === "cancelled") return "Đã hủy";
-  return "Đang mở";
+  if (status === "none") return "Chưa có phiên";
+  return "Không rõ trạng thái";
 }
 
 function visitRate(visited: number, planned: number) {
@@ -107,31 +125,85 @@ function metricsFromSession(session?: Row, report?: Row) {
   };
 }
 
-async function safeRows(table: string, options: RestOptions) {
-  try {
-    return await restRows<Row>(table, options);
-  } catch {
-    return [] as Row[];
+async function allRows<T>(table: string, options: RestOptions) {
+  const pageSize = 500;
+  const rows: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await restRows<T>(table, { ...options, limit: pageSize, offset });
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
   }
 }
 
 async function loadHomeFacts(): Promise<HomeFacts> {
-  const [sessions, reports] = await Promise.all([
-    safeRows("mcp_route_sessions", {
-      select: "id,route_id,route_name,session_date,sales,status,planned_customers,visited_customers,order_count,test_count,report_count,followup_count,updated_at",
-      order: "session_date.desc,updated_at.desc",
-      limit: 12
+  const [routes, sessions, reports] = await Promise.all([
+    allRows<DashboardRouteRow>("mcp_routes", {
+      select: "id,route_name,area,active",
+      order: "id.asc",
+      filters: { active: true }
     }),
-    safeRows("mcp_session_reports", {
+    allRows<DashboardSessionRow>("mcp_route_sessions", {
+      select: "id,route_id,route_name,session_date,sales,status,planned_customers,visited_customers,order_count,test_count,report_count,followup_count,created_at,updated_at",
+      order: "session_date.desc,updated_at.desc,id.desc"
+    }),
+    allRows<DashboardReportRow>("mcp_session_reports", {
       select: "id,session_id,route_id,route_name,session_date,sales,status,kpis,overview,sections,summary_text,snapshot_source,snapshot_at,created_at,updated_at",
-      order: "session_date.desc,snapshot_at.desc",
-      limit: 8
+      order: "session_date.desc,snapshot_at.desc,id.desc"
     })
   ]);
-  return { sessions, reports };
+  return { routes, sessions, reports };
 }
 
-function renderRouteCard(route: DashboardRouteHealthDto) {
+function buildOperationalOverview(facts: HomeFacts): OperationalOverview & { persistedRoutes: PersistedRouteOverview[] } {
+  const persistedRoutes = derivePersistedRouteOverview(facts.routes, facts.sessions, facts.reports);
+  const routeHealth = persistedRoutes.map((route) => {
+    return {
+      routeName: route.routeName,
+      area: route.area,
+      planned: route.planned,
+      visited: route.visited,
+      orders: route.orders,
+      status: route.health,
+      sessionId: route.sessionId,
+      sessionState: route.sessionState,
+      followups: route.followups
+    };
+  });
+  const totals = persistedRoutes.reduce((result, route) => {
+    result.planned += route.planned;
+    result.visited += route.visited;
+    result.orders += route.orders;
+    result.followups += route.followups;
+    return result;
+  }, { planned: 0, visited: 0, orders: 0, followups: 0 });
+  const actions: DashboardActionDto[] = persistedRoutes.flatMap((route) => {
+    if (route.health === "good") return [];
+    return [{
+      title: route.sessionState === "none" ? `Lập phiên cho ${route.routeName}` : route.sessionState === "cancelled" ? `Kiểm tra phiên đã hủy tại ${route.routeName}` : route.health === "risk" ? `Kiểm tra độ phủ ${route.routeName}` : `Hoàn tất khách chưa ghé tại ${route.routeName}`,
+      description: `${route.visited}/${route.planned || "-"} khách đã ghé trong phiên gần nhất.`,
+      priority: route.health === "risk" ? "high" : "medium",
+      owner: "Phụ trách tuyến"
+    } satisfies DashboardActionDto];
+  });
+
+  return {
+    kpis: [
+      { label: "Tuyến cần điều hành", value: facts.routes.length, hint: "Dữ liệu đã lưu", trend: "Dữ liệu đã lưu" },
+      { label: "Khách đã ghé", value: totals.visited, hint: "Theo phiên MCP", trend: `${visitRate(totals.visited, totals.planned)}% độ phủ` },
+      { label: "Đơn đã ghi", value: totals.orders, hint: "Theo phiên MCP", trend: "Theo phiên MCP" },
+      { label: "Việc theo dõi", value: totals.followups, hint: "Theo phiên MCP", trend: "Theo phiên MCP" }
+    ],
+    routeHealth,
+    actions,
+    insights: [
+      { label: "Tỷ lệ ghé thăm", value: `${visitRate(totals.visited, totals.planned)}%` },
+      { label: "Tuyến có dữ liệu", value: String(routeHealth.length) }
+    ],
+    persistedRoutes
+  };
+}
+
+function renderRouteCard(route: DashboardRouteHealthDto & { sessionId: string | null; sessionState: string; followups: number }) {
   const rate = visitRate(route.visited, route.planned);
 
   return (
@@ -139,7 +211,7 @@ function renderRouteCard(route: DashboardRouteHealthDto) {
       <div className="dashboard-route-head">
         <div>
           <h3>{route.routeName}</h3>
-          <small>{route.area}</small>
+          <small>{route.area} · {sessionStatusText(route.sessionState)}{route.sessionId ? ` · ${route.sessionId}` : ""}</small>
         </div>
         <span className={`dashboard-status ${getStatusClass(route.status)}`}>{getStatusLabel(route.status)}</span>
       </div>
@@ -158,6 +230,10 @@ function renderRouteCard(route: DashboardRouteHealthDto) {
         <span>
           <b>{route.orders}</b>
           <small>Đơn</small>
+        </span>
+        <span>
+          <b>{route.followups}</b>
+          <small>Theo dõi</small>
         </span>
       </div>
     </article>
@@ -211,9 +287,20 @@ function renderAlert(alert: HomeAlert) {
 }
 
 export async function DashboardPage() {
-  const api = createApiClient();
-  const [dashboardResult, homeFacts] = await Promise.all([api.getDashboardOverview(), loadHomeFacts()]);
-  const dashboard = dashboardResult.data;
+  let homeFacts: HomeFacts;
+  try {
+    homeFacts = await loadHomeFacts();
+  } catch {
+    return (
+      <AppShell activeHref="/">
+        <PageHeader eyebrow="Tổng quan" title="Điều hành hôm nay" subtitle="Nhìn nhanh phiên MCP, báo cáo mới nhất, việc cần xử lý và tình hình tuyến bán hàng." />
+        <section className="dashboard-section" role="alert">
+          <div className="empty-inline"><strong>Không tải được dữ liệu</strong><br />Vui lòng tải lại trang hoặc thử lại sau.</div>
+        </section>
+      </AppShell>
+    );
+  }
+  const dashboard = buildOperationalOverview(homeFacts);
   const primaryKpi = dashboard.kpis[0];
   const totalRoutes = dashboard.routeHealth.length;
   const riskRoutes = dashboard.routeHealth.filter((route) => route.status === "risk").length;
@@ -222,16 +309,28 @@ export async function DashboardPage() {
   const totalPlanned = dashboard.routeHealth.reduce((sum, route) => sum + route.planned, 0);
   const totalVisited = dashboard.routeHealth.reduce((sum, route) => sum + route.visited, 0);
   const totalVisitRate = visitRate(totalVisited, totalPlanned);
-  const activeSession = homeFacts.sessions.find((session) => !["done", "completed", "cancelled"].includes(text(session.status)));
-  const latestSession = activeSession || homeFacts.sessions[0];
-  const latestReport = homeFacts.reports[0];
-  const sessionMetrics = metricsFromSession(latestSession, latestReport);
+  const sortedSessions = [...homeFacts.sessions].sort(compareSessionsNewestFirst);
+  const businessDate = vietnamBusinessDate();
+  const activeSession = sortedSessions.find((session) => text(session.status) === "active" && text(session.session_date) === businessDate);
+  const latestSession = activeSession || sortedSessions[0];
+  const matchingReports = latestSession ? homeFacts.reports.filter((report) => text(report.session_id) === text(latestSession.id)) : [];
+  const latestReport = matchingReports.sort((left, right) => text(right.snapshot_at || right.updated_at || right.id).localeCompare(text(left.snapshot_at || left.updated_at || left.id)))[0];
+  const persistedLatest = dashboard.persistedRoutes.find((route) => route.sessionId === text(latestSession?.id));
+  const rawSessionMetrics = metricsFromSession(latestSession, latestReport);
+  const sessionMetrics = persistedLatest ? {
+    ...rawSessionMetrics,
+    planned: persistedLatest.planned,
+    visited: persistedLatest.visited,
+    pending: Math.max(persistedLatest.planned - persistedLatest.visited - rawSessionMetrics.skipped, 0),
+    orders: persistedLatest.orders,
+    followups: persistedLatest.followups
+  } : rawSessionMetrics;
   const latestReportOverview = reportOverview(latestReport);
   const reportVisited = num(latestReportOverview.visited);
   const reportPlanned = num(latestReportOverview.planned);
-  const reportOrders = num(latestReportOverview.orders);
+  const reportOrders = persistedLatest?.reportId === text(latestReport?.id) ? persistedLatest.orders : num(latestReportOverview.orders);
   const reportTests = num(latestReportOverview.tests);
-  const reportFollowups = num(latestReportOverview.followups);
+  const reportFollowups = persistedLatest?.reportId === text(latestReport?.id) ? persistedLatest.followups : num(latestReportOverview.followups);
   const reportObservations = num(latestReportOverview.observations);
   const highActions = dashboard.actions.filter((action) => action.priority === "high").length;
   const hasActiveSession = Boolean(activeSession?.id);
@@ -328,7 +427,7 @@ export async function DashboardPage() {
         title="Điều hành hôm nay"
         subtitle="Nhìn nhanh phiên MCP, báo cáo mới nhất, việc cần xử lý và tình hình tuyến bán hàng."
       >
-        <SourceBadge source={dashboardResult.source} />
+        <SourceBadge source="api" />
       </PageHeader>
 
       <TodaySummaryCard

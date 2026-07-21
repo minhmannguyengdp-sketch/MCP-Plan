@@ -578,7 +578,7 @@ export function OrderCreateSheet({
                   </div>
                 ) : null}
 
-                <div className={styles.customerList} role="radiogroup" aria-label="Chọn một khách">
+                <div className={styles.customerList} role="radiogroup" aria-label="Chọn một khách" data-order-customer-list>
                   {sessionOptions.length > 0 && !selectedSession ? <p className={styles.emptyState}>Chọn phiên trước để tải đúng khách của tuyến.</p> : null}
                   {selectedSession && scopedCustomers.length === 0 ? <p className={styles.emptyState}>Phiên này chưa có khách tuyến phù hợp.</p> : null}
                   {filteredCustomers.length === 0 && scopedCustomers.length > 0 ? <p className={styles.emptyState}>Không có khách phù hợp với từ khóa.</p> : null}
@@ -602,9 +602,11 @@ export function OrderCreateSheet({
                   ))}
                 </div>
 
-                <button className={`${styles.customerContinue} button primary`} type="button" onClick={() => requestPanel("catalog")} disabled={!routeCustomerId || saving}>
-                  Tiếp tục với {selectedCustomer?.accountName || "khách đã chọn"}
-                </button>
+                <div className={styles.customerPickerFooter} data-order-customer-footer>
+                  <button className={`${styles.customerContinue} button primary`} type="button" onClick={() => requestPanel("catalog")} disabled={!routeCustomerId || saving}>
+                    Tiếp tục với {selectedCustomer?.accountName || "khách đã chọn"}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className={styles.manualGrid}>
@@ -613,9 +615,11 @@ export function OrderCreateSheet({
                 <label className={styles.compactField}><span>Khu vực</span><input value={manualCustomer.area} onChange={(event) => updateManualCustomer("area", event.target.value)} placeholder="Ấp / xã / huyện" disabled={saving} /></label>
                 <label className={styles.compactField}><span>Địa chỉ giao hàng</span><input value={manualCustomer.address} onChange={(event) => updateManualCustomer("address", event.target.value)} placeholder="Địa chỉ nhận hàng" disabled={saving} /></label>
                 <p className={styles.hint}>Khách nhập tay được lưu trong đơn như một snapshot độc lập, không tự thêm vào tuyến.</p>
-                <button className={`${styles.customerContinue} button primary`} type="button" onClick={() => requestPanel("catalog")} disabled={!manualCustomer.name.trim() || saving}>
-                  Tiếp tục chọn sản phẩm
-                </button>
+                <div className={styles.customerPickerFooter}>
+                  <button className={`${styles.customerContinue} button primary`} type="button" onClick={() => requestPanel("catalog")} disabled={!manualCustomer.name.trim() || saving}>
+                    Tiếp tục chọn sản phẩm
+                  </button>
+                </div>
               </div>
             )}
             {message && mobilePanel === "customer" ? <p className={styles.message}>{message}</p> : null}
@@ -672,7 +676,7 @@ export function OrderCreateSheet({
             {message && mobilePanel === "catalog" ? <p className={styles.message}>{message}</p> : null}
             {productError ? <p className={styles.message}>{productError}</p> : null}
 
-            <div className={styles.productResults} aria-label="Kết quả tìm sản phẩm theo nhãn và vị">
+            <div className={styles.productResults} aria-label="Kết quả tìm sản phẩm theo nhãn và vị" data-order-product-list>
               {loadingProducts && products.length === 0 ? <p className={styles.emptyState}>Đang tải danh mục sản phẩm...</p> : null}
               {!loadingProducts && products.length === 0 && !productError ? <p className={styles.emptyState}>Không tìm thấy sản phẩm. Thử xóa bớt bộ lọc hoặc tìm bằng SKU.</p> : null}
               {productGroups.map((group) => {

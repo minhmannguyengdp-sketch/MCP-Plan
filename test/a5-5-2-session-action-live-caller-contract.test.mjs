@@ -23,5 +23,7 @@ test("the four UI actions call the same canonical frontend proxy paths accepted 
 });
 
 test("canonical provider errors are mapped to a user-facing message", () => {
-  assert.match(source, /typeof err\.error === "string" \? err\.error : err\.error\?\.message/);
+  assert.match(source, /function apiErrorMessage/);
+  assert.match(source, /typeof value\.error === "string"/);
+  assert.match(source, /value\.error\.message/);
 });

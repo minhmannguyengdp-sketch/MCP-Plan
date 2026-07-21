@@ -15,6 +15,17 @@
 - Không bắt đầu NPP-F06 hoặc Order Core trước khi chốt lượt production smoke Foundation đang nợ.
 - Không đụng `milktea-backend` hoặc port `3002`.
 
+## Issue #88 — guarded complete runtime-smoke tooling
+
+Source tooling documents one guarded command for the pending NPP-F05 production owners:
+
+```text
+npm run smoke:f05-production-owners
+runbook: docs/npp-plan/F05_PRODUCTION_OWNERS_RUNTIME_SMOKE.md
+```
+
+This is tooling only. It has not been executed against production and does not change formal runtime coverage from `14/30`. A real authenticated PASS, separate archive/R2 lifecycle evidence, and verified cleanup remain mandatory before recording `30/30` or starting NPP-F06.
+
 ## Coverage
 
 Baseline cũ `13/30` thiếu `route-customer.add`; baseline đúng là `14/30`.
