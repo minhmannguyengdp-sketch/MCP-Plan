@@ -15,7 +15,7 @@ await routeA.getByText("3", { exact: true }).waitFor();
 await routeA.getByText("Theo dõi", { exact: true }).first().waitFor();
 await page.getByText("Kiểm tra phiên đã hủy tại Tuyến Browser B", { exact: true }).waitFor();
 await page.getByText("Lập phiên cho Tuyến chưa có phiên", { exact: true }).waitFor();
-assert.equal(await page.getByText("Tuyến Browser A", { exact: true }).count(), 1);
+assert.equal(await routeA.getByText("Tuyến Browser A", { exact: true }).count(), 1);
 
 await fetch(`${mock}/__fail`, { method: "POST" });
 await page.reload({ waitUntil: "networkidle" });
