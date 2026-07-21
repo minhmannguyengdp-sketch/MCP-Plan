@@ -8,7 +8,7 @@ const styles = await readFile(new URL("../src/features/orders/OrdersClientPage.m
 const detail = await readFile(new URL("../src/features/orders/OrderDetailDrawer.tsx", import.meta.url), "utf8");
 const detailStyles = await readFile(new URL("../src/features/orders/OrderDetailDrawer.module.css", import.meta.url), "utf8");
 
- test("orders page is an operational control center instead of a static list", () => {
+test("orders page is an operational control center instead of a static list", () => {
   assert.match(page, /title="Trung tâm đơn hàng"/);
   assert.match(page, /Đang đo doanh số đặt hàng/);
   assert.match(page, /chưa phải doanh thu giao hàng hoặc tiền đã thu/);
@@ -87,7 +87,8 @@ test("order detail is URL-owned and preserves list context", () => {
 
 test("order detail loads persisted products and uses business-facing copy", () => {
   assert.match(detail, /fetch\(`\/api\/backend\/orders\/\$\{encodeURIComponent\(routedOrderId\)\}`/);
-  assert.match(detail, /payload\.data\.items/);
+  assert.match(detail, /setDetail\(payload\.data\)/);
+  assert.match(detail, /detail\.items/);
   assert.match(detail, />Sản phẩm</);
   assert.match(detail, /item\.productName/);
   assert.match(detail, /item\.quantity/);
