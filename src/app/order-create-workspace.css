@@ -44,19 +44,17 @@
 
 @media (max-width: 900px) and (max-height: 420px) {
   .bottom-sheet-workspace .sheet-header {
-    min-height: 38px !important;
-    padding: 3px 8px !important;
+    min-height: 34px !important;
+    padding: 2px 8px !important;
   }
 
   .bottom-sheet-workspace .sheet-header h2 {
-    font-size: 15px;
-    line-height: 1.1;
+    font-size: 14px;
+    line-height: 1.05;
   }
 
   .bottom-sheet-workspace .sheet-header p {
-    margin-top: 1px;
-    font-size: 9px;
-    line-height: 1;
+    display: none;
   }
 
   .bottom-sheet-workspace .sheet-close {
@@ -65,15 +63,15 @@
   }
 
   .bottom-sheet-workspace .sheet-body {
-    padding: 3px !important;
+    padding: 2px !important;
   }
 
   .bottom-sheet-workspace .sheet-footer {
-    min-height: 42px;
-    padding: 3px 6px !important;
+    min-height: 38px;
+    padding: 2px 6px !important;
   }
 
   .bottom-sheet-workspace .sheet-footer button {
-    min-height: 36px !important;
+    min-height: 34px !important;
   }
 }
