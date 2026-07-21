@@ -96,7 +96,7 @@ test("catalog filter and card order follow distributor business priority", () =>
   assert.match(catalogPriority, /if \(prefix === "T"\) return 0/);
   assert.match(catalogPriority, /if \(normalizedCategory === normalizeCategory\("Mì cay"\)\) return 1/);
   assert.match(sheet, /\.sort\(compareCatalogProducts\)/);
-  assert.match(sheet, /const categorySections = useMemo\(\(\) => groupCatalogCategories\(categoryOptions\)/);
+  assert.match(sheet, /const categorySections = useMemo\(\(\) => groupCatalogCategories\(categoryOptions\)\)/);
   assert.match(sheet, /categorySections\.map\(\(section\) => \(/);
   assert.match(sheet, /<optgroup key=\{section\.key\} label=\{section\.label\}>/);
   assert.doesNotMatch(sheet, /categoryOptions\.map\(\(category\)/);
@@ -152,7 +152,8 @@ test("short order workspace gives lists the scroll ownership and isolates the cu
   assert.match(sheetStyles, /\.customerPicker \{[\s\S]*grid-template-rows: 32px minmax\(0, 1fr\) 34px/);
   assert.match(sheetStyles, /\.customerList \{[\s\S]*flex: 1 1 auto;[\s\S]*overflow-y: auto/);
   assert.match(workspaceStyles, /@media \(max-width: 900px\) and \(max-height: 420px\)/);
-  assert.match(workspaceStyles, /\.bottom-sheet-workspace \.sheet-header \{[\s\S]*min-height: 38px !important/);
+  assert.match(workspaceStyles, /\.bottom-sheet-workspace \.sheet-header \{[\s\S]*min-height: 34px !important/);
+  assert.match(workspaceStyles, /\.bottom-sheet-workspace \.sheet-header p \{[\s\S]*display: none/);
 });
 
 test("product selection is realtime, filterable and keeps a visible cart", () => {
