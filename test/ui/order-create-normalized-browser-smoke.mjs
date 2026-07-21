@@ -120,9 +120,10 @@ async function desktopOrderDetailFlow(browser) {
   const drawer = page.locator("[data-order-detail-surface='drawer']");
   await drawer.waitFor({ state: "visible" });
   const box = await drawer.boundingBox();
+  const layoutWidth = await page.evaluate(() => document.documentElement.clientWidth);
   assert.ok(box, "desktop order detail drawer must have a bounding box");
   assert.ok(box.width >= 600 && box.width <= 700, "desktop detail must use a bounded right drawer");
-  assert.ok(Math.abs((box.x + box.width) - 1280) <= 1, "desktop drawer must attach to the right edge");
+  assert.ok(Math.abs((box.x + box.width) - layoutWidth) <= 1, "desktop drawer must attach to the layout viewport right edge");
   assert.ok(box.height >= 799, "desktop drawer must own the viewport height");
 
   await page.keyboard.press("Escape");
