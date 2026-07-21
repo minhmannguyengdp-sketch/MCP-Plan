@@ -39,7 +39,7 @@ function rejectsTechnicalCopy(body, label) {
 }
 
 await waitForHttp(`${mockBase}/health`);
-await waitForHttp(`${appBase}/orders`);
+await waitForHttp(`${appBase}/api/pdf/session-day?sessionId=session-1`);
 
 const evidence = {};
 try {
