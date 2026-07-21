@@ -5,6 +5,8 @@ import { readFile } from "node:fs/promises";
 const page = await readFile(new URL("../src/features/orders/OrdersClientPage.tsx", import.meta.url), "utf8");
 const analytics = await readFile(new URL("../src/features/orders/order-analytics.ts", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/features/orders/OrdersClientPage.module.css", import.meta.url), "utf8");
+const detail = await readFile(new URL("../src/features/orders/OrderDetailDrawer.tsx", import.meta.url), "utf8");
+const detailStyles = await readFile(new URL("../src/features/orders/OrderDetailDrawer.module.css", import.meta.url), "utf8");
 
 test("orders page is an operational control center instead of a static list", () => {
   assert.match(page, /title="Trung tâm đơn hàng"/);
@@ -68,6 +70,37 @@ test("drill-down and filtered CSV export remain client-owned and explicit", () =
   assert.match(page, /text\/csv;charset=utf-8/);
   assert.match(page, /don-hang-theo-bo-loc/);
   assert.match(page, /disabled=\{!filteredOrders\.length\}/);
+});
+
+test("order detail is URL-owned and preserves list context", () => {
+  assert.match(page, /useSearchParams\(\)/);
+  assert.match(page, /searchParams\.get\("detail"\)/);
+  assert.match(page, /params\.set\("detail", order\.id\)/);
+  assert.match(page, /router\.push\(`\$\{pathname\}\?\$\{params\.toString\(\)\}`/);
+  assert.match(page, /router\.back\(\)/);
+  assert.match(page, /params\.delete\("detail"\)/);
+  assert.match(page, /router\.replace\(/);
+  assert.match(page, /scroll: false/);
+  assert.match(page, /detailReturnFocusRef/);
+  assert.doesNotMatch(page, /OrderDetailSheet|setSelectedOrder/);
+});
+
+test("order detail uses a desktop drawer and a mobile fullscreen surface", () => {
+  assert.match(detail, /createPortal/);
+  assert.match(detail, /role="dialog"/);
+  assert.match(detail, /aria-modal="true"/);
+  assert.match(detail, /data-order-detail-surface="drawer"/);
+  assert.match(detail, /data-app-scroll-region/);
+  assert.match(detail, /event\.key === "Escape"/);
+  assert.match(detail, /event\.key !== "Tab"/);
+  assert.match(detail, /API đơn hiện chỉ trả tổng SKU, số lượng và giá trị/);
+  assert.doesNotMatch(detail, /BottomSheet/);
+  assert.match(detailStyles, /width: min\(680px, calc\(100vw - 72px\)\)/);
+  assert.match(detailStyles, /height: 100dvh/);
+  assert.match(detailStyles, /justify-content: flex-end/);
+  assert.match(detailStyles, /@media \(max-width: 720px\)/);
+  assert.match(detailStyles, /width: 100vw/);
+  assert.match(detailStyles, /border-radius: 0/);
 });
 
 test("orders control center is responsive without horizontal dashboard overflow", () => {
