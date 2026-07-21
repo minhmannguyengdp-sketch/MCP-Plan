@@ -68,6 +68,29 @@ async function orderControlCenterFlow(browser) {
   await page.getByRole("button", { name: "Khách: UI Existing Customer ×", exact: true }).waitFor({ state: "visible" });
   assert.equal(await page.getByText("UI Second Customer", { exact: true }).count(), 0, "customer drill-down must own the order result list");
 
+  const scrollRegion = page.locator("[data-app-scroll-region='true']");
+  const firstOrderCard = page.locator("#orders-result-list article").first();
+  await firstOrderCard.scrollIntoViewIfNeeded();
+  const scrollBeforeDetail = await scrollRegion.evaluate((element) => element.scrollTop);
+  await firstOrderCard.getByRole("button", { name: "Xem", exact: true }).click();
+  const mobileDrawer = page.locator("[data-order-detail-surface='drawer']");
+  await mobileDrawer.waitFor({ state: "visible" });
+  assert.match(page.url(), /[?&]detail=/, "opening detail must own a shareable URL");
+  await mobileDrawer.getByText("Tổng quan", { exact: true }).waitFor({ state: "visible" });
+  await mobileDrawer.getByText("Cấu trúc đơn", { exact: true }).waitFor({ state: "visible" });
+  await mobileDrawer.getByText("Chưa có chi tiết từng dòng hàng", { exact: true }).waitFor({ state: "visible" });
+  const mobileBox = await mobileDrawer.boundingBox();
+  assert.ok(mobileBox && mobileBox.width >= 389 && mobileBox.height >= 843, "mobile order detail must be fullscreen");
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Đóng chi tiết đơn", "detail must move focus into the dialog");
+
+  await page.goBack();
+  await mobileDrawer.waitFor({ state: "hidden" });
+  assert.doesNotMatch(page.url(), /[?&]detail=/, "browser Back must close detail without leaving orders");
+  await page.getByRole("button", { name: "Khách: UI Existing Customer ×", exact: true }).waitFor({ state: "visible" });
+  const scrollAfterDetail = await scrollRegion.evaluate((element) => element.scrollTop);
+  assert.ok(Math.abs(scrollAfterDetail - scrollBeforeDetail) <= 2, "closing detail must restore the list scroll position");
+  assert.equal(await firstOrderCard.getByRole("button", { name: "Xem", exact: true }).evaluate((element) => element === document.activeElement), true, "closing detail must restore focus to the triggering action");
+
   await page.getByRole("button", { name: /Xóa 2 bộ lọc/ }).click();
   await page.getByText(/7\/7 đơn/).waitFor({ state: "visible" });
 
@@ -82,6 +105,31 @@ async function orderControlCenterFlow(browser) {
   assert.match(download.suggestedFilename(), /^don-hang-theo-bo-loc-\d{4}-\d{2}-\d{2}\.csv$/);
 
   await page.screenshot({ path: `${resultsDir}/00-orders-control-center.png`, fullPage: true });
+  await context.close();
+  return "PASS";
+}
+
+async function desktopOrderDetailFlow(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  await page.goto(`${appBase}/orders`, { waitUntil: "networkidle" });
+  const firstOrderCard = page.locator("#orders-result-list article").first();
+  await firstOrderCard.scrollIntoViewIfNeeded();
+  await firstOrderCard.getByRole("button", { name: "Xem", exact: true }).click();
+
+  const drawer = page.locator("[data-order-detail-surface='drawer']");
+  await drawer.waitFor({ state: "visible" });
+  const box = await drawer.boundingBox();
+  const layoutWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  assert.ok(box, "desktop order detail drawer must have a bounding box");
+  assert.ok(box.width >= 600 && box.width <= 700, "desktop detail must use a bounded right drawer");
+  assert.ok(Math.abs((box.x + box.width) - layoutWidth) <= 1, "desktop drawer must attach to the layout viewport right edge");
+  assert.ok(box.height >= 799, "desktop drawer must own the viewport height");
+
+  await page.keyboard.press("Escape");
+  await drawer.waitFor({ state: "hidden" });
+  assert.doesNotMatch(page.url(), /[?&]detail=/, "Escape must close routed detail");
+  await page.screenshot({ path: `${resultsDir}/00b-order-detail-desktop.png`, fullPage: true });
   await context.close();
   return "PASS";
 }
@@ -199,6 +247,7 @@ const browser = await chromium.launch({ headless: true });
 const evidence = {};
 try {
   evidence.orderControlCenterFlow = await orderControlCenterFlow(browser);
+  evidence.desktopOrderDetailFlow = await desktopOrderDetailFlow(browser);
   evidence.existingSessionCustomerFlow = await existingSessionCustomerFlow(browser);
   evidence.manualCustomerFlow = await manualCustomerFlow(browser);
   evidence.result = "PASS";
