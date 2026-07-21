@@ -1,3 +1,4 @@
+import { reportFilename, reportSource, reportStatus } from "@/lib/export/business-report";
 import { csvResponse, yyyyMMdd } from "@/lib/export/csv";
 import { errorResponse, restRows } from "@/lib/export/supabase-rest";
 
@@ -39,33 +40,33 @@ export async function GET(request: Request) {
       if (!list.length) return [order as ExportRow];
       return list.map((item) => ({ ...order, item_id: String(item.id || ""), product_id: String(item.product_id || ""), variant_id: String(item.variant_id || ""), product_name: String(item.product_name || ""), sku: String(item.sku || ""), unit: String(item.unit || ""), quantity: Number(item.quantity || 0), unit_price: Number(item.unit_price || 0), item_discount: Number(item.discount || 0), line_total: Number(item.line_total || 0), item_note: String(item.note || "") }));
     });
-    return csvResponse(`mcp-orders-${yyyyMMdd()}.csv`, [
+    return csvResponse(reportFilename("du-lieu-don-hang", [yyyyMMdd()], "csv"), [
       { key: "order_code", header: "Mã đơn" },
-      { key: "order_date", header: "Ngày đơn" },
-      { key: "sales", header: "Sale" },
-      { key: "customer_name", header: "Tên khách" },
-      { key: "customer_phone", header: "SĐT" },
+      { key: "order_date", header: "Ngày đặt hàng" },
+      { key: "sales", header: "Nhân viên phụ trách" },
+      { key: "customer_name", header: "Tên khách hàng" },
+      { key: "customer_phone", header: "Số điện thoại" },
       { key: "area", header: "Khu vực" },
-      { key: "delivery_address", header: "Địa chỉ giao" },
-      { key: "status", header: "Trạng thái" },
+      { key: "delivery_address", header: "Địa chỉ giao hàng" },
+      { key: "status", header: "Trạng thái đơn", value: (row) => reportStatus(row.status) },
       { key: "product_name", header: "Sản phẩm" },
-      { key: "sku", header: "SKU" },
-      { key: "variant_id", header: "Variant ID" },
-      { key: "unit", header: "Đơn vị" },
-      { key: "quantity", header: "SL" },
+      { key: "sku", header: "Mã hàng" },
+      { key: "variant_id", header: "Mã quy cách" },
+      { key: "unit", header: "Đơn vị bán" },
+      { key: "quantity", header: "Số lượng" },
       { key: "unit_price", header: "Đơn giá" },
-      { key: "item_discount", header: "Giảm dòng" },
+      { key: "item_discount", header: "Chiết khấu dòng" },
       { key: "line_total", header: "Thành tiền" },
       { key: "subtotal", header: "Tạm tính đơn" },
-      { key: "discount_total", header: "Giảm đơn" },
-      { key: "grand_total", header: "Tổng đơn" },
+      { key: "discount_total", header: "Chiết khấu đơn" },
+      { key: "grand_total", header: "Tổng giá trị đơn" },
       { key: "note", header: "Ghi chú đơn" },
-      { key: "item_note", header: "Ghi chú dòng" },
-      { key: "source_type", header: "Nguồn" },
-      { key: "source_id", header: "Source ID" },
-      { key: "sync_status", header: "Sync" },
-      { key: "created_at", header: "Tạo lúc" },
-      { key: "updated_at", header: "Cập nhật lúc" }
+      { key: "item_note", header: "Ghi chú sản phẩm" },
+      { key: "source_type", header: "Nguồn đơn", value: (row) => reportSource(row.source_type) },
+      { key: "source_id", header: "Mã nguồn" },
+      { key: "sync_status", header: "Trạng thái đồng bộ", value: (row) => reportStatus(row.sync_status) },
+      { key: "created_at", header: "Thời điểm tạo" },
+      { key: "updated_at", header: "Cập nhật gần nhất" }
     ], rows);
   } catch (error) {
     return errorResponse(error);
