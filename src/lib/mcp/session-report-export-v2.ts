@@ -1,3 +1,10 @@
+import {
+  reportDate,
+  reportFilename,
+  reportMoney,
+  reportPriority,
+  reportStatus
+} from "@/lib/export/business-report";
 import type { SessionReportSource } from "@/lib/mcp/session-report-source";
 
 export type SessionReportExportPayload = {
@@ -91,106 +98,94 @@ export function buildSessionReportExportPayload(source: SessionReportSource): Se
 
 export function buildSessionReportMarkdownV2(payload: SessionReportExportPayload) {
   const orders = payload.commerce.orders.length
-    ? payload.commerce.orders.map((item) => `- ${item.customerName || "Khách"} · ${item.code || item.id} · ${item.status || "-"} · ${Math.round(item.total || 0).toLocaleString("vi-VN")}đ${item.note ? ` · ${item.note}` : ""}`).join("\n")
-    : "- Chưa có đơn hàng.";
+    ? payload.commerce.orders.map((item) => `- ${item.customerName || "Khách chưa tên"} · ${item.code || item.id} · ${reportStatus(item.status)} · ${reportMoney(item.total)}${item.note ? ` · ${item.note}` : ""}`).join("\n")
+    : "- Phiên này chưa phát sinh đơn hàng.";
   const tests = payload.commerce.tests.length
-    ? payload.commerce.tests.map((item) => `- ${item.customerName || "Khách"} · ${item.productName || "Sản phẩm"} · ${item.status || "-"}${item.note ? ` · ${item.note}` : ""}`).join("\n")
-    : "- Chưa có test sản phẩm.";
+    ? payload.commerce.tests.map((item) => `- ${item.customerName || "Khách chưa tên"} · ${item.productName || "Sản phẩm chưa đặt tên"} · ${reportStatus(item.status)}${item.note ? ` · ${item.note}` : ""}`).join("\n")
+    : "- Phiên này chưa có kết quả thử sản phẩm.";
   const observations = payload.market.observations.length
-    ? payload.market.observations.map((item) => `- ${item.customerName || "Khách"}: ${item.note || "Không có ghi chú"}`).join("\n")
-    : "- Chưa có quan sát thị trường.";
+    ? payload.market.observations.map((item) => `- ${item.customerName || "Khách chưa tên"}: ${item.note || "Chưa có ghi chú"}`).join("\n")
+    : "- Chưa có ghi nhận thị trường.";
   const followups = payload.followups.length
-    ? payload.followups.map((item) => `- [${item.priority || "medium"}] ${item.customerName || "Khách"} · ${item.title || "Follow-up"}${item.dueDate ? ` · ${item.dueDate}` : ""} · ${item.status || "open"}${item.note ? ` · ${item.note}` : ""}`).join("\n")
-    : "- Chưa có follow-up.";
+    ? payload.followups.map((item) => `- ${reportPriority(item.priority)} · ${item.customerName || "Khách chưa tên"} · ${item.title || "Việc cần làm"}${item.dueDate ? ` · Hẹn ${reportDate(item.dueDate)}` : ""} · ${reportStatus(item.status)}${item.note ? ` · ${item.note}` : ""}`).join("\n")
+    : "- Chưa có việc cần theo dõi.";
   const customers = payload.customerDetails.length
-    ? payload.customerDetails.map((item) => `- ${item.sortOrder || "-"}. ${item.customerName} · ${item.visitStatus}${item.statusReason ? ` · ${item.statusReason}` : ""} · ${item.orders.length} đơn · ${item.tests.length} test · ${item.observations.length} quan sát · ${item.followups.length} follow-up`).join("\n")
-    : "- Chưa có chi tiết khách.";
+    ? payload.customerDetails.map((item) => `- ${item.sortOrder || "-"}. ${item.customerName} · ${reportStatus(item.visitStatus)}${item.statusReason ? ` · ${item.statusReason}` : ""} · ${item.orders.length} đơn · ${item.tests.length} lượt thử · ${item.followups.length} việc theo dõi`).join("\n")
+    : "- Chưa có chi tiết điểm bán.";
   const actions = payload.recommendedActions.length
-    ? payload.recommendedActions.map((item) => `- [${item.priority}] ${item.customerName ? `${item.customerName}: ` : ""}${item.action} — ${item.reason}`).join("\n")
-    : "- Chưa có hành động đề xuất.";
+    ? payload.recommendedActions.map((item) => `- ${reportPriority(item.priority)}${item.customerName ? ` · ${item.customerName}` : ""}: ${item.action}${item.reason ? ` — ${item.reason}` : ""}`).join("\n")
+    : "- Chưa có việc cần thực hiện thêm.";
 
   return [
-    `# BC phiên · ${payload.session.routeName || "MCP"}`,
+    "# Báo cáo kết quả phiên bán hàng",
     "",
-    `- **Ngày phiên:** ${payload.session.sessionDate || "-"}`,
-    `- **Sales:** ${payload.session.sales || "-"}`,
-    `- **Session ID:** ${payload.session.id}`,
-    `- **Nguồn:** ${payload.source.origin === "snapshot" ? "Snapshot đã chốt" : "Tổng hợp trực tiếp"}`,
-    `- **Schema:** ${payload.schemaVersion}`,
-    payload.source.snapshotAt ? `- **Snapshot lúc:** ${payload.source.snapshotAt}` : "",
+    `**Tuyến:** ${payload.session.routeName || "Tuyến chưa đặt tên"}`,
+    `**Ngày phiên:** ${reportDate(payload.session.sessionDate)}`,
+    `**Nhân viên phụ trách:** ${payload.session.sales || "Chưa phân công"}`,
+    `**Trạng thái phiên:** ${reportStatus(payload.session.status)}`,
     "",
-    "## Tổng quan",
+    "## Kết quả chính",
     "",
-    `- Khách kế hoạch: **${payload.overview.planned}**`,
+    `- Điểm bán kế hoạch: **${payload.overview.planned}**`,
     `- Đã ghé: **${payload.overview.visited}** (${percent(payload.overview.visited, payload.overview.planned)}%)`,
     `- Chờ ghé: **${payload.overview.pending}**`,
     `- Bỏ qua: **${payload.overview.skipped}**`,
-    `- Đơn/Test: **${payload.overview.orders}/${payload.overview.tests}**`,
-    `- Quan sát/Follow-up: **${payload.overview.observations}/${payload.overview.followups}**`,
+    `- Đơn hàng: **${payload.overview.orders}**`,
+    `- Lượt thử sản phẩm: **${payload.overview.tests}**`,
+    `- Ghi nhận thị trường: **${payload.overview.observations}**`,
+    `- Việc cần theo dõi: **${payload.overview.followups}**`,
     "",
-    "## Đánh giá snapshot",
+    "## Nhận định chung",
     "",
-    `- **Health:** ${payload.health}`,
-    `- **Điểm:** ${payload.score}/100`,
-    `- **Tóm tắt:** ${payload.insights.summary || "Chưa có nhận định."}`,
-    list(payload.insights.reasons || [], "Chưa có lý do đánh giá."),
+    payload.insights.summary || "Chưa có nhận định tổng hợp cho phiên này.",
     "",
-    "## Cảnh báo",
+    "## Cảnh báo cần chú ý",
     "",
-    list(payload.warnings, "Không có cảnh báo."),
+    list(payload.warnings, "Không có cảnh báo nổi bật."),
     "",
-    "## Cơ hội",
+    "## Cơ hội bán hàng",
     "",
-    list(payload.insights.opportunities || [], "Chưa có cơ hội rõ."),
+    list(payload.insights.opportunities || [], "Chưa ghi nhận cơ hội rõ ràng."),
     "",
     "## Rủi ro",
     "",
-    list(payload.insights.risks || [], "Chưa có rủi ro rõ."),
+    list(payload.insights.risks || [], "Chưa ghi nhận rủi ro nổi bật."),
     "",
-    "## Hành động đề xuất",
+    "## Việc nên thực hiện tiếp theo",
     "",
     actions,
     "",
-    "## Đơn hàng",
+    "## Đơn hàng phát sinh",
     "",
     orders,
     "",
-    "## Test sản phẩm",
+    "## Kết quả thử sản phẩm",
     "",
     tests,
     "",
-    "## Quan sát thị trường",
+    "## Ghi nhận thị trường",
     "",
-    "### Đối thủ",
-    countList(payload.market.competitors, "Chưa ghi nhận."),
+    "### Đối thủ được ghi nhận",
+    countList(payload.market.competitors, "Chưa ghi nhận đối thủ."),
     "",
-    "### Sản phẩm khách đang dùng",
-    countList(payload.market.usedProducts, "Chưa ghi nhận."),
+    "### Sản phẩm khách đang sử dụng",
+    countList(payload.market.usedProducts, "Chưa ghi nhận sản phẩm khách đang sử dụng."),
     "",
-    "### Chi tiết",
+    "### Ghi nhận chi tiết",
     observations,
     "",
-    "## Follow-up",
+    "## Việc cần theo dõi",
     "",
     followups,
     "",
-    `## Chi tiết khách (${payload.customerDetails.length}/${payload.overview.planned})`,
+    `## Chi tiết điểm bán (${payload.customerDetails.length}/${payload.overview.planned})`,
     "",
     customers,
-    payload.aiResult ? "\n## Kết quả AI đã lưu\n\n```json\n" + JSON.stringify(payload.aiResult, null, 2) + "\n```" : "",
     "",
-    "---",
-    `Generated by MCP-Plan at ${payload.generatedAt}`
-  ].filter((line) => line !== "").join("\n");
+    `Báo cáo được lập ngày ${reportDate(payload.generatedAt)}.`
+  ].join("\n");
 }
 
 export function sessionReportExportFilenameV2(payload: SessionReportExportPayload, extension: "json" | "md") {
-  const route = text(payload.session.routeName || "mcp")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/gi, "d")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase() || "mcp";
-  return `bc-phien-${route}-${payload.session.sessionDate || "khong-ngay"}.${extension}`;
+  return reportFilename("bao-cao-phien-ban-hang", [payload.session.routeName, payload.session.sessionDate], extension);
 }
