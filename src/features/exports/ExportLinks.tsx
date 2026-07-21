@@ -28,14 +28,29 @@ function groupsFromLinks(excelLinks: ExportLink[], pdfLinks: ExportLink[]) {
   return groups;
 }
 
+function readerGroupTitle(title: string) {
+  if (title === "Xuất văn phòng") return "Báo cáo để đọc và gửi";
+  if (title === "Dữ liệu báo cáo") return "Dữ liệu chuyên sâu";
+  return title;
+}
+
+function readerLink(item: ExportLink): ExportLink {
+  if (item.label === "PDF") return { ...item, label: "Bản in / PDF", hint: "Mở bản báo cáo hoàn chỉnh để đọc, in hoặc lưu PDF" };
+  if (item.label === "Excel") return { ...item, label: "Bảng chi tiết Excel / CSV", hint: "Dùng để lọc, đối chiếu và tổng hợp số liệu" };
+  if (item.label === "Word") return { ...item, label: "Báo cáo Word", hint: "Bản báo cáo có thể chỉnh sửa trước khi gửi" };
+  if (item.label === "Xuất dữ liệu") return { ...item, label: "Dữ liệu phân tích", hint: "Dành cho tích hợp hoặc phân tích nâng cao" };
+  if (item.label === "Xuất văn bản") return { ...item, label: "Bản nội dung thuần", hint: "Nội dung báo cáo gọn để lưu trữ hoặc xử lý tiếp" };
+  return item;
+}
+
 export function ExportMenu({ label = "Xuất file", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS, groups, primary = false }: { label?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[]; groups?: ExportGroup[]; primary?: boolean }) {
   const items = groups || groupsFromLinks(excelLinks, pdfLinks);
   return <details className="export-menu">
     <summary className={primary ? "button primary export-menu-trigger" : "button export-menu-trigger"}>{label} ▾</summary>
     <div className="export-menu-panel">
       {items.map((group) => <div className="export-menu-group" key={group.title}>
-        <strong>{group.title}</strong>
-        {group.links.map((item) => <a className={item.tone === "primary" ? "export-menu-link primary" : "export-menu-link"} key={item.href} href={item.href} target="_blank" rel="noreferrer">
+        <strong>{readerGroupTitle(group.title)}</strong>
+        {group.links.map(readerLink).map((item) => <a className={item.tone === "primary" ? "export-menu-link primary" : "export-menu-link"} key={item.href} href={item.href} target="_blank" rel="noreferrer">
           <span>{item.label}</span>
           {item.hint ? <small>{item.hint}</small> : null}
         </a>)}
