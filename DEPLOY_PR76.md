@@ -1,11 +1,13 @@
-# Production deploy marker — PR #76
+# Production deploy marker — Order create UX
 
-- Merge SHA: `719d153607e811fd199248ac9b13a52802930f86`
-- Scope: frontend-only normalized order creation flow
-- Customer flow: session-first, single customer, manual customer retained
-- Catalog flow: product-group cards with flavor/size/pack variants
-- Cart flow: compact controls and explicit review before create
+- Latest PR: `#77`
+- Merge SHA: `f457419a523fd6d41ce9e283bda7484f11ca86f8`
+- Scope: frontend-only order catalog business priority
+- Filter order: tea-milk materials → spicy food → packaging → remaining groups
+- Catalog order: tea-milk products first, spicy noodles next, then frozen/food/packaging
+- Card flow: suppress meaningless default variants; show selling unit, size, SKU, price and selected quantity
+- Backend category values: unchanged
 - Validation: Foundation F0.2 PASS; Order Create Browser Smoke PASS
 - Database migration: not required
 - VPS pull: not required
-- Triggered: 2026-07-20
+- Triggered: 2026-07-21
