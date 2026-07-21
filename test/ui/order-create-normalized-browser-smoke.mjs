@@ -243,7 +243,10 @@ async function shortOrderWorkspaceLayoutFlow(browser, viewport = { width: 496, h
   const visibleProductBoxes = [];
   for (let index = 0; index < await productCards.count(); index += 1) {
     const box = await productCards.nth(index).boundingBox();
-    if (box && box.y < productBox.y + productBox.height && box.y + box.height > productBox.y) visibleProductBoxes.push(box);
+    if (!box) continue;
+    const visibleTop = Math.max(box.y, productBox.y);
+    const visibleBottom = Math.min(box.y + box.height, productBox.y + productBox.height);
+    if (visibleBottom > visibleTop) visibleProductBoxes.push({ ...box, y: visibleTop, height: visibleBottom - visibleTop });
   }
   const lastProductBox = visibleProductBoxes.at(-1);
   assert.ok(lastProductBox && sheetFooterBox, "visible product and sheet footer must be measurable");
