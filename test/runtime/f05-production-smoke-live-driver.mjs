@@ -10,9 +10,10 @@ function replaceIds(path, fixtures) {
     .replace(":sessionId", encodeURIComponent(fixtures.currentOperation === "sessionDeleteEmpty" ? fixtures.emptySessionId : fixtures.sessionId));
 }
 
-function expectPersistedContext(rows, definition, requestId) {
+function expectPersistedContext(rows, definition, requestIds) {
   ensure(rows.length > 0, `${definition.name}_context_rows_missing`);
-  return rows.map((row) => {
+  const expectedRequestIds = [...new Set(requestIds.filter(Boolean))];
+  const normalizedRows = rows.map((row) => {
     const contextExact =
       row.installation_id === expectedInstallationId &&
       row.npp_code === expectedNppCode &&
@@ -21,15 +22,21 @@ function expectPersistedContext(rows, definition, requestId) {
       row.http_method === definition.method;
     ensure(contextExact, `${definition.name}_persisted_context_mismatch`);
     return {
-      request_id: row.request_id || row.original_request_id || null,
+      request_id: row.request_id || null,
+      original_request_id: row.original_request_id || null,
+      last_request_id: row.last_request_id || null,
       outcome: row.outcome || null,
       aggregate_id: row.aggregate_id || null,
       contextExact
     };
-  }).filter((row) => {
-    if (row.request_id === requestId) return true;
-    return row.outcome === "succeeded" || row.outcome === "replayed" || row.contextExact;
   });
+  const observedRequestIds = new Set(
+    normalizedRows.flatMap((row) => [row.request_id, row.original_request_id, row.last_request_id]).filter(Boolean)
+  );
+  for (const requestId of expectedRequestIds) {
+    ensure(observedRequestIds.has(requestId), `${definition.name}_persisted_request_id_missing_${requestId}`);
+  }
+  return { rows: normalizedRows, requestIdsExact: true };
 }
 
 async function invariantProof(definition, aggregateId, fixtures) {
@@ -97,9 +104,10 @@ async function prove(definition, fixtures) {
   ensure(requestPlan, `missing_runtime_plan_${definition.name}`);
   const key = `npp-f05.${definition.operation}.${stamp}`;
   const firstRequestId = `npp-f05-${definition.name}-first-${stamp}`;
+  const replayRequestId = `npp-f05-${definition.name}-replay-${stamp}`;
   const first = await must(path, { method: definition.method, body: requestPlan.body, idempotencyKey: key, requestId: firstRequestId });
   ensure(!replayed(first.payload), `${definition.name}_first_marked_replay`);
-  const second = await must(path, { method: definition.method, body: requestPlan.body, idempotencyKey: key, requestId: `npp-f05-${definition.name}-replay-${stamp}` });
+  const second = await must(path, { method: definition.method, body: requestPlan.body, idempotencyKey: key, requestId: replayRequestId });
   ensure(replayed(second.payload), `${definition.name}_replay_missing`);
   ensure(sameJson(first.payload.data, second.payload.data), `${definition.name}_replay_changed`);
   const conflictPath = definition.name === "routeArchive"
@@ -118,17 +126,18 @@ async function prove(definition, fixtures) {
   const audits = await auditRows(definition.operation, key);
   ensure(audits.some((row) => row.outcome === "succeeded"), `${definition.name}_audit_success_missing`);
   ensure(audits.some((row) => row.outcome === "replayed"), `${definition.name}_audit_replay_missing`);
-  const auditRowsWithContext = expectPersistedContext(audits, definition, firstRequestId);
+  const auditContext = expectPersistedContext(audits, definition, [firstRequestId, replayRequestId]);
   const records = await idempotencyRows(definition.operation, key);
   ensure(records.length === 1 && records[0].status === "completed", `${definition.name}_idempotency_invalid`);
-  const idempotencyRowsWithContext = expectPersistedContext(records, definition, firstRequestId);
+  const idempotencyContext = expectPersistedContext(records, definition, [firstRequestId, replayRequestId]);
   const data = object(first.payload.data);
   const nestedSession = object(data.session);
   const aggregateId = String(
     data.routeId || data.route_id || data.orderId || data.order_id || data.sessionId || data.session_id || nestedSession.id || data.id ||
     (definition.name === "routeUpdate" || definition.name === "routeArchive" ? fixtures.routeId : "") ||
     (definition.name === "routeCustomerUpdate" || definition.name === "routeCustomerArchive" ? fixtures.routeCustomerId : "") ||
-    (definition.name === "sessionUpdateClose" || definition.name === "sessionDeleteEmpty" ? fixtures.emptySessionId || fixtures.sessionId : "") ||
+    (definition.name === "sessionUpdateClose" ? fixtures.sessionId : "") ||
+    (definition.name === "sessionDeleteEmpty" ? fixtures.emptySessionId : "") ||
     ""
   );
   const invariant = await invariantProof(definition, aggregateId, fixtures);
@@ -139,13 +148,19 @@ async function prove(definition, fixtures) {
     conflictObserved: true,
     canonicalEnvelope: true,
     firstRequestId,
+    replayRequestId,
+    persistedRequestIdsExact: auditContext.requestIdsExact && idempotencyContext.requestIdsExact,
     aggregateId,
     idempotency: {
       singleCompletedRecord: records.length === 1 && records[0].status === "completed",
-      requestContextExact: idempotencyRowsWithContext.every((row) => row.contextExact),
-      record: idempotencyRowsWithContext[0] || null
+      requestContextExact: idempotencyContext.rows.every((row) => row.contextExact),
+      requestIdsExact: idempotencyContext.requestIdsExact,
+      record: idempotencyContext.rows[0] || null
     },
-    audit: { rows: auditRowsWithContext },
+    audit: {
+      rows: auditContext.rows,
+      requestIdsExact: auditContext.requestIdsExact
+    },
     invariant
   };
 }
@@ -274,7 +289,13 @@ export function createLiveF05SmokeDriver() {
         const media = await db(`mcp_outlet_media?route_id=in.(${targetIds.map(encodeURIComponent).join(",")})&select=id`);
         ensure(media.length === 0, "smoke_cleanup_r2_media_rows_remain");
       }
-      return { databaseRowsAbsent: true, r2RowsAbsent: true };
+      let providerR2Absent = false;
+      if (fixtures?.mediaObjectKey) {
+        const providerHead = await r2Head(fixtures.mediaObjectKey);
+        providerR2Absent = providerHead.status === 404;
+        ensure(providerR2Absent, `smoke_cleanup_r2_provider_object_remains_${providerHead.status}`);
+      }
+      return { databaseRowsAbsent: true, r2RowsAbsent: true, providerR2Absent };
     }
   };
 }
