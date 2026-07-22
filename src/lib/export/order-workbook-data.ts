@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { reportDate, reportFilename, reportSource, reportStatus } from "@/lib/export/business-report";
 import { buildOrderWorkbook, type OrderWorkbookData } from "@/lib/export/order-workbook";
 import { errorResponse, restRows } from "@/lib/export/supabase-rest";
@@ -242,7 +243,7 @@ export async function orderWorkbookResponse(orderId: string | null, orderCode: s
       items: workbookItems
     };
 
-    const logoPng = await readFile(new URL("../../../logo-transparent.png", import.meta.url));
+    const logoPng = await readFile(join(process.cwd(), "logo-transparent.png"));
     const workbook = buildOrderWorkbook(data, logoPng);
     const filename = reportFilename("don-hang-hung-phat", [data.order.code], "xlsx");
     const encodedFilename = encodeURIComponent(filename);
