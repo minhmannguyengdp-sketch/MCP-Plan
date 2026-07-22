@@ -282,12 +282,10 @@ function sheet1Xml(data: OrderWorkbookData) {
   const merges = [
     "A1:B3", "C1:L1", "C2:L2", "C3:L3", "A4:L4",
     "A5:D5", "E5:H5", "I5:L5",
-    "A6:B6", "C6:D6", "E6:F6", "G6:H6", "I6:J6", "K6:L6",
-    "A7:B7", "C7:D7", "E7:F7", "G7:H7", "I7:J7", "K7:L7",
-    "A8:B8", "C8:D8", "E8:F8", "G8:H8", "I8:J8", "K8:L8",
-    "A9:B9", "C9:D9", "E9:F9", "G9:H9", "I9:J9", "K9:L9",
-    "A10:B10", "C10:D10", "E10:F10", "G10:H10", "I10:J10", "K10:L10",
-    "A11:B11", "C11:D11", "E11:F11", "G11:L11"
+    ...Array.from({ length: 7 }, (_value, index) => {
+      const row = index + 6;
+      return [`A${row}:B${row}`, `C${row}:D${row}`, `E${row}:F${row}`, `G${row}:H${row}`, `I${row}:J${row}`, `K${row}:L${row}`];
+    }).flat()
   ];
 
   rows.push(
@@ -300,32 +298,48 @@ function sheet1Xml(data: OrderWorkbookData) {
 
   const dateSerial = excelSerial(data.order.date);
   const capturedSerial = excelDateTimeSerial(data.location.capturedAt);
-  const coordinates = data.location.latitude != null && data.location.longitude != null ? `${data.location.latitude}, ${data.location.longitude}` : "";
-  const fields: Array<[number, string, CellValue, number, string, CellValue, number, string, CellValue]> = [
-    [6, "Mã đơn", data.order.code, 5, "Khách hàng", data.order.customerName, 9, "Địa chỉ giao", data.order.deliveryAddress],
-    [7, "Ngày lập", dateSerial ?? data.order.date, 5, "Mã khách", data.order.customerId, 9, "Trạng thái", data.order.status],
-    [8, "Nguồn đơn", data.order.source, 5, "SĐT", data.order.customerPhone, 9, "Thanh toán", data.order.paymentMethod],
-    [9, "Sale", data.order.sales, 5, "Khu vực", data.order.area, 9, "Google Maps", data.location.googleMapsUrl ? "Mở vị trí trên Google Maps ↗" : "Chưa có vị trí"],
-    [10, "Tuyến / phiên MCP", data.order.routeSession, 5, "Nguồn GPS", data.location.source, 9, "Ghi nhận lúc", capturedSerial ?? data.location.capturedAt]
+  const orderFields: Array<[string, CellValue, number?]> = [
+    ["Mã đơn", data.order.code],
+    ["Ngày lập", dateSerial ?? data.order.date, dateSerial != null ? 11 : 6],
+    ["Nguồn đơn", data.order.source],
+    ["Sale", data.order.sales],
+    ["Trạng thái", data.order.status],
+    ["Thanh toán", data.order.paymentMethod],
+    ["Tuyến / phiên MCP", data.order.routeSession]
+  ];
+  const customerFields: Array<[string, CellValue]> = [
+    ["Mã khách", data.order.customerId],
+    ["Khách hàng", data.order.customerName],
+    ["SĐT", data.order.customerPhone],
+    ["Khu vực", data.order.area],
+    ["Địa chỉ giao", data.order.deliveryAddress],
+    ["", ""],
+    ["", ""]
+  ];
+  const deliveryFields: Array<[string, CellValue, number?]> = [
+    ["Ghi chú giao", data.order.deliveryNote],
+    ["Latitude", data.location.latitude],
+    ["Longitude", data.location.longitude],
+    ["Nguồn GPS", data.location.source],
+    ["Ghi nhận lúc", capturedSerial ?? data.location.capturedAt, capturedSerial != null ? 12 : 6],
+    ["Google Maps", data.location.googleMapsUrl ? "Mở vị trí trên Google Maps ↗" : "Chưa có vị trí", data.location.googleMapsUrl ? 13 : 6],
+    ["", ""]
   ];
 
-  for (const [row, leftLabel, leftValue, midCol, midLabel, midValue, rightCol, rightLabel, rightValue] of fields) {
-    const leftStyle = row === 7 && dateSerial != null ? 11 : 6;
-    const rightStyle = row === 9 && data.location.googleMapsUrl ? 13 : row === 10 && capturedSerial != null ? 12 : 6;
-    rows.push({ row, height: row === 9 ? 28 : 24, cells: [
-      { col: 1, value: leftLabel, style: 5 }, { col: 3, value: leftValue, style: leftStyle },
-      { col: midCol, value: midLabel, style: 5 }, { col: midCol + 2, value: midValue, style: 6 },
-      { col: rightCol, value: rightLabel, style: 5 }, { col: rightCol + 2, value: rightValue, style: rightStyle }
+  for (let index = 0; index < 7; index += 1) {
+    const row = index + 6;
+    const [orderLabel, orderValue, orderStyle = 6] = orderFields[index];
+    const [customerLabel, customerValue] = customerFields[index];
+    const [deliveryLabel, deliveryValue, deliveryStyle = 6] = deliveryFields[index];
+    rows.push({ row, height: index === 4 || index === 5 ? 28 : 24, cells: [
+      { col: 1, value: orderLabel, style: orderLabel ? 5 : 6 }, { col: 3, value: orderValue, style: orderStyle },
+      { col: 5, value: customerLabel, style: customerLabel ? 5 : 6 }, { col: 7, value: customerValue, style: 6 },
+      { col: 9, value: deliveryLabel, style: deliveryLabel ? 5 : 6 }, { col: 11, value: deliveryValue, style: deliveryStyle }
     ] });
   }
 
-  rows.push({ row: 11, height: 28, cells: [
-    { col: 1, value: "Tọa độ GPS", style: 5 }, { col: 3, value: coordinates, style: 6 },
-    { col: 5, value: "Ghi chú giao", style: 5 }, { col: 7, value: data.order.deliveryNote, style: 6 }
-  ] });
-
-  const headerRow = 12;
-  const itemStart = 13;
+  const headerRow = 13;
+  const itemStart = 14;
   rows.push({ row: headerRow, height: 31, cells: [
     "STT", "MÃ HÀNG", "TÊN SẢN PHẨM", "THƯƠNG HIỆU", "DUNG TÍCH", "KHỐI LƯỢNG", "ĐVT", "SL", "ĐƠN GIÁ", "CHIẾT KHẤU", "THÀNH TIỀN", "GHI CHÚ"
   ].map((value, index) => ({ col: index + 1, value, style: 7 })) });
@@ -382,7 +396,7 @@ function sheet1Xml(data: OrderWorkbookData) {
     { row: signatureTop + 1, height: 66, cells: [{ col: 1, value: "(Ký, ghi rõ họ tên)", style: 16 }, { col: 5, value: "(Ký, ghi rõ họ tên)", style: 16 }, { col: 9, value: "(Ký, ghi rõ họ tên)", style: 16 }] }
   );
 
-  const hyperlinks = data.location.googleMapsUrl ? `<hyperlinks><hyperlink ref="K9:L9" r:id="rId2" display="Mở vị trí trên Google Maps ↗"/></hyperlinks>` : "";
+  const hyperlinks = data.location.googleMapsUrl ? `<hyperlinks><hyperlink ref="K11:L11" r:id="rId2" display="Mở vị trí trên Google Maps ↗"/></hyperlinks>` : "";
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>
