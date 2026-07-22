@@ -57,20 +57,25 @@ export function recordOperationProof(evidence, name, facts = {}) {
   requireBoolean(facts.replayPayloadEqual, `${name}_replay_payload_mismatch`);
   requireBoolean(facts.conflictObserved, `${name}_conflict_not_observed`);
   requireBoolean(facts.canonicalEnvelope, `${name}_canonical_envelope_not_observed`);
-  requireNonEmptyString(facts.firstRequestId, `${name}_request_id_missing`);
+  requireNonEmptyString(facts.firstRequestId, `${name}_first_request_id_missing`);
+  requireNonEmptyString(facts.replayRequestId, `${name}_replay_request_id_missing`);
+  requireBoolean(facts.persistedRequestIdsExact, `${name}_persisted_request_ids_not_exact`);
   requireNonEmptyString(facts.aggregateId, `${name}_aggregate_id_missing`);
   requireBoolean(facts.idempotency?.singleCompletedRecord, `${name}_idempotency_record_not_completed`);
   requireBoolean(facts.idempotency?.requestContextExact, `${name}_idempotency_context_not_exact`);
+  requireBoolean(facts.idempotency?.requestIdsExact, `${name}_idempotency_request_ids_not_exact`);
   requireNonEmptyArray(facts.audit?.rows, `${name}_audit_rows_missing`);
   if (!hasOutcome(facts.audit.rows, "succeeded")) throw new Error(`${name}_audit_success_missing`);
   if (!hasOutcome(facts.audit.rows, "replayed")) throw new Error(`${name}_audit_replay_missing`);
   if (!contextRowsAreExact(facts.audit.rows)) throw new Error(`${name}_audit_context_not_exact`);
+  requireBoolean(facts.audit?.requestIdsExact, `${name}_audit_request_ids_not_exact`);
   requireBoolean(facts.invariant?.observed, `${name}_invariant_not_observed`);
 
   evidence.operations[name] = {
     status: PASS,
     facts: {
       firstRequestId: facts.firstRequestId,
+      replayRequestId: facts.replayRequestId,
       aggregateId: facts.aggregateId,
       invariant: facts.invariant,
       auditRows: facts.audit.rows.length,
@@ -110,6 +115,7 @@ export function recordCleanupProof(evidence, facts = {}) {
   assertNoSyntheticPass(facts, "cleanup");
   requireBoolean(facts.databaseRowsAbsent, "cleanup_database_rows_not_absent");
   requireBoolean(facts.r2RowsAbsent, "cleanup_r2_rows_not_absent");
+  requireBoolean(facts.providerR2Absent, "cleanup_provider_r2_object_not_absent");
   evidence.cleanup = { status: PASS, facts };
   return evidence.cleanup;
 }
