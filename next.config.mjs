@@ -51,7 +51,12 @@ validateBuildConfig();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true
+  reactStrictMode: true,
+  experimental: {
+    outputFileTracingIncludes: {
+      "/api/exports/orders.csv": ["./logo-transparent.png"]
+    }
+  }
 };
 
 export default nextConfig;
