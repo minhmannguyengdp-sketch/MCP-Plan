@@ -7,7 +7,7 @@ set -Eeuo pipefail
 
 SOURCE="${MCP_PLAN_SOURCE:-/var/www/mcp-plan-source}"
 RUNTIME="${MCP_PLAN_RUNTIME:-/var/www/mcp-plan-backend}"
-PM2_NAME="${MCP_PLAN_PM2_NAME:-mcp-plan-backend}"
+PM2_NAME="mcp-plan-backend"
 PM2_BIN="$(command -v pm2)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 STAGE="${RUNTIME}.next.${STAMP}"
@@ -49,7 +49,7 @@ rollback() {
 trap rollback ERR
 trap cleanup_stage EXIT
 
-for command_name in git node npm curl ss; do
+for command_name in git node npm curl ss psql; do
   command -v "$command_name" >/dev/null
 done
 [[ -x "$PM2_BIN" ]]
@@ -66,6 +66,8 @@ git reset --hard origin/main
 [[ -f "$SOURCE/apps/backend/server.js" ]]
 [[ -d "$SOURCE/apps/backend/foundation" ]]
 [[ -f "$SOURCE/supabase/migrations/20260715101500_add_atomic_session_customer_mutations.sql" ]]
+[[ -f "$SOURCE/supabase/migrations/20260722060000_add_target_scoped_archive_proof_claims.sql" ]]
+[[ -f "$SOURCE/ops/apply-supabase-migrations.mjs" ]]
 
 for runtime_asset in \
   ops/install-outlet-media-cleanup-timer.sh \
@@ -82,27 +84,16 @@ echo "2) Verify complete source tree..."
 cd "$SOURCE"
 npm --prefix apps/backend run verify
 
-echo "3) Stage complete backend runtime..."
-rm -rf "$STAGE"
-install -d "$STAGE"
-cp -a "$SOURCE/apps/backend/." "$STAGE/"
-install -d "$STAGE/ops/systemd"
-install -m 0750 "$SOURCE/ops/install-outlet-media-cleanup-timer.sh" "$STAGE/ops/install-outlet-media-cleanup-timer.sh"
-install -m 0750 "$SOURCE/ops/run-outlet-media-cleanup.sh" "$STAGE/ops/run-outlet-media-cleanup.sh"
-install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.service" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.service"
-install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.timer" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.timer"
-install -m 600 "$RUNTIME/.env" "$STAGE/.env"
+echo "3) Preflight exact production environment and ports..."
+if ! grep -Eq '^[[:space:]]*DATABASE_URL=' "$RUNTIME/.env"; then
+  echo "migration_database_url_missing" >&2
+  exit 1
+fi
 
-for backup_env in "$RUNTIME"/.env.backup.*; do
-  [[ -e "$backup_env" ]] || continue
-  cp -a "$backup_env" "$STAGE/"
-done
-
-echo "4) Validate exact production environment..."
 read -r PUBLIC_PORT INTERNAL_PORT < <(
-  cd "$STAGE"
+  cd "$SOURCE/apps/backend"
   env -i PATH="$PATH" HOME="$HOME" \
-    node --env-file="$STAGE/.env" --input-type=module -e '
+    node --env-file="$RUNTIME/.env" --input-type=module -e '
       const { loadFoundationConfig } = await import("./foundation/config.js");
       const config = loadFoundationConfig(process.env);
       process.stdout.write(`${config.publicPort} ${config.internalPort}\n`);
@@ -145,7 +136,29 @@ fi
 
 echo "runtime_env=OK public=127.0.0.1:${PUBLIC_PORT} legacy=127.0.0.1:${INTERNAL_PORT}"
 
-echo "5) Atomically replace runtime and start Foundation Gateway..."
+echo "4) Apply pending Supabase migrations and verify target-scoped archive capability..."
+env -i PATH="$PATH" HOME="$HOME" \
+  node "$SOURCE/ops/apply-supabase-migrations.mjs" \
+    "$RUNTIME/.env" \
+    "$SOURCE/supabase/migrations"
+
+echo "5) Stage complete backend runtime..."
+rm -rf "$STAGE"
+install -d "$STAGE"
+cp -a "$SOURCE/apps/backend/." "$STAGE/"
+install -d "$STAGE/ops/systemd"
+install -m 0750 "$SOURCE/ops/install-outlet-media-cleanup-timer.sh" "$STAGE/ops/install-outlet-media-cleanup-timer.sh"
+install -m 0750 "$SOURCE/ops/run-outlet-media-cleanup.sh" "$STAGE/ops/run-outlet-media-cleanup.sh"
+install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.service" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.service"
+install -m 0644 "$SOURCE/ops/systemd/mcp-outlet-media-cleanup.timer" "$STAGE/ops/systemd/mcp-outlet-media-cleanup.timer"
+install -m 600 "$RUNTIME/.env" "$STAGE/.env"
+
+for backup_env in "$RUNTIME"/.env.backup.*; do
+  [[ -e "$backup_env" ]] || continue
+  cp -a "$backup_env" "$STAGE/"
+done
+
+echo "6) Atomically swap only mcp-plan-backend runtime and restart mcp-plan-backend..."
 mv "$RUNTIME" "$BACKUP"
 mv "$STAGE" "$RUNTIME"
 SWAPPED=1
@@ -177,7 +190,7 @@ HEADERS="$(mktemp)"
 BODY="$(mktemp)"
 trap 'rm -f "$HEADERS" "$BODY"; cleanup_stage' EXIT
 
-echo "6) Smoke Foundation boundary..."
+echo "7) Smoke Foundation boundary..."
 curl -fsS -D "$HEADERS" \
   "http://127.0.0.1:${PUBLIC_PORT}/api/health" \
   -o "$BODY"
@@ -208,7 +221,7 @@ echo "denied_origin=403"
 SWAPPED=0
 trap - ERR
 
-echo "7) Process and ports..."
+echo "8) Process and ports..."
 "$PM2_BIN" describe "$PM2_NAME"
 ss -lntp | grep -E ":${PUBLIC_PORT}|:${INTERNAL_PORT}" || true
 
