@@ -6,7 +6,7 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REQUIRED_TARGET_SCOPED_MIGRATION = "20260722060000_add_target_scoped_archive_proof_claims.sql";
-const LEGACY_BASELINE_MAX_VERSION = "20260720224500_lock_archive_intent_claims.sql";
+const LEGACY_BASELINE_MAX_VERSION = "20260720224600_preserve_archive_terminal_failure.sql";
 const HISTORY_TABLE_SQL = `
 create table if not exists public.mcp_schema_migrations (
   version text primary key,
@@ -20,6 +20,8 @@ const BASELINE_SENTINEL_SQL = `
 select case
   when to_regprocedure('public.mcp_claim_archive_intent(text,text,text,text,text,jsonb,jsonb)') is not null
    and to_regprocedure('public.mcp_claim_archive_intent_unlocked(text,text,text,text,text,jsonb,jsonb)') is not null
+   and to_regprocedure('public.mcp_finish_archive_intent(text,text,boolean,integer,jsonb,text,jsonb)') is not null
+   and to_regprocedure('public.mcp_finish_archive_intent_mutable(text,text,boolean,integer,jsonb,text,jsonb)') is not null
   then 'baseline_ok'
   else ''
 end;
