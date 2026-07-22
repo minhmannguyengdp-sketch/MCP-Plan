@@ -26,7 +26,7 @@
     "smoke:f05-runtime": "node test/runtime/smoke-f05-runtime-closure.mjs",
     "smoke:a5-5-2-session-actions": "node test/runtime/smoke-a5-5-2-session-actions.mjs",
     "smoke:f05-production-owners": "node test/runtime/smoke-f05-production-owners.mjs",
-    "test:f05-production-smoke": "node --test test/f05-production-owners-runtime-smoke-contract.test.mjs",
+    "test:f05-production-smoke": "node --test test/f05-production-owners-runtime-smoke-contract.test.mjs test/f05-production-smoke-fixture-routing.test.mjs",
     "test:foundation": "npm --prefix apps/backend test",
     "verify:copy": "npm run audit:copy && npm run typecheck",
     "verify:foundation": "npm run audit:runtime-config && npm run test:direct-db-mutation && npm run test:edge-retirement && npm run test:direct-rest-retirement && npm run test:session-lifecycle-caller && npm run test:route-master-caller && npm run test:idempotency && npm run test:f05-production-smoke && npm run test:route-customer-photo && npm run test:production-hygiene && npm run audit:direct-db-mutation && npm run test:pullmcp-deployer && npm run test:backend-api-auth && npm run test:export-copy && npm run test:foundation && npm run typecheck && npm run test:theme-contract",
@@ -40,7 +40,7 @@
   "devDependencies": {
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.0",
+    "@types/react-dom": "^18.3.11",
     "typescript": "^5.6.2"
   }
 }
