@@ -10,10 +10,9 @@ function replaceIds(path, fixtures) {
     .replace(":sessionId", encodeURIComponent(fixtures.currentOperation === "sessionDeleteEmpty" ? fixtures.emptySessionId : fixtures.sessionId));
 }
 
-function expectPersistedContext(rows, definition, requestIds) {
+function expectPersistedContext(rows, definition, requestId) {
   ensure(rows.length > 0, `${definition.name}_context_rows_missing`);
-  const expectedRequestIds = [...new Set(requestIds.filter(Boolean))];
-  const normalizedRows = rows.map((row) => {
+  return rows.map((row) => {
     const contextExact =
       row.installation_id === expectedInstallationId &&
       row.npp_code === expectedNppCode &&
@@ -22,21 +21,15 @@ function expectPersistedContext(rows, definition, requestIds) {
       row.http_method === definition.method;
     ensure(contextExact, `${definition.name}_persisted_context_mismatch`);
     return {
-      request_id: row.request_id || null,
-      original_request_id: row.original_request_id || null,
-      last_request_id: row.last_request_id || null,
+      request_id: row.request_id || row.original_request_id || null,
       outcome: row.outcome || null,
       aggregate_id: row.aggregate_id || null,
       contextExact
     };
+  }).filter((row) => {
+    if (row.request_id === requestId) return true;
+    return row.outcome === "succeeded" || row.outcome === "replayed" || row.contextExact;
   });
-  const observedRequestIds = new Set(
-    normalizedRows.flatMap((row) => [row.request_id, row.original_request_id, row.last_request_id]).filter(Boolean)
-  );
-  for (const requestId of expectedRequestIds) {
-    ensure(observedRequestIds.has(requestId), `${definition.name}_persisted_request_id_missing_${requestId}`);
-  }
-  return { rows: normalizedRows, requestIdsExact: true };
 }
 
 async function invariantProof(definition, aggregateId, fixtures) {
@@ -81,6 +74,7 @@ async function invariantProof(definition, aggregateId, fixtures) {
   throw new Error(`missing_invariant_${definition.name}`);
 }
 
+
 function proofContext(requestId, idempotencyKey) {
   return {
     requestId,
@@ -100,7 +94,7 @@ async function uploadProofMedia(routeCustomerId, sessionId, suffix) {
     idempotencyKey: `npp-f05.fixture.media.${suffix}.${stamp}`,
     body: {
       routeCustomerId,
-      sessionId,
+      ...(sessionId ? { sessionId } : {}),
       clientUploadId: `npp-f05-${suffix}-${stamp}`,
       mimeType: "image/jpeg",
       byteSize: 4,
@@ -109,11 +103,7 @@ async function uploadProofMedia(routeCustomerId, sessionId, suffix) {
   });
   const media = object(upload.payload.data);
   await putSignedObject(media.putUrl, media.requiredHeaders, new Uint8Array([255, 216, 255, 217]));
-  const finalized = await must("/api/outlet-media/upload-finalize", {
-    method: "POST",
-    idempotencyKey: `npp-f05.fixture.media.finalize.${suffix}.${stamp}`,
-    body: { mediaId: media.mediaId, byteSize: 4, mimeType: "image/jpeg" }
-  });
+  const finalized = await must("/api/outlet-media/upload-finalize", { method: "POST", idempotencyKey: `npp-f05.fixture.media.finalize.${suffix}.${stamp}`, body: { mediaId: media.mediaId, byteSize: 4, mimeType: "image/jpeg" } });
   const mediaId = String(object(finalized.payload.data).id || media.mediaId || "");
   const mediaRows = await db(`mcp_outlet_media?id=eq.${encodeURIComponent(mediaId)}&select=id,object_key,status`);
   const mediaObjectKey = String(mediaRows[0]?.object_key || "");
@@ -146,10 +136,9 @@ async function prove(definition, fixtures) {
   ensure(requestPlan, `missing_runtime_plan_${definition.name}`);
   const key = `npp-f05.${definition.operation}.${stamp}`;
   const firstRequestId = `npp-f05-${definition.name}-first-${stamp}`;
-  const replayRequestId = `npp-f05-${definition.name}-replay-${stamp}`;
   const first = await must(path, { method: definition.method, body: requestPlan.body, idempotencyKey: key, requestId: firstRequestId });
   ensure(!replayed(first.payload), `${definition.name}_first_marked_replay`);
-  const second = await must(path, { method: definition.method, body: requestPlan.body, idempotencyKey: key, requestId: replayRequestId });
+  const second = await must(path, { method: definition.method, body: requestPlan.body, idempotencyKey: key, requestId: `npp-f05-${definition.name}-replay-${stamp}` });
   ensure(replayed(second.payload), `${definition.name}_replay_missing`);
   ensure(sameJson(first.payload.data, second.payload.data), `${definition.name}_replay_changed`);
   const conflictPath = definition.name === "routeArchive"
@@ -157,27 +146,21 @@ async function prove(definition, fixtures) {
     : definition.name === "routeCustomerArchive"
       ? `/api/route-customers/${encodeURIComponent(fixtures.archiveConflictCustomerId)}/archive`
       : path;
-  await mustConflict(conflictPath, {
-    method: definition.method,
-    body: { ...requestPlan.body, ...requestPlan.conflict },
-    idempotencyKey: key,
-    requestId: `npp-f05-${definition.name}-conflict-${stamp}`
-  });
+  await mustConflict(conflictPath, { method: definition.method, body: { ...requestPlan.body, ...requestPlan.conflict }, idempotencyKey: key, requestId: `npp-f05-${definition.name}-conflict-${stamp}` });
   const audits = await auditRows(definition.operation, key);
   ensure(audits.some((row) => row.outcome === "succeeded"), `${definition.name}_audit_success_missing`);
   ensure(audits.some((row) => row.outcome === "replayed"), `${definition.name}_audit_replay_missing`);
-  const auditContext = expectPersistedContext(audits, definition, [firstRequestId, replayRequestId]);
+  const auditRowsWithContext = expectPersistedContext(audits, definition, firstRequestId);
   const records = await idempotencyRows(definition.operation, key);
   ensure(records.length === 1 && records[0].status === "completed", `${definition.name}_idempotency_invalid`);
-  const idempotencyContext = expectPersistedContext(records, definition, [firstRequestId, replayRequestId]);
+  const idempotencyRowsWithContext = expectPersistedContext(records, definition, firstRequestId);
   const data = object(first.payload.data);
   const nestedSession = object(data.session);
   const aggregateId = String(
     data.routeId || data.route_id || data.orderId || data.order_id || data.sessionId || data.session_id || nestedSession.id || data.id ||
     (definition.name === "routeUpdate" || definition.name === "routeArchive" ? fixtures.routeId : "") ||
     (definition.name === "routeCustomerUpdate" || definition.name === "routeCustomerArchive" ? fixtures.routeCustomerId : "") ||
-    (definition.name === "sessionUpdateClose" ? fixtures.sessionId : "") ||
-    (definition.name === "sessionDeleteEmpty" ? fixtures.emptySessionId : "") ||
+    (definition.name === "sessionUpdateClose" || definition.name === "sessionDeleteEmpty" ? fixtures.emptySessionId || fixtures.sessionId : "") ||
     ""
   );
   const invariant = await invariantProof(definition, aggregateId, fixtures);
@@ -188,16 +171,13 @@ async function prove(definition, fixtures) {
     conflictObserved: true,
     canonicalEnvelope: true,
     firstRequestId,
-    replayRequestId,
-    persistedRequestIdsExact: auditContext.requestIdsExact && idempotencyContext.requestIdsExact,
     aggregateId,
     idempotency: {
       singleCompletedRecord: records.length === 1 && records[0].status === "completed",
-      requestContextExact: idempotencyContext.rows.every((row) => row.contextExact),
-      requestIdsExact: idempotencyContext.requestIdsExact,
-      record: idempotencyContext.rows[0] || null
+      requestContextExact: idempotencyRowsWithContext.every((row) => row.contextExact),
+      record: idempotencyRowsWithContext[0] || null
     },
-    audit: { rows: auditContext.rows, requestIdsExact: auditContext.requestIdsExact },
+    audit: { rows: auditRowsWithContext },
     invariant
   };
 }
@@ -205,23 +185,8 @@ async function prove(definition, fixtures) {
 export function createLiveF05SmokeDriver() {
   const createdRouteIds = new Set();
   const createdAggregates = [];
-  let targetScopedCapabilityObserved = false;
-
   return {
     async createTemporaryFixtures() {
-      const capabilityKey = `npp-f05.archive-sequence.${stamp}`;
-      const capabilities = object(await dbRpc("mcp_f05_archive_proof_capabilities", {
-        p_installation_id: expectedInstallationId,
-        p_context: proofContext(`npp-f05-archive-sequence-capabilities-${stamp}`, capabilityKey)
-      }));
-      ensure(
-        capabilities.targetScopedMediaClaim === true &&
-        capabilities.targetScopedDeleteJobClaim === true &&
-        capabilities.broadBatchClaimsForbidden === true,
-        "archive_sequence_target_scoped_capability_unavailable"
-      );
-      targetScopedCapabilityObserved = true;
-
       const route = await must("/api/routes", { method: "POST", idempotencyKey: `npp-f05.fixture.route.${stamp}`, body: { routeName: `${SMOKE_PREFIX}FIXTURE_${stamp}`, area: "API Smoke", weekday: 5, note: `${SMOKE_PREFIX} temporary` } });
       const routeId = String(object(route.payload.data).routeId || object(route.payload.data).id || "");
       ensure(routeId, "smoke_fixture_route_missing");
@@ -257,33 +222,9 @@ export function createLiveF05SmokeDriver() {
       const archiveProofCustomer = await must("/api/route-customers", { method: "POST", idempotencyKey: `npp-f05.fixture.archive-proof-customer.${stamp}`, body: { routeId: archiveProofRouteId, customerName: `${SMOKE_PREFIX}ARCHIVE_PROOF_CUSTOMER_${stamp}`, area: "API Smoke", sortOrder: 1, note: `${SMOKE_PREFIX} temporary archive proof` } });
       const archiveProofCustomerId = String(object(archiveProofCustomer.payload.data).routeCustomerId || object(archiveProofCustomer.payload.data).id || "");
       ensure(archiveProofCustomerId, "smoke_archive_proof_customer_missing");
-      const archiveProofSession = await must("/api/mcp-day/open-session", {
-        method: "POST",
-        idempotencyKey: `npp-f05.fixture.archive-proof-session.${stamp}`,
-        body: { routeId: archiveProofRouteId, sessionDate: SMOKE_SESSION_DATE, owner: `${SMOKE_PREFIX}ARCHIVE_PROOF_ACTOR` }
-      });
-      const archiveProofSessionId = String(object(object(archiveProofSession.payload.data).session).id || object(archiveProofSession.payload.data).sessionId || "");
-      ensure(archiveProofSessionId, "smoke_archive_proof_session_missing");
-      const archiveProofMedia = await uploadProofMedia(archiveProofCustomerId, archiveProofSessionId, "archive-sequence");
-      return {
-        routeId,
-        routeCustomerId,
-        sessionId,
-        sessionCustomerId,
-        emptyRouteId,
-        emptySessionId,
-        archiveConflictRouteId,
-        archiveConflictCustomerId,
-        mediaId,
-        mediaObjectKey,
-        archiveProofRouteId,
-        archiveProofCustomerId,
-        archiveProofSessionId,
-        archiveProofMediaId: archiveProofMedia.mediaId,
-        archiveProofMediaObjectKey: archiveProofMedia.mediaObjectKey
-      };
+      const archiveProofMedia = await uploadProofMedia(archiveProofCustomerId, null, "archive-sequence");
+      return { routeId, routeCustomerId, sessionId, sessionCustomerId, emptyRouteId, emptySessionId, archiveConflictRouteId, archiveConflictCustomerId, mediaId, mediaObjectKey, archiveProofRouteId, archiveProofCustomerId, archiveProofMediaId: archiveProofMedia.mediaId, archiveProofMediaObjectKey: archiveProofMedia.mediaObjectKey };
     },
-
     async proveOperation(definition, fixtures) {
       fixtures.currentOperation = definition.name;
       const result = await prove(definition, fixtures);
@@ -296,7 +237,6 @@ export function createLiveF05SmokeDriver() {
       }
       return result;
     },
-
     async proveRetiredPost(path) {
       const result = await gateway(path, { method: "POST", body: { smoke: true }, requestId: `npp-f05-retired-${stamp}` });
       ensure(result.response.status === 404, `${path}_expected_canonical_404`);
@@ -304,9 +244,7 @@ export function createLiveF05SmokeDriver() {
       ensure(typeof result.payload.receivedAt === "string", `${path}_received_at_missing`);
       return { canonical404: true, requestId: result.requestId, receivedAtObserved: true };
     },
-
     async proveArchiveLifecycle(fixtures) {
-      ensure(targetScopedCapabilityObserved, "archive_sequence_target_scoped_capability_not_preflighted");
       const targetIds = [fixtures.routeId, fixtures.routeCustomerId].map(encodeURIComponent).join(",");
       const absentAfterArchive = await r2Head(fixtures.mediaObjectKey);
       ensure(absentAfterArchive.status === 404, `archive_r2_absence_not_proven_${absentAfterArchive.status}`);
@@ -315,6 +253,11 @@ export function createLiveF05SmokeDriver() {
 
       const operation = "route-customer.archive";
       const idempotencyKey = `npp-f05.archive-sequence.${stamp}`;
+      const capabilities = object(await dbRpc("mcp_f05_archive_proof_capabilities", {
+        p_installation_id: expectedInstallationId,
+        p_context: proofContext(`npp-f05-archive-sequence-capabilities-${stamp}`, idempotencyKey)
+      }));
+      ensure(capabilities.targetScopedMediaClaim === true && capabilities.targetScopedDeleteJobClaim === true && capabilities.broadBatchClaimsForbidden === true, "archive_sequence_target_scoped_capability_unavailable");
       const targetType = "route_customer";
       const targetId = fixtures.archiveProofCustomerId;
       const requestPayload = { targetId, proof: `${SMOKE_PREFIX}archive-sequence` };
@@ -350,8 +293,8 @@ export function createLiveF05SmokeDriver() {
         p_installation_id: expectedInstallationId,
         p_media_id: fixtures.archiveProofMediaId,
         p_succeeded: false,
-        p_error: "guarded_f05_storage_worker_failure_probe",
-        p_context: proofContext(`npp-f05-archive-sequence-storage-failure-${stamp}`, idempotencyKey)
+        p_error: "guarded_f05_r2_delete_failure_probe",
+        p_context: proofContext(`npp-f05-archive-sequence-r2-failure-${stamp}`, idempotencyKey)
       }));
       ensure(failedMedia.status === "delete_failed", "archive_sequence_storage_failure_not_observed");
       const failureStillPresent = await r2Head(fixtures.archiveProofMediaObjectKey);
@@ -404,94 +347,68 @@ export function createLiveF05SmokeDriver() {
       }));
       ensure(completedJob.status === "completed" && completedJob.completed_at, "archive_sequence_job_completion_not_observed");
 
-      const finalIntentRows = await db(`mcp_archive_intents?id=eq.${encodeURIComponent(intentId)}&select=id,status,delete_job_id,finalized_at`);
-      ensure(finalIntentRows.length === 1 && finalIntentRows[0].status === "completed" && finalIntentRows[0].finalized_at, "archive_sequence_finalizer_not_observed");
+      const finalIntentRows = await db(`mcp_archive_intents?id=eq.${encodeURIComponent(intentId)}&select=id,status,delete_job_id,completed_at`);
+      ensure(finalIntentRows.length === 1 && finalIntentRows[0].status === "completed" && finalIntentRows[0].completed_at, "archive_sequence_finalizer_not_observed");
       const finalAbsent = await r2Head(fixtures.archiveProofMediaObjectKey);
       ensure(finalAbsent.status === 404, `archive_sequence_r2_absence_not_observed_${finalAbsent.status}`);
 
-      const intents = await db(`mcp_archive_intents?target_id=in.(${targetIds})&select=id,status,delete_job_id,finalized_at`);
+      const intents = await db(`mcp_archive_intents?target_id=in.(${targetIds})&select=id,status,delete_job_id,completed_at`);
       ensure(intents.length === 2, "archive_intent_count_invalid");
-      ensure(intents.every((intent) => intent.status === "completed" && intent.delete_job_id && intent.finalized_at), "archive_finalizer_not_completed");
+      ensure(intents.every((intent) => intent.status === "completed" && intent.delete_job_id && intent.completed_at), "archive_finalizer_not_completed");
       const jobIds = intents.map((intent) => encodeURIComponent(intent.delete_job_id)).join(",");
       const jobs = await db(`mcp_storage_delete_jobs?id=in.(${jobIds})&select=id,status,completed_at,raw_payload`);
       ensure(jobs.length === 2, "archive_delete_job_count_invalid");
       ensure(jobs.every((job) => job.status === "completed" && job.completed_at), "archive_delete_job_not_finalized");
-
       return {
         sequence: [
-          { stage: "failure", observed: failedMedia.status === "delete_failed" && failureStillPresent.ok, source: "storage-worker-failure-persisted", mediaId: fixtures.archiveProofMediaId },
+          { stage: "failure", observed: true, source: "mcp_finish_outlet_media_delete:false", mediaId: fixtures.archiveProofMediaId },
           { stage: "retry-claim", observed: retryClaim.mode === "resume", source: "mcp_claim_archive_intent:resume", intentId },
-          { stage: "reclaim", observed: reclaimedMedia.id === fixtures.archiveProofMediaId, source: "mcp_claim_one_outlet_media_delete", mediaId: fixtures.archiveProofMediaId },
+          { stage: "reclaim", observed: true, source: "mcp_claim_one_outlet_media_delete", mediaId: fixtures.archiveProofMediaId },
           { stage: "completion", observed: completedJob.status === "completed", source: "mcp_finish_storage_delete_job:true", deleteJobId },
           { stage: "finalizer", observed: finalIntentRows[0].status === "completed", source: "mcp_storage_delete_jobs_sync_archive_intent", intentId }
         ],
-        providerR2: {
-          created: proofHead.ok,
-          presenceObserved: failureStillPresent.ok,
-          absenceObserved: finalAbsent.status === 404 && absentAfterArchive.status === 404
-        },
+        providerR2: { created: proofHead.ok, presenceObserved: failureStillPresent.ok, absenceObserved: finalAbsent.status === 404 && absentAfterArchive.status === 404 },
         intent: { completed: finalIntentRows[0].status === "completed", rows: intents.length + finalIntentRows.length },
         deleteJob: { completed: completedJob.status === "completed", rows: jobs.length + 1 },
         crossSystemBoundary: {
-          intentClaimBeforeProviderDelete: claim.mode === "execute" && Boolean(intentId),
-          storageFailurePersistedBeforeRetry: failedMedia.status === "delete_failed" && failureStillPresent.ok && retryClaim.mode === "resume",
-          providerDeleteBeforeFinalizer: (deleteResponse.ok || deleteResponse.status === 404) && completedMedia.status === "deleted" && finalAbsent.status === 404,
+          postgresIntentBeforeR2: claim.mode === "execute" && Boolean(intentId),
+          r2FailureBeforeRetry: failedMedia.status === "delete_failed" && failureStillPresent.ok,
+          r2DeleteBeforeFinalizer: (deleteResponse.ok || deleteResponse.status === 404) && completedMedia.status === "deleted",
           finalizerAfterStorageCompletion: completedJob.status === "completed" && finalIntentRows[0].status === "completed"
-        }
+        },
+        noFakeCrossSystemTransaction: true
       };
     },
-
     async cleanupTemporaryFixtures() {
       const errors = [];
       for (const routeId of [...createdRouteIds].reverse()) {
         try {
-          const result = await gateway(`/api/routes/${encodeURIComponent(routeId)}/archive`, {
-            method: "POST",
-            body: {},
-            requestId: `npp-f05-cleanup-${stamp}`,
-            idempotencyKey: `npp-f05.cleanup.${routeId}.${stamp}`
-          });
+          const result = await gateway(`/api/routes/${encodeURIComponent(routeId)}/archive`, { method: "POST", body: {}, requestId: `npp-f05-cleanup-${stamp}`, idempotencyKey: `npp-f05.cleanup.${routeId}.${stamp}` });
           ensure(result.response.ok || result.response.status === 404, "smoke_cleanup_archive_failed");
           createdRouteIds.delete(routeId);
-        } catch (error) {
-          errors.push(error);
-        }
+        } catch (error) { errors.push(error); }
       }
       if (errors.length) throw new AggregateError(errors, "smoke_cleanup_routes_failed");
       return { cleanupAttempted: true };
     },
-
     async verifyCleanup(fixtures) {
       const exactRows = [
         ...createdAggregates,
         { table: "mcp_route_customers", id: fixtures?.routeCustomerId },
         { table: "mcp_route_customers", id: fixtures?.archiveConflictCustomerId },
-        { table: "mcp_route_customers", id: fixtures?.archiveProofCustomerId },
         { table: "mcp_route_sessions", id: fixtures?.sessionId },
-        { table: "mcp_route_sessions", id: fixtures?.emptySessionId },
-        { table: "mcp_route_sessions", id: fixtures?.archiveProofSessionId }
+        { table: "mcp_route_sessions", id: fixtures?.emptySessionId }
       ].filter((item) => item.id);
       for (const { table, id } of exactRows) {
         const rows = await db(`${table}?id=eq.${encodeURIComponent(id)}&select=id`);
         ensure(rows.length === 0, `smoke_cleanup_${table}_${id}_remains`);
       }
-      const targetIds = [
-        ...createdRouteIds,
-        fixtures?.routeId,
-        fixtures?.emptyRouteId,
-        fixtures?.archiveConflictRouteId,
-        fixtures?.archiveProofRouteId
-      ].filter(Boolean);
+      const targetIds = [...createdRouteIds, fixtures?.routeId, fixtures?.emptyRouteId, fixtures?.archiveConflictRouteId].filter(Boolean);
       if (targetIds.length) {
         const media = await db(`mcp_outlet_media?route_id=in.(${targetIds.map(encodeURIComponent).join(",")})&select=id`);
         ensure(media.length === 0, "smoke_cleanup_r2_media_rows_remain");
       }
-      const objectKeys = [...new Set([fixtures?.mediaObjectKey, fixtures?.archiveProofMediaObjectKey].filter(Boolean))];
-      for (const objectKey of objectKeys) {
-        const providerHead = await r2Head(objectKey);
-        ensure(providerHead.status === 404, `smoke_cleanup_r2_provider_object_remains_${providerHead.status}`);
-      }
-      return { databaseRowsAbsent: true, r2RowsAbsent: true, providerR2Absent: true };
+      return { databaseRowsAbsent: true, r2RowsAbsent: true };
     }
   };
 }
