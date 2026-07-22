@@ -208,9 +208,9 @@ export async function orderWorkbookResponse(orderId: string | null, orderCode: s
         id: text(order.id),
         code: text(order.order_code) || text(order.id),
         date: text(order.order_date).slice(0, 10),
-        source: reportSource(order.source_type),
+        source: reportSource(text(order.source_type)),
         sales: text(order.sales),
-        status: reportStatus(order.status),
+        status: reportStatus(text(order.status)),
         paymentMethod: pickText(orderRaw, ["paymentMethod", "payment_method", "paymentType", "payment_type"]) || "Chưa xác định",
         routeSession: routeSessionLabel(routeName, sessionDate),
         note: text(order.note),
@@ -246,7 +246,9 @@ export async function orderWorkbookResponse(orderId: string | null, orderCode: s
     const workbook = buildOrderWorkbook(data, logoPng);
     const filename = reportFilename("don-hang-hung-phat", [data.order.code], "xlsx");
     const encodedFilename = encodeURIComponent(filename);
-    return new Response(new Uint8Array(workbook), {
+    const responseBody = new ArrayBuffer(workbook.byteLength);
+    new Uint8Array(responseBody).set(workbook);
+    return new Response(responseBody, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
