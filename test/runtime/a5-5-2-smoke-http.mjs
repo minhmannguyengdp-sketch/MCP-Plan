@@ -55,6 +55,8 @@ export async function gateway(path, {
       "X-Backend-Token": backendToken,
       "X-Request-Id": requestId,
       "X-Actor-Id": actor,
+      "X-Actor-Type": "service",
+      "X-Actor-Authentication": actorAuthentication,
       ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       ...(body === undefined ? {} : { "Content-Type": "application/json" })
     },
@@ -126,7 +128,6 @@ export function idempotencyRows(operation, idempotencyKey) {
       "&select=status,attempt_count,response_status,original_request_id,last_request_id,aggregate_id,installation_id,npp_code,actor_id,actor_type,actor_authentication,http_method,route,action"
   );
 }
-
 
 function r2Config() {
   return {
