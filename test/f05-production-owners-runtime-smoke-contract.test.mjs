@@ -22,18 +22,27 @@ test("complete F05 runtime inventory is exact and legacy settings POSTs stay abs
   ]);
 });
 
-test("production guard requires explicit mode, exact installation identity, non-business fixture namespace and secrets", () => {
+test("production guard requires identities, API/database secrets and R2 capability before mutation", () => {
   const valid = {
     NPP_F05_RUNTIME_SMOKE_GUARDED: "I_UNDERSTAND_TEMPORARY_PRODUCTION_MUTATIONS",
     NPP_F05_EXPECTED_INSTALLATION_ID: "installation-a", MCP_INSTALLATION_ID: "installation-a",
     NPP_F05_EXPECTED_NPP_CODE: "NPP-A", MCP_NPP_CODE: "NPP-A",
     MCP_API_BASE_URL: "https://gateway.example.com", SUPABASE_URL: "https://project.supabase.co",
-    BACKEND_API_TOKEN: "b".repeat(32), SUPABASE_SERVICE_ROLE_KEY: "s".repeat(32)
+    BACKEND_API_TOKEN: "b".repeat(32), SUPABASE_SERVICE_ROLE_KEY: "s".repeat(32),
+    R2_ENDPOINT: "https://account.r2.cloudflarestorage.com",
+    R2_BUCKET_NAME: "smoke-bucket",
+    R2_ACCESS_KEY_ID: "a".repeat(16),
+    R2_SECRET_ACCESS_KEY: "r".repeat(32)
   };
   assert.doesNotThrow(() => assertF05ProductionSmokeGuard(valid));
-  for (const key of ["NPP_F05_RUNTIME_SMOKE_GUARDED", "NPP_F05_EXPECTED_INSTALLATION_ID", "NPP_F05_EXPECTED_NPP_CODE", "BACKEND_API_TOKEN", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  for (const key of [
+    "NPP_F05_RUNTIME_SMOKE_GUARDED", "NPP_F05_EXPECTED_INSTALLATION_ID", "NPP_F05_EXPECTED_NPP_CODE",
+    "BACKEND_API_TOKEN", "SUPABASE_SERVICE_ROLE_KEY", "R2_ENDPOINT", "R2_BUCKET_NAME",
+    "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"
+  ]) {
     assert.throws(() => assertF05ProductionSmokeGuard({ ...valid, [key]: "" }), /f05_smoke_guard/);
   }
+  assert.doesNotThrow(() => assertF05ProductionSmokeGuard({ ...valid, R2_ENDPOINT: "", CLOUDFLARE_R2_ENDPOINT: valid.R2_ENDPOINT }));
   assert.throws(() => assertF05ProductionSmokeGuard({ ...valid, MCP_INSTALLATION_ID: "wrong" }), /identity_mismatch/);
   assert.match(SMOKE_PREFIX, /^__NPP_F05_RUNTIME_SMOKE__/);
   assert.match(SMOKE_SESSION_DATE, /^2099-/);
@@ -41,16 +50,31 @@ test("production guard requires explicit mode, exact installation identity, non-
 });
 
 function operationFacts(operation) {
+  const firstRequestId = `req-${operation.name}-first`;
+  const replayRequestId = `req-${operation.name}-replay`;
   return {
     firstExecuted: true,
     replayObserved: true,
     replayPayloadEqual: true,
     conflictObserved: true,
     canonicalEnvelope: true,
-    firstRequestId: `req-${operation.name}`,
+    firstRequestId,
+    replayRequestId,
+    persistedRequestIdsExact: true,
     aggregateId: `agg-${operation.name}`,
-    idempotency: { singleCompletedRecord: true, requestContextExact: true, record: { request_id: `req-${operation.name}`, contextExact: true } },
-    audit: { rows: [{ outcome: "succeeded", contextExact: true }, { outcome: "replayed", contextExact: true }] },
+    idempotency: {
+      singleCompletedRecord: true,
+      requestContextExact: true,
+      requestIdsExact: true,
+      record: { original_request_id: firstRequestId, last_request_id: replayRequestId, contextExact: true }
+    },
+    audit: {
+      requestIdsExact: true,
+      rows: [
+        { request_id: firstRequestId, outcome: "succeeded", contextExact: true },
+        { request_id: replayRequestId, outcome: "replayed", contextExact: true }
+      ]
+    },
     invariant: { name: `${operation.name}-invariant`, observed: true }
   };
 }
@@ -79,11 +103,11 @@ test("runner always cleans up and emits complete machine-readable PASS evidence"
     async proveRetiredPost(path) { calls.push(path); return { canonical404: true, requestId: `retired-${path}`, receivedAtObserved: true }; },
     async proveArchiveLifecycle() { calls.push("archive-lifecycle"); return archiveFacts(); },
     async cleanupTemporaryFixtures() { calls.push("cleanup"); return { cleanupAttempted: true }; },
-    async verifyCleanup() { calls.push("verify-cleanup"); return { databaseRowsAbsent: true, r2RowsAbsent: true }; }
+    async verifyCleanup() { calls.push("verify-cleanup"); return { databaseRowsAbsent: true, r2RowsAbsent: true, providerR2Absent: true }; }
   };
   const evidence = await runF05ProductionOwnersSmoke(driver);
   assert.equal(evidence.NPP_F05_PRODUCTION_OWNERS_RUNTIME_SMOKE, "PASS");
-  assert.equal(evidence.cleanup.facts.r2RowsAbsent, true);
+  assert.equal(evidence.cleanup.facts.providerR2Absent, true);
   assert.equal(calls.at(-2), "cleanup");
   assert.equal(calls.at(-1), "verify-cleanup");
   for (const operation of Object.values(evidence.operations)) {
@@ -111,6 +135,22 @@ test("evidence cannot report PASS with pending archive or cleanup proof", () => 
   assert.equal(finalizeEvidence(evidence).NPP_F05_PRODUCTION_OWNERS_RUNTIME_SMOKE, "FAIL");
 });
 
+test("structured operation and cleanup evidence fail closed on missing request IDs or provider proof", () => {
+  const operation = operationFacts({ name: "routeCreate" });
+  assert.throws(
+    () => recordOperationProof(emptyEvidence(), "routeCreate", { ...operation, replayRequestId: "" }),
+    /replay_request_id_missing/
+  );
+  assert.throws(
+    () => recordOperationProof(emptyEvidence(), "routeCreate", { ...operation, persistedRequestIdsExact: false }),
+    /persisted_request_ids_not_exact/
+  );
+  assert.throws(
+    () => recordCleanupProof(emptyEvidence(), { databaseRowsAbsent: true, r2RowsAbsent: true, providerR2Absent: false }),
+    /cleanup_provider_r2_object_not_absent/
+  );
+});
+
 test("structured evidence rejects PASS labels and attempt counters without observed archive sequence", () => {
   const evidence = emptyEvidence();
   assert.throws(() => recordOperationProof(evidence, "routeCreate", { ...operationFacts({ name: "routeCreate" }), persistedContext: "PASS" }), /synthetic_pass_label_rejected/);
@@ -132,10 +172,20 @@ test("live driver targets only captured temporary IDs and never prints provider 
   assert.doesNotMatch(command, /pullmcp|supabase migration|deploy/i);
 });
 
-
-test("live proof requires exact persisted context, operation invariants, guarded archive retry and provider R2 checks", async () => {
+test("live proof requires exact persisted IDs, correct session target and provider cleanup HEAD", async () => {
   const driver = await readFile("test/runtime/f05-production-smoke-live-driver.mjs", "utf8");
   assert.match(driver, /expectPersistedContext/);
+  assert.match(driver, /\[firstRequestId, replayRequestId\]/);
+  assert.match(driver, /persistedRequestIdsExact/);
+  assert.match(driver, /definition\.name === "sessionUpdateClose" \? fixtures\.sessionId/);
+  assert.match(driver, /definition\.name === "sessionDeleteEmpty" \? fixtures\.emptySessionId/);
+  assert.doesNotMatch(driver, /sessionUpdateClose" \|\| definition\.name === "sessionDeleteEmpty"/);
+  assert.match(driver, /providerHead = await r2Head\(fixtures\.mediaObjectKey\)/);
+  assert.match(driver, /providerR2Absent/);
+});
+
+test("live proof requires operation invariants, guarded archive markers and provider R2 checks", async () => {
+  const driver = await readFile("test/runtime/f05-production-smoke-live-driver.mjs", "utf8");
   assert.match(driver, /expectedInstallationId/);
   assert.match(driver, /expectedNppCode/);
   assert.match(driver, /actorAuthentication/);
