@@ -242,6 +242,11 @@ export function createLiveF05SmokeDriver() {
 
       const operation = "route-customer.archive";
       const idempotencyKey = `npp-f05.archive-sequence.${stamp}`;
+      const capabilities = object(await dbRpc("mcp_f05_archive_proof_capabilities", {
+        p_installation_id: expectedInstallationId,
+        p_context: proofContext(`npp-f05-archive-sequence-capabilities-${stamp}`, idempotencyKey)
+      }));
+      ensure(capabilities.targetScopedMediaClaim === true && capabilities.targetScopedDeleteJobClaim === true && capabilities.broadBatchClaimsForbidden === true, "archive_sequence_target_scoped_capability_unavailable");
       const targetType = "route_customer";
       const targetId = fixtures.archiveProofCustomerId;
       const requestPayload = { targetId, proof: `${SMOKE_PREFIX}archive-sequence` };
@@ -296,14 +301,13 @@ export function createLiveF05SmokeDriver() {
       ensure(retryClaim.mode === "resume", "archive_sequence_retry_claim_not_resume");
 
       const retryBefore = new Date(Date.now() + 60_000).toISOString();
-      const reclaimedMediaRows = await dbRpc("mcp_claim_stale_outlet_media_delete", {
+      const reclaimedMedia = object(await dbRpc("mcp_claim_one_outlet_media_delete", {
         p_installation_id: expectedInstallationId,
-        p_pending_before: retryBefore,
+        p_media_id: fixtures.archiveProofMediaId,
         p_retry_before: retryBefore,
-        p_limit: 10,
         p_context: proofContext(`npp-f05-archive-sequence-reclaim-${stamp}`, idempotencyKey)
-      });
-      ensure(Array.isArray(reclaimedMediaRows) && reclaimedMediaRows.some((row) => row.id === fixtures.archiveProofMediaId), "archive_sequence_reclaim_transition_not_observed");
+      }));
+      ensure(reclaimedMedia.id === fixtures.archiveProofMediaId && reclaimedMedia.status === "deleting", "archive_sequence_reclaim_transition_not_observed");
       const deleteResponse = await r2Delete(fixtures.archiveProofMediaObjectKey);
       ensure(deleteResponse.ok || deleteResponse.status === 404, `archive_sequence_r2_retry_delete_${deleteResponse.status}`);
       const completedMedia = object(await dbRpc("mcp_finish_outlet_media_delete", {
@@ -315,13 +319,13 @@ export function createLiveF05SmokeDriver() {
       }));
       ensure(completedMedia.status === "deleted", "archive_sequence_r2_completion_not_observed");
 
-      const finalizingJobs = await dbRpc("mcp_claim_ready_storage_delete_jobs", {
+      const finalizingJob = object(await dbRpc("mcp_claim_one_storage_delete_job", {
         p_installation_id: expectedInstallationId,
+        p_job_id: deleteJobId,
         p_retry_before: retryBefore,
-        p_limit: 10,
         p_context: proofContext(`npp-f05-archive-sequence-finalize-claim-${stamp}`, idempotencyKey)
-      });
-      ensure(Array.isArray(finalizingJobs) && finalizingJobs.some((job) => job.id === deleteJobId && job.status === "finalizing"), "archive_sequence_completion_claim_not_observed");
+      }));
+      ensure(finalizingJob.id === deleteJobId && finalizingJob.status === "finalizing", "archive_sequence_completion_claim_not_observed");
       await dbRpc("mcp_delete_route_customer_hard", { p_route_customer_id: targetId });
       const completedJob = object(await dbRpc("mcp_finish_storage_delete_job", {
         p_installation_id: expectedInstallationId,
@@ -348,7 +352,7 @@ export function createLiveF05SmokeDriver() {
         sequence: [
           { stage: "failure", observed: true, source: "mcp_finish_outlet_media_delete:false", mediaId: fixtures.archiveProofMediaId },
           { stage: "retry-claim", observed: retryClaim.mode === "resume", source: "mcp_claim_archive_intent:resume", intentId },
-          { stage: "reclaim", observed: true, source: "mcp_claim_stale_outlet_media_delete", mediaId: fixtures.archiveProofMediaId },
+          { stage: "reclaim", observed: true, source: "mcp_claim_one_outlet_media_delete", mediaId: fixtures.archiveProofMediaId },
           { stage: "completion", observed: completedJob.status === "completed", source: "mcp_finish_storage_delete_job:true", deleteJobId },
           { stage: "finalizer", observed: finalIntentRows[0].status === "completed", source: "mcp_storage_delete_jobs_sync_archive_intent", intentId }
         ],

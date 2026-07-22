@@ -156,9 +156,12 @@ test("live proof requires exact persisted context, operation invariants, guarded
   assert.match(driver, /r2Head\(mediaObjectKey\)/);
   assert.match(driver, /r2Head\(fixtures\.mediaObjectKey\)/);
   const sequenceNeedles = [
+    "mcp_f05_archive_proof_capabilities",
+    "archive_sequence_target_scoped_capability_unavailable",
     "mcp_finish_outlet_media_delete",
     "mcp_claim_archive_intent",
-    "mcp_claim_stale_outlet_media_delete",
+    "mcp_claim_one_outlet_media_delete",
+    "mcp_claim_one_storage_delete_job",
     "mcp_finish_storage_delete_job",
     "mcp_storage_delete_jobs_sync_archive_intent"
   ];
@@ -166,13 +169,14 @@ test("live proof requires exact persisted context, operation invariants, guarded
   const ordered = [
     "p_succeeded: false",
     "retryClaim = object",
-    "reclaimedMediaRows",
+    "reclaimedMedia = object",
     "completedJob = object",
     "finalIntentRows"
   ].map((needle) => driver.indexOf(needle));
   assert.deepEqual([...ordered].sort((left, right) => left - right), ordered);
   assert.ok(ordered.every((index) => index >= 0));
   assert.doesNotMatch(driver, /guarded-idempotency-conflict|same-key-replay/);
+  assert.doesNotMatch(driver, /mcp_claim_stale_outlet_media_delete|mcp_claim_ready_storage_delete_jobs/);
   assert.doesNotMatch(driver, /attempt_count|claimed_at|failed_attempt_count/);
   assert.match(driver, /stage: "failure"/);
   assert.match(driver, /stage: "retry-claim"/);
