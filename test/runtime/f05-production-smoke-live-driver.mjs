@@ -257,7 +257,14 @@ export function createLiveF05SmokeDriver() {
       const archiveProofCustomer = await must("/api/route-customers", { method: "POST", idempotencyKey: `npp-f05.fixture.archive-proof-customer.${stamp}`, body: { routeId: archiveProofRouteId, customerName: `${SMOKE_PREFIX}ARCHIVE_PROOF_CUSTOMER_${stamp}`, area: "API Smoke", sortOrder: 1, note: `${SMOKE_PREFIX} temporary archive proof` } });
       const archiveProofCustomerId = String(object(archiveProofCustomer.payload.data).routeCustomerId || object(archiveProofCustomer.payload.data).id || "");
       ensure(archiveProofCustomerId, "smoke_archive_proof_customer_missing");
-      const archiveProofMedia = await uploadProofMedia(archiveProofCustomerId, sessionId, "archive-sequence");
+      const archiveProofSession = await must("/api/mcp-day/open-session", {
+        method: "POST",
+        idempotencyKey: `npp-f05.fixture.archive-proof-session.${stamp}`,
+        body: { routeId: archiveProofRouteId, sessionDate: SMOKE_SESSION_DATE, owner: `${SMOKE_PREFIX}ARCHIVE_PROOF_ACTOR` }
+      });
+      const archiveProofSessionId = String(object(object(archiveProofSession.payload.data).session).id || object(archiveProofSession.payload.data).sessionId || "");
+      ensure(archiveProofSessionId, "smoke_archive_proof_session_missing");
+      const archiveProofMedia = await uploadProofMedia(archiveProofCustomerId, archiveProofSessionId, "archive-sequence");
       return {
         routeId,
         routeCustomerId,
@@ -271,6 +278,7 @@ export function createLiveF05SmokeDriver() {
         mediaObjectKey,
         archiveProofRouteId,
         archiveProofCustomerId,
+        archiveProofSessionId,
         archiveProofMediaId: archiveProofMedia.mediaId,
         archiveProofMediaObjectKey: archiveProofMedia.mediaObjectKey
       };
@@ -460,7 +468,8 @@ export function createLiveF05SmokeDriver() {
         { table: "mcp_route_customers", id: fixtures?.archiveConflictCustomerId },
         { table: "mcp_route_customers", id: fixtures?.archiveProofCustomerId },
         { table: "mcp_route_sessions", id: fixtures?.sessionId },
-        { table: "mcp_route_sessions", id: fixtures?.emptySessionId }
+        { table: "mcp_route_sessions", id: fixtures?.emptySessionId },
+        { table: "mcp_route_sessions", id: fixtures?.archiveProofSessionId }
       ].filter((item) => item.id);
       for (const { table, id } of exactRows) {
         const rows = await db(`${table}?id=eq.${encodeURIComponent(id)}&select=id`);
