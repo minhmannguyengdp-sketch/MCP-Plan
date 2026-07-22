@@ -1,0 +1,28 @@
+name: Order Export Typecheck Debug
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/export/order-workbook.ts"
+      - "src/lib/export/order-workbook-data.ts"
+      - "src/app/api/exports/orders.csv/route.ts"
+      - "next.config.mjs"
+      - "package.json"
+      - "test/order-xlsx-export-contract.test.mjs"
+      - ".github/workflows/order-export-typecheck-debug.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --silent
+      - name: Typecheck only
+        run: npx tsc --noEmit --pretty false
