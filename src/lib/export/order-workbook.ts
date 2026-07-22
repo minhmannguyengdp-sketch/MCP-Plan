@@ -499,9 +499,10 @@ function sheet1RelationshipsXml(data: OrderWorkbookData) {
 
 function sheet2RelationshipsXml(data: OrderWorkbookData) {
   if (!data.location.googleMapsUrl) return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`;
+  const hyperlinkCount = Math.max(data.items.length, 1);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  ${data.items.map((_item, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xml(data.location.googleMapsUrl)}" TargetMode="External"/>`).join("")}
+  ${Array.from({ length: hyperlinkCount }, (_item, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xml(data.location.googleMapsUrl)}" TargetMode="External"/>`).join("")}
 </Relationships>`;
 }
 
