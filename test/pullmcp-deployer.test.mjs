@@ -9,7 +9,8 @@ import { applySupabaseMigrations } from "../ops/apply-supabase-migrations.mjs";
 
 const script = await readFile(new URL("../ops/pullmcp", import.meta.url), "utf8");
 const migrationRunner = await readFile(new URL("../ops/apply-supabase-migrations.mjs", import.meta.url), "utf8");
-const BASELINE = "20260720224500_lock_archive_intent_claims.sql";
+const PRIOR_BASELINE = "20260720224500_lock_archive_intent_claims.sql";
+const BASELINE = "20260720224600_preserve_archive_terminal_failure.sql";
 const TARGET = "20260722060000_add_target_scoped_archive_proof_claims.sql";
 
 function position(fragment) {
@@ -39,6 +40,7 @@ async function runnerFixture({
   await writeFile(envPath, Object.entries(envValues).map(([key, value]) => `${key}=${value}`).join("\n"));
 
   const migrationFiles = {
+    [PRIOR_BASELINE]: "select 'legacy prior baseline';",
     [BASELINE]: "select 'legacy baseline';",
     [TARGET]: "select 'target migration';",
     ...migrations
@@ -123,16 +125,19 @@ test("pullmcp is pinned to mcp-plan-backend and never mutates milktea", () => {
 
 test("migration history is private and first-run bootstrap adopts verified legacy files", async () => {
   assert.match(migrationRunner, /revoke all on table public\.mcp_schema_migrations from public, anon, authenticated/);
+  assert.match(migrationRunner, /mcp_finish_archive_intent_mutable/);
   const fixture = await runnerFixture({
     migrations: { "20260723000000_future.sql": "select 'future migration';" }
   });
 
   await fixture.run();
 
-  assert.ok(fixture.logs.includes("migration_baseline_adopted:1"));
+  assert.ok(fixture.logs.includes("migration_baseline_adopted:2"));
   assert.ok(fixture.logs.includes(`migration_applied:${TARGET}`));
   assert.ok(fixture.logs.includes("migration_applied:20260723000000_future.sql"));
+  assert.equal(fixture.psqlCalls.filter(({ sql }) => sql.includes("select 'legacy prior baseline';")).length, 0);
   assert.equal(fixture.psqlCalls.filter(({ sql }) => sql.includes("select 'legacy baseline';")).length, 0);
+  assert.ok(fixture.history.has(PRIOR_BASELINE));
   assert.ok(fixture.history.has(BASELINE));
   assert.ok(fixture.history.has(TARGET));
   assert.ok(fixture.psqlCalls.some(({ sql }) => sql === "notify pgrst, 'reload schema';"));
@@ -154,12 +159,15 @@ test("first-run bootstrap rejects an unreviewed historical migration inserted af
 });
 
 test("equal checksums skip SQL and checksum drift fails before capability verification", async () => {
+  const priorBaselineSql = "select 'legacy prior baseline';";
   const baselineSql = "select 'legacy baseline';";
   const targetSql = "select 'target migration';";
+  const priorBaselineChecksum = createHash("sha256").update(priorBaselineSql).digest("hex");
   const baselineChecksum = createHash("sha256").update(baselineSql).digest("hex");
   const targetChecksum = createHash("sha256").update(targetSql).digest("hex");
   const equal = await runnerFixture({
     applied: {
+      [PRIOR_BASELINE]: priorBaselineChecksum,
       [BASELINE]: baselineChecksum,
       [TARGET]: targetChecksum
     }
@@ -170,6 +178,7 @@ test("equal checksums skip SQL and checksum drift fails before capability verifi
 
   const drift = await runnerFixture({
     applied: {
+      [PRIOR_BASELINE]: priorBaselineChecksum,
       [BASELINE]: baselineChecksum,
       [TARGET]: "0".repeat(64)
     }
