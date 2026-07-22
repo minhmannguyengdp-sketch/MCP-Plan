@@ -94,3 +94,25 @@ test("archive intent persistence is service-role only", () => {
   assert.match(migration, /mcp_append_archive_intent_audit[\s\S]*from public, anon, authenticated, service_role/i);
   assert.match(terminal, /mcp_link_archive_intent_from_delete_job[\s\S]*from public, anon, authenticated, service_role/i);
 });
+
+const targetScopedProof = await readFile(
+  new URL("../../../supabase/migrations/20260722060000_add_target_scoped_archive_proof_claims.sql", import.meta.url),
+  "utf8"
+);
+
+test("F05 archive proof claims are target-scoped and fail closed when unavailable", () => {
+  assert.match(targetScopedProof, /create or replace function public\.mcp_f05_archive_proof_capabilities/i);
+  assert.match(targetScopedProof, /'targetScopedMediaClaim', true/i);
+  assert.match(targetScopedProof, /'targetScopedDeleteJobClaim', true/i);
+  assert.match(targetScopedProof, /'broadBatchClaimsForbidden', true/i);
+  assert.match(targetScopedProof, /create or replace function public\.mcp_claim_one_outlet_media_delete/i);
+  assert.match(targetScopedProof, /media\.id = p_media_id/i);
+  assert.match(targetScopedProof, /target_scoped_media_not_reclaimable/i);
+  assert.match(targetScopedProof, /create or replace function public\.mcp_claim_one_storage_delete_job/i);
+  assert.match(targetScopedProof, /job\.id = p_job_id/i);
+  assert.match(targetScopedProof, /target_scoped_delete_job_not_claimable/i);
+  for (const fn of ["mcp_f05_archive_proof_capabilities", "mcp_claim_one_outlet_media_delete", "mcp_claim_one_storage_delete_job"]) {
+    assert.match(targetScopedProof, new RegExp(`revoke all on function public\\.${fn}\\([\\s\\S]*?from public, anon, authenticated`, "i"));
+    assert.match(targetScopedProof, new RegExp(`grant execute on function public\\.${fn}\\([\\s\\S]*?to service_role`, "i"));
+  }
+});
