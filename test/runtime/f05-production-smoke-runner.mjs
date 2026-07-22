@@ -17,7 +17,7 @@ export async function runF05ProductionOwnersSmoke(driver) {
       evidence.retiredSettingsPosts[path] = "PASS";
     }
     const archiveLifecycle = await driver.proveArchiveLifecycle(fixtures);
-    for (const key of ["retry", "reclaim", "finalizer", "noFakeCrossSystemTransaction"]) {
+    for (const key of ["retry", "reclaim", "finalizer", "providerR2Create", "providerR2Absence", "noFakeCrossSystemTransaction"]) {
       if (archiveLifecycle?.[key] !== "PASS") throw new Error(`archive_lifecycle_${key}_not_proven`);
     }
     evidence.archiveLifecycle = archiveLifecycle;

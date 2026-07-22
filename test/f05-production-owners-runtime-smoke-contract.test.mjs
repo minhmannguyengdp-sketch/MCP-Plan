@@ -46,7 +46,7 @@ test("runner always cleans up and emits complete machine-readable PASS evidence"
     async createTemporaryFixtures() { calls.push("create"); return { smoke: true }; },
     async proveOperation(operation) { calls.push(operation.name); return {}; },
     async proveRetiredPost(path) { calls.push(path); },
-    async proveArchiveLifecycle() { calls.push("archive-lifecycle"); return { retry: "PASS", reclaim: "PASS", finalizer: "PASS", noFakeCrossSystemTransaction: "PASS" }; },
+    async proveArchiveLifecycle() { calls.push("archive-lifecycle"); return { retry: "PASS", reclaim: "PASS", finalizer: "PASS", providerR2Create: "PASS", providerR2Absence: "PASS", noFakeCrossSystemTransaction: "PASS" }; },
     async cleanupTemporaryFixtures() { calls.push("cleanup"); },
     async verifyCleanup() { calls.push("verify-cleanup"); }
   };
@@ -56,7 +56,7 @@ test("runner always cleans up and emits complete machine-readable PASS evidence"
   assert.equal(calls.at(-2), "cleanup");
   assert.equal(calls.at(-1), "verify-cleanup");
   for (const operation of Object.values(evidence.operations)) {
-    for (const key of ["execute", "replay", "conflict", "canonicalEnvelope", "requestId", "context", "idempotency", "audit", "invariants"]) assert.equal(operation[key], "PASS");
+    for (const key of ["execute", "replay", "conflict", "canonicalEnvelope", "requestId", "context", "persistedContext", "idempotency", "audit", "invariants"]) assert.equal(operation[key], "PASS");
   }
 });
 
@@ -90,6 +90,28 @@ test("live driver targets only captured temporary IDs and never prints provider 
   assert.match(driver, /verifyCleanup/);
   assert.doesNotMatch(`${driver}\n${command}`, /console\.log\([^)]*(?:serviceRole|backendToken|object_key|objectKey)/);
   assert.doesNotMatch(command, /pullmcp|supabase migration|deploy/i);
+});
+
+
+test("live proof requires exact persisted context, operation invariants, guarded archive retry and provider R2 checks", async () => {
+  const driver = await readFile("test/runtime/f05-production-smoke-live-driver.mjs", "utf8");
+  assert.match(driver, /expectPersistedContext/);
+  assert.match(driver, /expectedInstallationId/);
+  assert.match(driver, /expectedNppCode/);
+  assert.match(driver, /actorAuthentication/);
+  assert.match(driver, /invariantProof/);
+  for (const marker of ["order-persisted-with-business-date", "session-lifecycle-state-persisted", "empty-session-hard-deleted", "archive-target-absent-after-finalizer"]) {
+    assert.match(driver, new RegExp(marker));
+  }
+  assert.match(driver, /upload-init/);
+  assert.match(driver, /putSignedObject/);
+  assert.match(driver, /upload-finalize/);
+  assert.match(driver, /r2Head\(mediaObjectKey\)/);
+  assert.match(driver, /r2Head\(fixtures\.mediaObjectKey\)/);
+  assert.match(driver, /archive_retry_not_proven/);
+  assert.match(driver, /archive_reclaim_not_proven/);
+  assert.match(driver, /providerR2Create/);
+  assert.match(driver, /providerR2Absence/);
 });
 
 test("documented production command fails closed before network access without guard", () => {

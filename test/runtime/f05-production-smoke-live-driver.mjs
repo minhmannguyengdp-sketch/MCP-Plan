@@ -1,5 +1,5 @@
 import {
-  auditRows, db, ensure, gateway, idempotencyRows, must, mustConflict, object, replayed, sameJson, stamp
+  actorAuthentication, actorId, auditRows, db, ensure, expectedInstallationId, expectedNppCode, gateway, idempotencyRows, must, mustConflict, object, putSignedObject, r2Head, replayed, sameJson, stamp
 } from "./a5-5-2-smoke-http.mjs";
 import { SMOKE_PREFIX, SMOKE_SESSION_DATE } from "./f05-production-smoke-inventory.mjs";
 
@@ -8,6 +8,60 @@ function replaceIds(path, fixtures) {
     .replace(":routeId", encodeURIComponent(fixtures.routeId))
     .replace(":routeCustomerId", encodeURIComponent(fixtures.routeCustomerId))
     .replace(":sessionId", encodeURIComponent(fixtures.currentOperation === "sessionDeleteEmpty" ? fixtures.emptySessionId : fixtures.sessionId));
+}
+
+function expectPersistedContext(rows, definition, requestId) {
+  ensure(rows.length > 0, `${definition.name}_context_rows_missing`);
+  for (const row of rows) {
+    ensure(row.installation_id === expectedInstallationId, `${definition.name}_installation_context_mismatch`);
+    ensure(row.npp_code === expectedNppCode, `${definition.name}_npp_context_mismatch`);
+    ensure(row.actor_id === actorId, `${definition.name}_actor_context_mismatch`);
+    ensure(row.actor_authentication === actorAuthentication, `${definition.name}_actor_auth_mismatch`);
+    ensure(row.http_method === definition.method, `${definition.name}_method_context_mismatch`);
+  }
+  ensure(rows.some((row) => row.request_id === requestId || row.original_request_id === requestId), `${definition.name}_request_context_missing`);
+}
+
+async function invariantProof(definition, aggregateId, fixtures) {
+  const id = encodeURIComponent(aggregateId || "");
+  if (definition.name === "standaloneOrderCreate") {
+    const rows = await db(`orders?id=eq.${id}&select=id,order_date,note`);
+    ensure(rows.length === 1 && String(rows[0].order_date) === "2099-12-28", "order_create_invariant_failed");
+    return "order-persisted-with-business-date";
+  }
+  if (definition.name === "routeCreate" || definition.name === "routeUpdate") {
+    const rows = await db(`mcp_routes?id=eq.${id}&select=id,route_name,note`);
+    ensure(rows.length === 1 && String(rows[0].route_name || rows[0].note).includes(SMOKE_PREFIX), `${definition.name}_route_invariant_failed`);
+    return "route-owned-temporary-row-persisted";
+  }
+  if (definition.name === "sessionOpen" || definition.name === "sessionUpdateClose") {
+    const rows = await db(`mcp_route_sessions?id=eq.${id}&select=id,route_id,session_date,status`);
+    ensure(rows.length === 1 && rows[0].route_id === fixtures.routeId && String(rows[0].session_date) === SMOKE_SESSION_DATE, `${definition.name}_session_invariant_failed`);
+    if (definition.name === "sessionUpdateClose") ensure(String(rows[0].status) === "done", "session_close_invariant_failed");
+    return "session-lifecycle-state-persisted";
+  }
+  if (definition.name === "sessionDeleteEmpty") {
+    const rows = await db(`mcp_route_sessions?id=eq.${encodeURIComponent(fixtures.emptySessionId)}&select=id`);
+    ensure(rows.length === 0, "empty_session_delete_invariant_failed");
+    return "empty-session-hard-deleted";
+  }
+  if (definition.name === "sessionCustomerStatus") {
+    const rows = await db(`mcp_session_customers?id=eq.${encodeURIComponent(fixtures.sessionCustomerId)}&select=id,status,note`);
+    ensure(rows.length === 1 && String(rows[0].status) === "visited", "session_customer_status_invariant_failed");
+    return "session-customer-status-persisted";
+  }
+  if (definition.name === "routeCustomerUpdate") {
+    const rows = await db(`mcp_route_customers?id=eq.${encodeURIComponent(fixtures.routeCustomerId)}&select=id,note,sort_order`);
+    ensure(rows.length === 1 && String(rows[0].note).includes(SMOKE_PREFIX), "route_customer_update_invariant_failed");
+    return "route-customer-business-fields-persisted";
+  }
+  if (definition.archive) {
+    const table = definition.name === "routeArchive" ? "mcp_routes" : "mcp_route_customers";
+    const rows = await db(`${table}?id=eq.${id}&select=id`);
+    ensure(rows.length === 0, `${definition.name}_archive_invariant_failed`);
+    return "archive-target-absent-after-finalizer";
+  }
+  throw new Error(`missing_invariant_${definition.name}`);
 }
 
 function plan(definition, fixtures) {
@@ -47,10 +101,21 @@ async function prove(definition, fixtures) {
   const audits = await auditRows(definition.operation, key);
   ensure(audits.some((row) => row.outcome === "succeeded"), `${definition.name}_audit_success_missing`);
   ensure(audits.some((row) => row.outcome === "replayed"), `${definition.name}_audit_replay_missing`);
+  expectPersistedContext(audits, definition, firstRequestId);
   const records = await idempotencyRows(definition.operation, key);
   ensure(records.length === 1 && records[0].status === "completed", `${definition.name}_idempotency_invalid`);
+  expectPersistedContext(records, definition, firstRequestId);
   const data = object(first.payload.data);
-  return { firstRequestId, aggregateId: String(data.routeId || data.orderId || data.sessionId || data.id || "") };
+  const nestedSession = object(data.session);
+  const aggregateId = String(
+    data.routeId || data.route_id || data.orderId || data.order_id || data.sessionId || data.session_id || nestedSession.id || data.id ||
+    (definition.name === "routeUpdate" || definition.name === "routeArchive" ? fixtures.routeId : "") ||
+    (definition.name === "routeCustomerUpdate" || definition.name === "routeCustomerArchive" ? fixtures.routeCustomerId : "") ||
+    (definition.name === "sessionUpdateClose" ? fixtures.sessionId : "") ||
+    ""
+  );
+  const invariant = await invariantProof(definition, aggregateId, fixtures);
+  return { firstRequestId, aggregateId, persistedContext: "PASS", businessInvariant: invariant };
 }
 
 export function createLiveF05SmokeDriver() {
@@ -85,7 +150,17 @@ export function createLiveF05SmokeDriver() {
       const archiveCustomer = await must("/api/route-customers", { method: "POST", idempotencyKey: `npp-f05.fixture.archive-customer.${stamp}`, body: { routeId: archiveConflictRouteId, customerName: `${SMOKE_PREFIX}ARCHIVE_CUSTOMER_${stamp}`, area: "API Smoke", sortOrder: 1, note: `${SMOKE_PREFIX} temporary` } });
       const archiveConflictCustomerId = String(object(archiveCustomer.payload.data).routeCustomerId || object(archiveCustomer.payload.data).id || "");
       ensure(archiveConflictCustomerId, "smoke_archive_conflict_customer_missing");
-      return { routeId, routeCustomerId, sessionId, sessionCustomerId, emptyRouteId, emptySessionId, archiveConflictRouteId, archiveConflictCustomerId };
+      const upload = await must("/api/outlet-media/upload-init", { method: "POST", idempotencyKey: `npp-f05.fixture.media.${stamp}`, body: { routeCustomerId, sessionId, clientUploadId: `npp-f05-${stamp}`, mimeType: "image/jpeg", byteSize: 4, mediaType: "storefront" } });
+      const media = object(upload.payload.data);
+      await putSignedObject(media.putUrl, media.requiredHeaders, new Uint8Array([255, 216, 255, 217]));
+      const finalized = await must("/api/outlet-media/upload-finalize", { method: "POST", idempotencyKey: `npp-f05.fixture.media.finalize.${stamp}`, body: { mediaId: media.mediaId, byteSize: 4, mimeType: "image/jpeg" } });
+      const mediaId = String(object(finalized.payload.data).id || media.mediaId || "");
+      const mediaRows = await db(`mcp_outlet_media?id=eq.${encodeURIComponent(mediaId)}&select=id,object_key,status`);
+      const mediaObjectKey = String(mediaRows[0]?.object_key || "");
+      ensure(mediaObjectKey, "smoke_media_object_key_missing");
+      const head = await r2Head(mediaObjectKey);
+      ensure(head.ok, `smoke_media_r2_create_head_${head.status}`);
+      return { routeId, routeCustomerId, sessionId, sessionCustomerId, emptyRouteId, emptySessionId, archiveConflictRouteId, archiveConflictCustomerId, mediaId, mediaObjectKey };
     },
     async proveOperation(definition, fixtures) {
       fixtures.currentOperation = definition.name;
@@ -107,14 +182,18 @@ export function createLiveF05SmokeDriver() {
     },
     async proveArchiveLifecycle(fixtures) {
       const targetIds = [fixtures.routeId, fixtures.routeCustomerId].map(encodeURIComponent).join(",");
-      const intents = await db(`mcp_archive_intents?target_id=in.(${targetIds})&select=id,status,delete_job_id`);
+      const absentAfterArchive = await r2Head(fixtures.mediaObjectKey);
+      ensure(absentAfterArchive.status === 404, `archive_r2_absence_not_proven_${absentAfterArchive.status}`);
+      const intents = await db(`mcp_archive_intents?target_id=in.(${targetIds})&select=id,status,delete_job_id,failed_attempt_count,finalized_at`);
       ensure(intents.length === 2, "archive_intent_count_invalid");
-      ensure(intents.every((intent) => intent.status === "completed" && intent.delete_job_id), "archive_finalizer_not_completed");
+      ensure(intents.every((intent) => intent.status === "completed" && intent.delete_job_id && intent.finalized_at), "archive_finalizer_not_completed");
       const jobIds = intents.map((intent) => encodeURIComponent(intent.delete_job_id)).join(",");
-      const jobs = await db(`mcp_storage_delete_jobs?id=in.(${jobIds})&select=id,status,attempt_count,completed_at`);
+      const jobs = await db(`mcp_storage_delete_jobs?id=in.(${jobIds})&select=id,status,attempt_count,completed_at,claimed_at,raw_payload`);
       ensure(jobs.length === 2, "archive_delete_job_count_invalid");
       ensure(jobs.every((job) => job.status === "completed" && Number(job.attempt_count) >= 1 && job.completed_at), "archive_delete_job_not_finalized");
-      return { retry: "PASS", reclaim: "PASS", finalizer: "PASS", noFakeCrossSystemTransaction: "PASS" };
+      ensure(jobs.some((job) => Number(job.attempt_count) >= 2) || intents.some((intent) => Number(intent.failed_attempt_count) >= 1), "archive_retry_not_proven");
+      ensure(jobs.every((job) => job.claimed_at || Number(job.attempt_count) >= 1), "archive_reclaim_not_proven");
+      return { retry: "PASS", reclaim: "PASS", finalizer: "PASS", providerR2Create: "PASS", providerR2Absence: "PASS", noFakeCrossSystemTransaction: "PASS" };
     },
     async cleanupTemporaryFixtures() {
       const errors = [];

@@ -6,7 +6,7 @@ export function emptyEvidence() {
     generatedAt: new Date().toISOString(),
     operations: Object.fromEntries(MUTATION_INVENTORY.map(({ name }) => [name, { status: "PENDING" }])),
     retiredSettingsPosts: Object.fromEntries(RETIRED_SETTINGS_POSTS.map((path) => [path, "PENDING"])),
-    archiveLifecycle: { retry: "PENDING", reclaim: "PENDING", finalizer: "PENDING", noFakeCrossSystemTransaction: "PENDING" },
+    archiveLifecycle: { retry: "PENDING", reclaim: "PENDING", finalizer: "PENDING", providerR2Create: "PENDING", providerR2Absence: "PENDING", noFakeCrossSystemTransaction: "PENDING" },
     cleanup: { status: "PENDING", databaseRows: "PENDING", r2Objects: "PENDING" }
   };
 }
@@ -14,7 +14,7 @@ export function emptyEvidence() {
 export function passOperation(evidence, name, details = {}) {
   evidence.operations[name] = {
     status: "PASS", execute: "PASS", replay: "PASS", conflict: "PASS",
-    canonicalEnvelope: "PASS", requestId: "PASS", context: "PASS", idempotency: "PASS", audit: "PASS",
+    canonicalEnvelope: "PASS", requestId: "PASS", context: "PASS", persistedContext: "PASS", idempotency: "PASS", audit: "PASS",
     invariants: "PASS", ...details
   };
 }
