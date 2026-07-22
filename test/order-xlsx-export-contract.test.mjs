@@ -58,7 +58,7 @@ test("flat sheet is filterable and enriches manual and MCP orders", () => {
   assert.match(builder, /autoFilter ref="A1:AP/);
   assert.match(builder, /pane ySplit="1"/);
   for (const table of ["orders", "order_items", "product_variants", "products", "mcp_session_customers", "mcp_route_customers", "mcp_routes", "mcp_route_sessions"]) {
-    assert.match(dataLoader, new RegExp(`restRows<Row>\\(\\"${table}\\"|firstRow\\(\\"${table}\\"`));
+    assert.match(dataLoader, new RegExp(`(?:restRows<Row>|firstRow)\\s*\\(\\s*"${table}"`));
   }
   assert.match(dataLoader, /sourceType === "mcp_session_customer"/);
   assert.match(dataLoader, /sourceType === "orders_tab"/);
