@@ -36,8 +36,12 @@ function sourceLabel(source: string) {
   return source || "Chưa xác định";
 }
 
-function exportHref(orderId: string) {
+function xlsxHref(orderId: string) {
   return `/api/backend/exports/orders.csv?orderId=${encodeURIComponent(orderId)}`;
+}
+
+function pdfHref(orderId: string) {
+  return `/api/pdf/order?orderId=${encodeURIComponent(orderId)}`;
 }
 
 function apiErrorMessage(payload: unknown, fallback: string) {
@@ -300,7 +304,8 @@ export function OrderDetailDrawer({ open, order, possibleDuplicate, onClose }: O
         </div>
 
         <footer className={styles.footer}>
-          {displayOrder ? <a className="button primary" href={exportHref(displayOrder.id)}>Xuất đơn hàng</a> : null}
+          {displayOrder ? <a className="button primary" href={pdfHref(displayOrder.id)} target="_blank" rel="noreferrer">PDF A5</a> : null}
+          {displayOrder ? <a className="button" href={xlsxHref(displayOrder.id)}>XLSX</a> : null}
           <button className="button" type="button" onClick={() => onCloseRef.current()}>Đóng</button>
         </footer>
       </aside>
