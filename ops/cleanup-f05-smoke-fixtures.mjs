@@ -38,20 +38,20 @@ function actorHeaders(env, requestId) {
   };
 }
 
-async function listRoutes(env, requestId) {
-  const response = await fetch(`${env.MCP_API_BASE_URL}/api/routes`, {
+async function listFixtures(env, requestId) {
+  const response = await fetch(`${env.MCP_API_BASE_URL}/api/internal/f05-smoke-fixtures`, {
     cache: "no-store",
     headers: actorHeaders(env, requestId)
   });
-  if (!response.ok) throw new Error(`list_routes_${response.status}`);
+  if (!response.ok) throw new Error(`list_f05_fixtures_${response.status}`);
   const payload = await response.json();
-  if (!Array.isArray(payload?.data)) throw new Error("route_list_response_invalid");
-  return payload.data;
+  if (!Array.isArray(payload?.data)) throw new Error("f05_fixture_list_response_invalid");
+  return payload.data.filter((row) => String(row?.name || row?.note || "").trim().startsWith(SMOKE_PREFIX));
 }
 
 async function routeStillExists(env, routeId, attempt) {
-  const routes = await listRoutes(env, `f05-stale-check-${routeId}-${attempt}`);
-  return routes.some((route) => String(route?.id || "").trim() === routeId);
+  const fixtures = await listFixtures(env, `f05-stale-check-${routeId}-${attempt}`);
+  return fixtures.some((route) => String(route?.id || "").trim() === routeId);
 }
 
 async function archiveRoute(env, routeId, attempt) {
@@ -84,8 +84,7 @@ async function main() {
   env.MCP_API_BASE_URL = String(env.MCP_API_BASE_URL || env.BACKEND_API_BASE_URL || "http://127.0.0.1:3001").replace(/\/+$/, "");
   env.BACKEND_API_TOKEN = required(env, "BACKEND_API_TOKEN");
 
-  const rows = await listRoutes(env, "f05-stale-fixture-inventory");
-  const fixtures = rows.filter((row) => String(row?.name || row?.routeName || row?.route_name || "").trim().startsWith(SMOKE_PREFIX));
+  const fixtures = await listFixtures(env, "f05-stale-fixture-inventory");
 
   for (const fixture of fixtures) {
     const routeId = String(fixture.id || "").trim();
@@ -95,6 +94,8 @@ async function main() {
     console.log(`fixture_route_removed:${routeId}`);
   }
 
+  const remaining = await listFixtures(env, "f05-stale-fixture-final-check");
+  if (remaining.length) throw new Error(`fixture_routes_remain_${remaining.length}`);
   console.log(`F05_SMOKE_FIXTURE_CLEANUP=PASS routes=${fixtures.length}`);
 }
 
