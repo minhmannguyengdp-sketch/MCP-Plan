@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ExportMenu } from "@/features/exports/ExportLinks";
 import type { RouteCustomerItem } from "@/features/mcp/route-customers.types";
 import type { ApiResult, OrderDto } from "@/lib/api/api.types";
 import { OperationalListCard } from "@/ui/cards/OperationalListCard";
@@ -277,7 +278,7 @@ function OrderCard({
       meta={[`${order.routeName} · ${order.owner}`, `${order.quantity} sản phẩm · ${order.skuCount} SKU`]}
       actions={[
         { label: "Xem", tone: "primary", onClick: () => onSelect(order) },
-        { label: "Xuất đơn hàng", href: orderExportHref(order) }
+        { label: "XLSX mẫu", href: orderExportHref(order) }
       ]}
     />
   );
@@ -379,7 +380,36 @@ export function OrdersClientPage({
     <AppShell activeHref="/orders">
       <PageHeader eyebrow="Điều hành bán hàng" title="Trung tâm đơn hàng" subtitle="Theo dõi doanh số đặt hàng, khách hàng, tuyến, nguồn đơn và các điểm cần xử lý.">
         <SourceBadge source={ordersResult.source} />
-        <button className="button" type="button" onClick={() => downloadOrdersCsv(filteredOrders)} disabled={!filteredOrders.length}>Xuất theo bộ lọc</button>
+        <ExportMenu
+          label="Chọn loại file"
+          groups={[
+            {
+              title: "Dữ liệu đang xem",
+              links: [
+                {
+                  label: "Danh sách theo bộ lọc (CSV)",
+                  onClick: () => downloadOrdersCsv(filteredOrders),
+                  tone: "primary",
+                  hint: `${filteredOrders.length} đơn đang hiển thị, mỗi đơn một dòng`
+                }
+              ]
+            },
+            {
+              title: "Dữ liệu toàn bộ",
+              links: [
+                { label: "Danh sách tất cả đơn (CSV)", href: "/api/backend/exports/orders.csv?view=orders", hint: "Một dòng cho mỗi đơn, không lặp khách hàng theo sản phẩm" },
+                { label: "Chi tiết sản phẩm (CSV)", href: "/api/backend/exports/orders.csv?view=items", hint: "Một dòng cho mỗi sản phẩm, dùng mã đơn để đối chiếu" }
+              ]
+            },
+            {
+              title: "Báo cáo để đọc và in",
+              links: [
+                { label: "Báo cáo điều hành", href: "/api/pdf/dashboard", hint: "Mở để đọc, in hoặc lưu PDF" },
+                { label: "Báo cáo thị trường", href: "/api/pdf/market-report", hint: "Mở để đọc, in hoặc lưu PDF" }
+              ]
+            }
+          ]}
+        />
         <button className="button primary" type="button" onClick={() => void openCreateOrder()} disabled={createLoading}>
           {createLoading ? "Đang tải phiên..." : "+ Tạo đơn"}
         </button>
