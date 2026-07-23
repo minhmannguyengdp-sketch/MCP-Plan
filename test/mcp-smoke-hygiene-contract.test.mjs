@@ -2,14 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-const [filterSource, routesPage, mcpHome, dashboardOverview, sessionLoader, cleanupScript, routeApi] = await Promise.all([
+const [filterSource, routesPage, mcpHome, dashboardOverview, sessionLoader, cleanupScript, routeApi, hardDeleteMigration] = await Promise.all([
   readFile(new URL("../src/lib/data/internal-smoke.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/app/routes/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../src/app/mcp/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../src/features/dashboard/persisted-overview.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/lib/mcp-sessions/load-mcp-sessions.ts", import.meta.url), "utf8"),
   readFile(new URL("../ops/cleanup-f05-smoke-fixtures.mjs", import.meta.url), "utf8"),
-  readFile(new URL("../apps/backend/foundation/route-api.js", import.meta.url), "utf8")
+  readFile(new URL("../apps/backend/foundation/route-api.js", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20260723133000_harden_npp_f05_route_cleanup.sql", import.meta.url), "utf8")
 ]);
 
 test("internal F05 smoke names are recognized only by the exact reserved prefix", () => {
@@ -63,4 +64,14 @@ test("stale fixture cleanup archives exact reserved routes and verifies final in
   assert.match(cleanupScript, /fixture_route_remains_/);
   assert.match(cleanupScript, /fixture_routes_remain_/);
   assert.doesNotMatch(cleanupScript, /method:\s*"DELETE"/);
+});
+
+test("hard-delete recognizes only guarded NPP F05 routes and removes linked standalone orders", () => {
+  assert.match(hardDeleteMigration, /v_is_npp_f05_smoke := coalesce\(r\.area, ''\) = 'API Smoke'/);
+  assert.match(hardDeleteMigration, /left\(coalesce\(r\.route_name, ''\), length\('__NPP_F05_RUNTIME_SMOKE__'\)\) = '__NPP_F05_RUNTIME_SMOKE__'/);
+  assert.match(hardDeleteMigration, /left\(coalesce\(r\.note, ''\), length\('__NPP_F05_RUNTIME_SMOKE__'\)\) = '__NPP_F05_RUNTIME_SMOKE__'/);
+  assert.match(hardDeleteMigration, /raw_payload ->> 'route_customer_id' = any\(v_route_customer_ids\)/);
+  assert.match(hardDeleteMigration, /raw_payload ->> 'routeCustomerId' = any\(v_route_customer_ids\)/);
+  assert.match(hardDeleteMigration, /left\(coalesce\(note, ''\), length\('__NPP_F05_RUNTIME_SMOKE__'\)\) = '__NPP_F05_RUNTIME_SMOKE__'/);
+  assert.doesNotMatch(hardDeleteMigration, /like\s+'%__NPP_F05_RUNTIME_SMOKE__%'/i);
 });
