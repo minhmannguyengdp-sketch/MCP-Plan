@@ -27,44 +27,41 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function supabaseRows(url, serviceRole, path) {
-  const response = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/${path}`, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      apikey: serviceRole,
-      Authorization: `Bearer ${serviceRole}`
-    }
-  });
-  if (!response.ok) throw new Error(`supabase_read_${response.status}`);
-  const payload = await response.json();
-  if (!Array.isArray(payload)) throw new Error("supabase_response_invalid");
-  return payload;
+function actorHeaders(env, requestId) {
+  return {
+    Accept: "application/json",
+    "X-Backend-Token": env.BACKEND_API_TOKEN,
+    "X-Request-Id": requestId,
+    "X-Actor-Id": env.NPP_F05_EXPECTED_ACTOR_ID || "service:mcp-plan:f05-fixture-cleanup",
+    "X-Actor-Type": "service",
+    "X-Actor-Authentication": env.NPP_F05_EXPECTED_ACTOR_AUTHENTICATION || "backend-token"
+  };
 }
 
-async function routeStillExists(env, routeId) {
-  const rows = await supabaseRows(
-    env.SUPABASE_URL,
-    env.SUPABASE_SERVICE_ROLE_KEY,
-    `mcp_routes?select=id&id=eq.${encodeURIComponent(routeId)}&limit=1`
-  );
-  return rows.length > 0;
+async function listRoutes(env, requestId) {
+  const response = await fetch(`${env.MCP_API_BASE_URL}/api/routes`, {
+    cache: "no-store",
+    headers: actorHeaders(env, requestId)
+  });
+  if (!response.ok) throw new Error(`list_routes_${response.status}`);
+  const payload = await response.json();
+  if (!Array.isArray(payload?.data)) throw new Error("route_list_response_invalid");
+  return payload.data;
+}
+
+async function routeStillExists(env, routeId, attempt) {
+  const routes = await listRoutes(env, `f05-stale-check-${routeId}-${attempt}`);
+  return routes.some((route) => String(route?.id || "").trim() === routeId);
 }
 
 async function archiveRoute(env, routeId, attempt) {
-  const base = env.MCP_API_BASE_URL.replace(/\/+$/, "");
   const requestId = `f05-stale-cleanup-${routeId}-${attempt}`;
-  const response = await fetch(`${base}/api/routes/${encodeURIComponent(routeId)}/archive`, {
+  const response = await fetch(`${env.MCP_API_BASE_URL}/api/routes/${encodeURIComponent(routeId)}/archive`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Accept: "application/json",
+      ...actorHeaders(env, requestId),
       "Content-Type": "application/json",
-      "X-Backend-Token": env.BACKEND_API_TOKEN,
-      "X-Request-Id": requestId,
-      "X-Actor-Id": env.NPP_F05_EXPECTED_ACTOR_ID || "service:mcp-plan:f05-fixture-cleanup",
-      "X-Actor-Type": "service",
-      "X-Actor-Authentication": env.NPP_F05_EXPECTED_ACTOR_AUTHENTICATION || "backend-token",
       "Idempotency-Key": `f05-fixture-cleanup.${routeId}.${attempt}`
     },
     body: "{}"
@@ -74,7 +71,7 @@ async function archiveRoute(env, routeId, attempt) {
 
 async function waitUntilAbsent(env, routeId) {
   for (let attempt = 1; attempt <= 30; attempt += 1) {
-    if (!(await routeStillExists(env, routeId))) return true;
+    if (!(await routeStillExists(env, routeId, attempt))) return true;
     if (attempt % 6 === 0) await archiveRoute(env, routeId, attempt);
     await sleep(500);
   }
@@ -84,20 +81,11 @@ async function waitUntilAbsent(env, routeId) {
 async function main() {
   const envPath = process.argv[2] || "/var/www/mcp-plan-backend/.env";
   const env = { ...parseEnv(await readFile(envPath, "utf8")), ...process.env };
-  env.SUPABASE_URL = required(env, "SUPABASE_URL");
-  env.SUPABASE_SERVICE_ROLE_KEY = required(env, "SUPABASE_SERVICE_ROLE_KEY");
-  env.MCP_API_BASE_URL = required(env, "MCP_API_BASE_URL");
+  env.MCP_API_BASE_URL = String(env.MCP_API_BASE_URL || env.BACKEND_API_BASE_URL || "http://127.0.0.1:3001").replace(/\/+$/, "");
   env.BACKEND_API_TOKEN = required(env, "BACKEND_API_TOKEN");
 
-  const rows = await supabaseRows(
-    env.SUPABASE_URL,
-    env.SUPABASE_SERVICE_ROLE_KEY,
-    "mcp_routes?select=id,route_name,note&limit=5000"
-  );
-  const fixtures = rows.filter((row) => (
-    String(row.route_name || "").trim().startsWith(SMOKE_PREFIX) ||
-    String(row.note || "").trim().startsWith(SMOKE_PREFIX)
-  ));
+  const rows = await listRoutes(env, "f05-stale-fixture-inventory");
+  const fixtures = rows.filter((row) => String(row?.name || row?.routeName || row?.route_name || "").trim().startsWith(SMOKE_PREFIX));
 
   for (const fixture of fixtures) {
     const routeId = String(fixture.id || "").trim();
