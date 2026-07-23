@@ -69,7 +69,9 @@ test("drill-down and filtered CSV export remain client-owned and explicit", () =
   assert.match(page, /function downloadOrdersCsv\(orders: OrderDto\[\]\)/);
   assert.match(page, /text\/csv;charset=utf-8/);
   assert.match(page, /don-hang-theo-bo-loc/);
-  assert.match(page, /disabled=\{!filteredOrders\.length\}/);
+  assert.match(page, /label="Chọn loại file"/);
+  assert.match(page, /Danh sách theo bộ lọc \(CSV\)/);
+  assert.match(page, /onClick: \(\) => downloadOrdersCsv\(filteredOrders\)/);
 });
 
 test("order detail is URL-owned and preserves list context", () => {
