@@ -50,35 +50,41 @@ function readerLink(item: ExportLink): ExportLink {
 
 export function ExportMenu({ label = "Xuất file", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS, groups, primary = false }: { label?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[]; groups?: ExportGroup[]; primary?: boolean }) {
   const items = groups || groupsFromLinks(excelLinks, pdfLinks);
-  return <details className="export-menu">
-    <summary className={primary ? "button primary export-menu-trigger" : "button export-menu-trigger"}>{label} ▾</summary>
-    <div className="export-menu-panel">
-      {items.map((group) => <div className="export-menu-group" key={group.title}>
-        <strong>{readerGroupTitle(group.title)}</strong>
-        {group.links.map(readerLink).map((item) => {
-          const className = item.tone === "primary" ? "export-menu-link primary" : "export-menu-link";
-          const content = <><span>{item.label}</span>{item.hint ? <small>{item.hint}</small> : null}</>;
-          if (item.onClick) {
-            return <button
-              className={className}
-              key={item.label}
-              type="button"
-              style={{ width: "100%", textAlign: "left" }}
-              onClick={(event) => {
-                item.onClick?.();
-                event.currentTarget.closest("details")?.removeAttribute("open");
-              }}
-            >
+  const quickAction = items.flatMap((group) => group.links).find((item) => item.onClick);
+  const emphasized = primary || label === "Chọn loại file";
+
+  return <>
+    <details className="export-menu">
+      <summary className={emphasized ? "button primary export-menu-trigger" : "button export-menu-trigger"}>{label} ▾</summary>
+      <div className="export-menu-panel">
+        {items.map((group) => <div className="export-menu-group" key={group.title}>
+          <strong>{readerGroupTitle(group.title)}</strong>
+          {group.links.map(readerLink).map((item) => {
+            const className = item.tone === "primary" ? "export-menu-link primary" : "export-menu-link";
+            const content = <><span>{item.label}</span>{item.hint ? <small>{item.hint}</small> : null}</>;
+            if (item.onClick) {
+              return <button
+                className={className}
+                key={item.label}
+                type="button"
+                style={{ width: "100%", textAlign: "left" }}
+                onClick={(event) => {
+                  item.onClick?.();
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                }}
+              >
+                {content}
+              </button>;
+            }
+            return <a className={className} key={item.href || item.label} href={item.href || "#"} target="_blank" rel="noreferrer">
               {content}
-            </button>;
-          }
-          return <a className={className} key={item.href || item.label} href={item.href || "#"} target="_blank" rel="noreferrer">
-            {content}
-          </a>;
-        })}
-      </div>)}
-    </div>
-  </details>;
+            </a>;
+          })}
+        </div>)}
+      </div>
+    </details>
+    {quickAction ? <button className="button" type="button" onClick={() => quickAction.onClick?.()}>Xuất theo bộ lọc</button> : null}
+  </>;
 }
 
 export function ExportLinksPanel({ title = "Xuất file", subtitle = "Tải dữ liệu để đối chiếu hoặc mở báo cáo để in và lưu PDF.", excelLinks = MCP_EXCEL_LINKS, pdfLinks = MCP_PDF_LINKS }: { title?: string; subtitle?: string; excelLinks?: ExportLink[]; pdfLinks?: ExportLink[] }) {
