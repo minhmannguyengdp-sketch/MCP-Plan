@@ -102,6 +102,18 @@ test("single-order PDF is visible beside XLSX and keeps a route back to the soft
   assert.match(orderPdfRoute, /downloadLabel: "Tải XLSX"/);
 });
 
+test("single-order PDF uses one information card, an explicit specification column, and one horizontal signature row", () => {
+  assert.match(orderPdfRoute, /class="box order-info-card"/);
+  assert.match(orderPdfRoute, /class="summary-grid order-info-grid"/);
+  assert.doesNotMatch(orderPdfRoute, /<section class="box"><h3>Thông tin khách hàng/);
+  assert.match(orderPdfRoute, /<th>Quy cách<\/th>/);
+  assert.match(orderPdfRoute, /const specification = ""/);
+  assert.match(orderPdfRoute, /colspan="7"/);
+  assert.match(orderPdfRoute, /class="signatures order-signatures"/);
+  assert.match(printSource, /\.signatures\.order-signatures\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(printSource, /\.order-info-card \.summary-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important\}/);
+});
+
 test("all printable reports use bounded A5 layouts without clipping long text", () => {
   assert.match(printSource, /Quay lại phần mềm/);
   assert.match(printSource, /overflow-wrap:anywhere/);
