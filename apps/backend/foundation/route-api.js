@@ -2,12 +2,23 @@ import { archiveRoute, archiveRouteCustomer } from "./archive-intents.js";
 import { unwrapIdempotentMutationResult } from "./idempotency.js";
 import { updateRouteCustomer } from "./route-customer-update-mutations.js";
 import { createRoute, updateRoute } from "./route-mutations.js";
+import { supabaseRest } from "./supabase-adapter.js";
 
 const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
+const F05_SMOKE_PREFIX = "__NPP_F05_RUNTIME_SMOKE__";
+const F05_FIXTURE_PAGE_SIZE = 500;
+const F05_FIXTURE_MAX_PAGES = 200;
 
 function badRequest(code) {
   const error = new Error(code);
   error.statusCode = 400;
+  throw error;
+}
+
+function forbidden(code) {
+  const error = new Error(code);
+  error.code = code;
+  error.statusCode = 403;
   throw error;
 }
 
@@ -55,9 +66,58 @@ function mutationResponse(result, statusCode = 200) {
   };
 }
 
+function assertInternalServiceActor(context) {
+  if (context.actor.type !== "service" || context.actor.authentication !== "backend-token") {
+    forbidden("f05_fixture_inventory_forbidden");
+  }
+}
+
+function isF05FixtureRoute(row) {
+  return [row?.route_name, row?.note]
+    .map((value) => String(value ?? "").trim())
+    .some((value) => value.startsWith(F05_SMOKE_PREFIX));
+}
+
+async function loadAllF05FixtureRoutes(context, config, fetchImpl) {
+  assertInternalServiceActor(context);
+  const fixtures = [];
+
+  for (let page = 0; page < F05_FIXTURE_MAX_PAGES; page += 1) {
+    const offset = page * F05_FIXTURE_PAGE_SIZE;
+    const rows = await supabaseRest(
+      config,
+      `mcp_routes?select=id,route_name,note&order=id.asc&limit=${F05_FIXTURE_PAGE_SIZE}&offset=${offset}`,
+      { fetchImpl }
+    );
+    const pageRows = Array.isArray(rows) ? rows : [];
+    fixtures.push(...pageRows.filter(isF05FixtureRoute));
+    if (pageRows.length < F05_FIXTURE_PAGE_SIZE) {
+      return fixtures.map((row) => ({
+        id: String(row.id || "").trim(),
+        name: String(row.route_name || "").trim(),
+        note: String(row.note || "").trim()
+      })).filter((row) => row.id);
+    }
+  }
+
+  const error = new Error("f05_fixture_inventory_page_limit_exceeded");
+  error.statusCode = 500;
+  throw error;
+}
+
 export async function handleRouteApi(req, url, context, config, { fetchImpl = fetch } = {}) {
   const method = String(req.method || "GET").toUpperCase();
   const pathname = url.pathname;
+
+  if (method === "GET" && pathname === "/api/internal/f05-smoke-fixtures") {
+    return {
+      statusCode: 200,
+      payload: {
+        data: await loadAllF05FixtureRoutes(context, config, fetchImpl),
+        receivedAt: new Date().toISOString()
+      }
+    };
+  }
 
   if (method === "POST" && pathname === "/api/routes") {
     return mutationResponse(

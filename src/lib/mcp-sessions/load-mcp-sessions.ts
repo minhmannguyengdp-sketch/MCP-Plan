@@ -1,6 +1,7 @@
 import "server-only";
 
 import { restRows } from "@/lib/export/supabase-rest";
+import { isInternalSmokeRecord, withoutInternalSmokeRows } from "@/lib/data/internal-smoke";
 
 type RouteRow = Record<string, string | number | boolean | null>;
 type SessionTableRow = Record<string, string | number | boolean | null>;
@@ -140,7 +141,11 @@ export async function loadMcpSessions(filters: McpSessionsFilters): Promise<McpS
     })
   ]);
 
+  const visibleRoutes = withoutInternalSmokeRows(routesRaw);
+  const visibleRouteIds = new Set(visibleRoutes.map((route) => text(route.id)).filter(Boolean));
   const scopedSessions = sessionsRaw
+    .filter((session) => !isInternalSmokeRecord(session))
+    .filter((session) => visibleRouteIds.has(text(session.route_id)))
     .filter((session) => !dateFrom || cleanDate(text(session.session_date)) >= dateFrom)
     .filter((session) => !dateTo || cleanDate(text(session.session_date)) <= dateTo)
     .filter((session) => !status || normalizeStatus(session.status) === status);
@@ -154,7 +159,7 @@ export async function loadMcpSessions(filters: McpSessionsFilters): Promise<McpS
       })
     : [];
 
-  const routes = toRouteOptions(routesRaw, scopedSessions);
+  const routes = toRouteOptions(visibleRoutes, scopedSessions);
   const agg = aggregateCustomers(customerRows);
   const sessions = scopedSessions
     .map((session) => toSession(session, routes, agg))

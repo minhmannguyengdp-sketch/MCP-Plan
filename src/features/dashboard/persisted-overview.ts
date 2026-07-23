@@ -1,3 +1,5 @@
+import { isInternalSmokeRecord } from "@/lib/data/internal-smoke";
+
 export type DashboardRouteRow = {
   id: string;
   route_name?: unknown;
@@ -73,6 +75,9 @@ function timestamp(value: unknown) {
 }
 
 export function compareSessionsNewestFirst(left: DashboardSessionRow, right: DashboardSessionRow) {
+  const leftSmoke = isInternalSmokeRecord(left);
+  const rightSmoke = isInternalSmokeRecord(right);
+  if (leftSmoke !== rightSmoke) return leftSmoke ? 1 : -1;
   const date = text(right.session_date).localeCompare(text(left.session_date));
   if (date) return date;
   const rightTime = timestamp(right.closed_at) || timestamp(right.updated_at) || timestamp(right.created_at);
@@ -103,20 +108,37 @@ export function derivePersistedRouteOverview(
   sessions: DashboardSessionRow[],
   reports: DashboardReportRow[]
 ): PersistedRouteOverview[] {
+  const visibleRoutes = routes.filter((route) => !isInternalSmokeRecord(route));
+  const visibleRouteIds = new Set(visibleRoutes.map((route) => text(route.id)).filter(Boolean));
+  const visibleSessions = sessions.filter((session) => (
+    !isInternalSmokeRecord(session) && visibleRouteIds.has(text(session.route_id))
+  ));
+  const visibleSessionIds = new Set(visibleSessions.map((session) => text(session.id)).filter(Boolean));
+  const visibleReports = reports.filter((report) => (
+    !isInternalSmokeRecord(report) && visibleSessionIds.has(text(report.session_id))
+  ));
+
+  // DashboardPage continues using the same facts arrays after deriving route health.
+  // Replace their contents so latest-session/report selection and visible counters
+  // cannot fall back to smoke fixtures even when no business rows exist.
+  routes.splice(0, routes.length, ...visibleRoutes);
+  sessions.splice(0, sessions.length, ...visibleSessions);
+  reports.splice(0, reports.length, ...visibleReports);
+
   const sessionsByRoute = new Map<string, DashboardSessionRow[]>();
-  for (const session of sessions) {
+  for (const session of visibleSessions) {
     const routeId = text(session.route_id);
     if (!routeId) continue;
     sessionsByRoute.set(routeId, [...(sessionsByRoute.get(routeId) || []), session]);
   }
   const reportsBySession = new Map<string, DashboardReportRow[]>();
-  for (const report of reports) {
+  for (const report of visibleReports) {
     const sessionId = text(report.session_id);
     if (!sessionId) continue;
     reportsBySession.set(sessionId, [...(reportsBySession.get(sessionId) || []), report]);
   }
 
-  return routes.map((route) => {
+  return visibleRoutes.map((route) => {
     const latest = [...(sessionsByRoute.get(text(route.id)) || [])].sort(compareSessionsNewestFirst)[0];
     if (!latest) {
       return {
