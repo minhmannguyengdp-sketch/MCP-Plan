@@ -2,6 +2,26 @@
 -- Insert at N shifts N..end down. Moving upward inserts before the current N;
 -- moving downward inserts after the current N so the moved customer ends at N.
 
+create or replace function public.mcp_route_customer_order_lock_trigger()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $function$
+begin
+  if tg_op = 'DELETE' then
+    perform pg_advisory_xact_lock(hashtextextended('mcp_route_customer_order:' || old.route_id, 0));
+    return old;
+  end if;
+
+  if tg_op = 'UPDATE' and old.route_id is distinct from new.route_id then
+    perform pg_advisory_xact_lock(hashtextextended('mcp_route_customer_order:' || old.route_id, 0));
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended('mcp_route_customer_order:' || new.route_id, 0));
+  return new;
+end;
+$function$;
+
 create or replace function public.mcp_resequence_route_customers(
   p_route_id text,
   p_moved_id text default null,
@@ -122,6 +142,13 @@ begin
 end;
 $block$;
 
+drop trigger if exists mcp_route_customers_order_lock on public.mcp_route_customers;
+create trigger mcp_route_customers_order_lock
+before insert or delete or update of route_id, sort_order
+on public.mcp_route_customers
+for each row
+execute function public.mcp_route_customer_order_lock_trigger();
+
 drop trigger if exists mcp_route_customers_resequence on public.mcp_route_customers;
 create trigger mcp_route_customers_resequence
 after insert or delete or update of route_id, sort_order
@@ -145,6 +172,24 @@ begin
 end;
 $block$;
 
+-- Remove old standalone smoke orders. Route/session fixtures are archived through
+-- the guarded cleanup tool because they may own provider media outside Postgres.
+with smoke_orders as (
+  select id
+    from public.orders
+   where left(coalesce(note, ''), length('__NPP_F05_RUNTIME_SMOKE__')) = '__NPP_F05_RUNTIME_SMOKE__'
+      or left(coalesce(customer_name, ''), length('__NPP_F05_RUNTIME_SMOKE__')) = '__NPP_F05_RUNTIME_SMOKE__'
+      or left(coalesce(sales, ''), length('__NPP_F05_RUNTIME_SMOKE__')) = '__NPP_F05_RUNTIME_SMOKE__'
+)
+delete from public.order_items
+ where order_id in (select id from smoke_orders);
+
+delete from public.orders
+ where left(coalesce(note, ''), length('__NPP_F05_RUNTIME_SMOKE__')) = '__NPP_F05_RUNTIME_SMOKE__'
+    or left(coalesce(customer_name, ''), length('__NPP_F05_RUNTIME_SMOKE__')) = '__NPP_F05_RUNTIME_SMOKE__'
+    or left(coalesce(sales, ''), length('__NPP_F05_RUNTIME_SMOKE__')) = '__NPP_F05_RUNTIME_SMOKE__';
+
+revoke all on function public.mcp_route_customer_order_lock_trigger() from public, anon, authenticated;
 revoke all on function public.mcp_resequence_route_customers(text, text, integer, integer) from public, anon, authenticated;
 revoke all on function public.mcp_route_customer_resequence_trigger() from public, anon, authenticated;
 grant execute on function public.mcp_resequence_route_customers(text, text, integer, integer) to service_role;
