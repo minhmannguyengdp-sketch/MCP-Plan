@@ -68,9 +68,16 @@ test("flat sheet is filterable and enriches manual and MCP orders", () => {
   assert.match(dataLoader, /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/);
 });
 
-test("specific orders become XLSX while the all-orders CSV remains available", () => {
+test("specific orders stay XLSX while aggregate CSV exports have explicit row grains", () => {
   assert.match(route, /const orderCode = params\.get\("orderCode"\)/);
   assert.match(route, /if \(orderId \|\| orderCode\) return orderWorkbookResponse\(orderId, orderCode\)/);
-  assert.match(route, /csvResponse\(/);
-  assert.match(route, /du-lieu-don-hang/);
+  assert.match(route, /const view = params\.get\("view"\) === "items" \? "items" : "orders"/);
+  assert.match(route, /const rows: OrderSummaryRow\[\] = orders\.map/);
+  assert.match(route, /product_summary: list\.map\(itemSummary\)\.join\(" \| "\)/);
+  assert.match(route, /const rows: ProductDetailRow\[\] = orders\.flatMap/);
+  assert.doesNotMatch(route, /return list\.map\(\(item\) => \(\{ \.\.\.order/);
+  assert.match(route, /danh-sach-don-hang/);
+  assert.match(route, /chi-tiet-san-pham-theo-don/);
+  assert.match(route, /header: "Sản phẩm trong đơn"/);
+  assert.match(route, /header: "Mã đơn hệ thống"/);
 });

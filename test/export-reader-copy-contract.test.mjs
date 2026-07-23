@@ -126,5 +126,13 @@ test("export menus distinguish readable reports from operational data", () => {
   assert.match(exportLinks, /Bản in \/ PDF/);
   assert.match(exportLinks, /Bảng chi tiết Excel \/ CSV/);
   assert.match(exportLinks, /Chọn file cần xuất/);
+  assert.match(exportLinks, /Danh sách đơn hàng/);
+  assert.match(exportLinks, /Chi tiết sản phẩm theo đơn/);
+  assert.match(exportLinks, /orders\.csv\?view=orders/);
+  assert.match(exportLinks, /orders\.csv\?view=items/);
+  assert.match(exportLinks, /\/api\/pdf\/dashboard/);
+  assert.match(exportLinks, /\/api\/pdf\/market-report/);
+  assert.doesNotMatch(exportLinks, /MCP_PDF_LINKS: ExportLink\[\] = \[\]/);
+  assert.doesNotMatch(exportLinks, /Đơn hàng và sản phẩm/);
   assert.doesNotMatch(exportLinks, /Excel dữ liệu|PDF báo cáo|Tải Excel nền/);
 });

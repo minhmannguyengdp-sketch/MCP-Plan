@@ -13,13 +13,17 @@ type ExportGroup = {
 export const MCP_EXCEL_LINKS: ExportLink[] = [
   { label: "Danh sách điểm bán", href: "/api/backend/exports/route-customers.csv", tone: "primary", hint: "Tên, địa chỉ, vị trí và liên kết bản đồ" },
   { label: "Chi tiết phiên bán hàng", href: "/api/backend/exports/mcp-sessions.csv", hint: "Điểm bán, kết quả ghé và phát sinh trong phiên" },
-  { label: "Đơn hàng và sản phẩm", href: "/api/backend/exports/orders.csv", hint: "Thông tin đơn hàng và từng dòng sản phẩm" },
+  { label: "Danh sách đơn hàng", href: "/api/backend/exports/orders.csv?view=orders", hint: "Một dòng cho mỗi đơn, không lặp thông tin khách hàng theo sản phẩm" },
+  { label: "Chi tiết sản phẩm theo đơn", href: "/api/backend/exports/orders.csv?view=items", hint: "Mỗi dòng là một sản phẩm và dùng mã đơn để đối chiếu" },
   { label: "Ghi nhận thị trường", href: "/api/backend/exports/market-reports.csv", hint: "Đối thủ, sản phẩm đang dùng, nhu cầu và cơ hội" },
   { label: "Việc cần theo dõi", href: "/api/backend/exports/followups.csv", hint: "Việc cần làm, ngày hẹn và người phụ trách" },
   { label: "Kết quả thử sản phẩm", href: "/api/backend/exports/tests.csv", hint: "Sản phẩm đã thử và kết quả theo điểm bán" }
 ];
 
-export const MCP_PDF_LINKS: ExportLink[] = [];
+export const MCP_PDF_LINKS: ExportLink[] = [
+  { label: "Báo cáo điều hành", href: "/api/pdf/dashboard", tone: "primary", hint: "Mở báo cáo tổng hợp để đọc, in hoặc lưu PDF" },
+  { label: "Báo cáo thị trường", href: "/api/pdf/market-report", hint: "Mở báo cáo cơ hội bán hàng để đọc, in hoặc lưu PDF" }
+];
 
 function groupsFromLinks(excelLinks: ExportLink[], pdfLinks: ExportLink[]) {
   const groups: ExportGroup[] = [];
