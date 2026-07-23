@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-const [filterSource, routesPage, mcpHome, dashboardOverview, sessionLoader, cleanupScript, routeApi, hardDeleteMigration] = await Promise.all([
+const [
+  filterSource,
+  routesPage,
+  mcpHome,
+  dashboardOverview,
+  sessionLoader,
+  cleanupScript,
+  routeApi,
+  hardDeleteMigration,
+  archiveDeleteJobTimingMigration
+] = await Promise.all([
   readFile(new URL("../src/lib/data/internal-smoke.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/app/routes/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../src/app/mcp/page.tsx", import.meta.url), "utf8"),
@@ -10,7 +20,8 @@ const [filterSource, routesPage, mcpHome, dashboardOverview, sessionLoader, clea
   readFile(new URL("../src/lib/mcp-sessions/load-mcp-sessions.ts", import.meta.url), "utf8"),
   readFile(new URL("../ops/cleanup-f05-smoke-fixtures.mjs", import.meta.url), "utf8"),
   readFile(new URL("../apps/backend/foundation/route-api.js", import.meta.url), "utf8"),
-  readFile(new URL("../supabase/migrations/20260723133000_harden_npp_f05_route_cleanup.sql", import.meta.url), "utf8")
+  readFile(new URL("../supabase/migrations/20260723133000_harden_npp_f05_route_cleanup.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20260723144000_fix_archive_delete_job_fk_timing.sql", import.meta.url), "utf8")
 ]);
 
 test("internal F05 smoke names are recognized only by the exact reserved prefix", () => {
@@ -74,4 +85,26 @@ test("hard-delete recognizes only guarded NPP F05 routes and removes linked stan
   assert.match(hardDeleteMigration, /raw_payload ->> 'routeCustomerId' = any\(v_route_customer_ids\)/);
   assert.match(hardDeleteMigration, /left\(coalesce\(note, ''\), length\('__NPP_F05_RUNTIME_SMOKE__'\)\) = '__NPP_F05_RUNTIME_SMOKE__'/);
   assert.doesNotMatch(hardDeleteMigration, /like\s+'%__NPP_F05_RUNTIME_SMOKE__%'/i);
+});
+
+test("archive intent FK is linked only after the delete-job row exists", () => {
+  const beforeFunction = archiveDeleteJobTimingMigration.match(
+    /create or replace function public\.mcp_link_archive_intent_from_delete_job\(\)([\s\S]*?)\$function\$;/
+  )?.[1] || "";
+  const afterFunction = archiveDeleteJobTimingMigration.match(
+    /create or replace function public\.mcp_link_archive_intent_after_delete_job\(\)([\s\S]*?)\$function\$;/
+  )?.[1] || "";
+
+  assert.match(beforeFunction, /new\.raw_payload :=/);
+  assert.doesNotMatch(beforeFunction, /update public\.mcp_archive_intents/);
+  assert.match(afterFunction, /update public\.mcp_archive_intents/);
+  assert.match(afterFunction, /set delete_job_id = new\.id/);
+  assert.match(
+    archiveDeleteJobTimingMigration,
+    /create trigger mcp_storage_delete_jobs_prepare_archive_metadata\s+before insert or update of target_type, target_id, raw_payload/i
+  );
+  assert.match(
+    archiveDeleteJobTimingMigration,
+    /create trigger mcp_storage_delete_jobs_link_archive_intent\s+after insert or update/i
+  );
 });
