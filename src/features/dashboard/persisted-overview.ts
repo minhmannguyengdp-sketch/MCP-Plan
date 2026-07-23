@@ -118,6 +118,13 @@ export function derivePersistedRouteOverview(
     !isInternalSmokeRecord(report) && visibleSessionIds.has(text(report.session_id))
   ));
 
+  // DashboardPage continues using the same facts arrays after deriving route health.
+  // Replace their contents so latest-session/report selection and visible counters
+  // cannot fall back to smoke fixtures even when no business rows exist.
+  routes.splice(0, routes.length, ...visibleRoutes);
+  sessions.splice(0, sessions.length, ...visibleSessions);
+  reports.splice(0, reports.length, ...visibleReports);
+
   const sessionsByRoute = new Map<string, DashboardSessionRow[]>();
   for (const session of visibleSessions) {
     const routeId = text(session.route_id);
