@@ -30,6 +30,9 @@ test("dashboard never promotes a future smoke session or route into the operatio
   assert.match(dashboardOverview, /const visibleRoutes = routes\.filter/);
   assert.match(dashboardOverview, /const visibleSessions = sessions\.filter/);
   assert.match(dashboardOverview, /const visibleReports = reports\.filter/);
+  assert.match(dashboardOverview, /routes\.splice\(0, routes\.length, \.\.\.visibleRoutes\)/);
+  assert.match(dashboardOverview, /sessions\.splice\(0, sessions\.length, \.\.\.visibleSessions\)/);
+  assert.match(dashboardOverview, /reports\.splice\(0, reports\.length, \.\.\.visibleReports\)/);
 });
 
 test("MCP session history excludes smoke routes, sessions and their counters", () => {
