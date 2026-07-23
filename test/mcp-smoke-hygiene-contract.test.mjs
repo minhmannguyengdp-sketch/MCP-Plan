@@ -11,9 +11,8 @@ const [filterSource, routesPage, mcpHome, dashboardOverview, sessionLoader, clea
   readFile(new URL("../ops/cleanup-f05-smoke-fixtures.mjs", import.meta.url), "utf8")
 ]);
 
-test("internal production smoke names are recognized only by exact reserved prefixes", () => {
+test("internal F05 smoke names are recognized only by the exact reserved prefix", () => {
   assert.match(filterSource, /__NPP_F05_RUNTIME_SMOKE__/);
-  assert.match(filterSource, /__MCP_V1_API_FULL__/);
   assert.match(filterSource, /startsWith\(prefix\)/);
   assert.doesNotMatch(filterSource, /includes\(prefix\)/);
 });
