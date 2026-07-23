@@ -2,11 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-const [builder, dataLoader, route, nextConfig] = await Promise.all([
+const [builder, dataLoader, route, nextConfig, printSource, orderPdfRoute, drawer, operationalCard, dashboardPdf, marketPdf] = await Promise.all([
   readFile(new URL("../src/lib/export/order-workbook.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/lib/export/order-workbook-data.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/app/api/exports/orders.csv/route.ts", import.meta.url), "utf8"),
-  readFile(new URL("../next.config.mjs", import.meta.url), "utf8")
+  readFile(new URL("../next.config.mjs", import.meta.url), "utf8"),
+  readFile(new URL("../src/lib/export/print.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/app/api/pdf/order/route.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/features/orders/OrderDetailDrawer.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../src/ui/cards/OperationalListCard.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../src/app/api/pdf/dashboard/route.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/app/api/pdf/market-report/route.ts", import.meta.url), "utf8")
 ]);
 
 test("individual order export uses one branded two-sheet workbook", () => {
@@ -80,4 +86,30 @@ test("specific orders stay XLSX while aggregate CSV exports have explicit row gr
   assert.match(route, /chi-tiet-san-pham-theo-don/);
   assert.match(route, /header: "Sản phẩm trong đơn"/);
   assert.match(route, /header: "Mã đơn hệ thống"/);
+});
+
+test("single-order PDF is visible beside XLSX and keeps a route back to the software", () => {
+  assert.match(drawer, /PDF A5/);
+  assert.match(drawer, /href=\{pdfHref\(displayOrder\.id\)\}/);
+  assert.match(drawer, />XLSX<\/a>/);
+  assert.match(operationalCard, /singleOrderPdfHref/);
+  assert.match(operationalCard, />PDF A5<\/a>/);
+  assert.match(orderPdfRoute, /\/api\/orders\/\$\{encodeURIComponent\(orderId\)\}/);
+  assert.match(orderPdfRoute, /pageSize: "A5"/);
+  assert.match(orderPdfRoute, /orientation: "portrait"/);
+  assert.match(orderPdfRoute, /backHref/);
+  assert.match(orderPdfRoute, /downloadHref: xlsxHref/);
+  assert.match(orderPdfRoute, /downloadLabel: "Tải XLSX"/);
+});
+
+test("all printable reports use bounded A5 layouts without clipping long text", () => {
+  assert.match(printSource, /Quay lại phần mềm/);
+  assert.match(printSource, /overflow-wrap:anywhere/);
+  assert.match(printSource, /word-break:break-word/);
+  assert.match(printSource, /table-layout:fixed/);
+  assert.match(printSource, /thead\{display:table-header-group\}/);
+  assert.match(printSource, /break-inside:avoid-page/);
+  assert.match(printSource, /@page\{size:\$\{pageSize\} \$\{orientation\}/);
+  assert.match(dashboardPdf, /pageSize: "A5", orientation: "landscape"/);
+  assert.match(marketPdf, /pageSize: "A5", orientation: "landscape"/);
 });

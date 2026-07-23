@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 type OperationalAction = {
   label: string;
@@ -18,6 +18,17 @@ type OperationalListCardProps = {
   actionContent?: ReactNode;
 };
 
+function singleOrderPdfHref(href: string) {
+  try {
+    const url = new URL(href, "https://mcp-plan.local");
+    if (url.pathname !== "/api/backend/exports/orders.csv") return "";
+    const orderId = String(url.searchParams.get("orderId") || "").trim();
+    return orderId ? `/api/pdf/order?orderId=${encodeURIComponent(orderId)}` : "";
+  } catch {
+    return "";
+  }
+}
+
 export function OperationalListCard({ eyebrow, title, description, badge, leading, meta = [], actions = [], actionContent }: OperationalListCardProps) {
   return (
     <article className="operational-list-card">
@@ -35,7 +46,13 @@ export function OperationalListCard({ eyebrow, title, description, badge, leadin
       </div>
       {actions.length > 0 || actionContent ? <div className="operational-list-actions">{actions.map((action) => {
         const className = action.tone === "primary" ? "button primary" : "button";
-        if (action.href) return <a className={className} href={action.href} key={action.label}>{action.label}</a>;
+        if (action.href) {
+          const pdfHref = singleOrderPdfHref(action.href);
+          return <Fragment key={action.label}>
+            {pdfHref ? <a className="button" href={pdfHref} target="_blank" rel="noreferrer">PDF A5</a> : null}
+            <a className={className} href={action.href}>{action.label}</a>
+          </Fragment>;
+        }
         return <button className={className} key={action.label} type="button" onClick={action.onClick}>{action.label}</button>;
       })}{actionContent}</div> : null}
     </article>

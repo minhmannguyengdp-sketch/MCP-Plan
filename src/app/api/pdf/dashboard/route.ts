@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       { header: "Người phụ trách", value: (r) => r.owner || "Chưa phân công" },
       { header: "Trạng thái", value: (r) => reportStatus(r.status) }
     ], followups.slice(0, 30))}`;
-    return htmlResponse(`Báo cáo điều hành bán hàng - ${period}`, body);
+    return htmlResponse(`Báo cáo điều hành bán hàng - ${period}`, body, { pageSize: "A5", orientation: "landscape", backHref: "/", compact: true });
   } catch (error) {
     return errorResponse(error);
   }

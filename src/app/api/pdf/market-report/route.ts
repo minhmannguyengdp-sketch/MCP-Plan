@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       { header: "Hành động tiếp theo", value: (r) => asCell(r.next_action) },
       { header: "Ghi chú", value: (r) => asCell(r.note) }
     ], rows)}`;
-    return htmlResponse(`Báo cáo thị trường và cơ hội bán hàng - ${titleDate}`, body);
+    return htmlResponse(`Báo cáo thị trường và cơ hội bán hàng - ${titleDate}`, body, { pageSize: "A5", orientation: "landscape", backHref: "/", compact: true });
   } catch (error) {
     return errorResponse(error);
   }
