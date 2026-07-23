@@ -140,3 +140,59 @@ test("dynamic route and route-customer ids are decoded once", async () => {
   assert.equal(routeArgs.p_route_id, "route id");
   assert.equal(customerArgs.p_route_customer_id, "route-customer id");
 });
+
+test("internal F05 fixture inventory pages all routes and returns only exact-prefix rows", async () => {
+  const calls = [];
+  const pageOne = Array.from({ length: 500 }, (_, index) => ({
+    id: `route-${index}`,
+    route_name: index === 499 ? "__NPP_F05_RUNTIME_SMOKE__PAGE_ONE" : `Tuyến ${index}`,
+    note: ""
+  }));
+  const pageTwo = [
+    { id: "route-500", route_name: "Tuyến 500", note: "" },
+    { id: "route-smoke-note", route_name: "Tuyến thường", note: "__NPP_F05_RUNTIME_SMOKE__PAGE_TWO" }
+  ];
+  const fetchImpl = async (url) => {
+    const parsed = new URL(url);
+    calls.push(parsed);
+    const offset = Number(parsed.searchParams.get("offset") || 0);
+    return new Response(JSON.stringify(offset === 0 ? pageOne : pageTwo), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  const result = await handleRouteApi(
+    request("GET"),
+    new URL("http://local/api/internal/f05-smoke-fixtures"),
+    context,
+    config,
+    { fetchImpl }
+  );
+
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.payload.data.map((row) => row.id), ["route-499", "route-smoke-note"]);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].searchParams.get("offset"), "0");
+  assert.equal(calls[1].searchParams.get("offset"), "500");
+});
+
+test("internal F05 fixture inventory rejects non-service actors before provider access", async () => {
+  let providerCalled = false;
+  const userContext = {
+    ...context,
+    actor: { id: "user-1", type: "user", authentication: "session" }
+  };
+
+  await assert.rejects(
+    handleRouteApi(
+      request("GET"),
+      new URL("http://local/api/internal/f05-smoke-fixtures"),
+      userContext,
+      config,
+      { fetchImpl: async () => { providerCalled = true; return new Response("[]"); } }
+    ),
+    (error) => error?.statusCode === 403 && error?.message === "f05_fixture_inventory_forbidden"
+  );
+  assert.equal(providerCalled, false);
+});
