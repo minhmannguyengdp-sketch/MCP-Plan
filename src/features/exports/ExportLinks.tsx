@@ -1,11 +1,12 @@
 export type ExportLink = {
   label: string;
-  href: string;
+  href?: string;
+  onClick?: () => void;
   tone?: "primary";
   hint?: string;
 };
 
-type ExportGroup = {
+export type ExportGroup = {
   title: string;
   links: ExportLink[];
 };
@@ -54,10 +55,27 @@ export function ExportMenu({ label = "Xuất file", excelLinks = MCP_EXCEL_LINKS
     <div className="export-menu-panel">
       {items.map((group) => <div className="export-menu-group" key={group.title}>
         <strong>{readerGroupTitle(group.title)}</strong>
-        {group.links.map(readerLink).map((item) => <a className={item.tone === "primary" ? "export-menu-link primary" : "export-menu-link"} key={item.href} href={item.href} target="_blank" rel="noreferrer">
-          <span>{item.label}</span>
-          {item.hint ? <small>{item.hint}</small> : null}
-        </a>)}
+        {group.links.map(readerLink).map((item) => {
+          const className = item.tone === "primary" ? "export-menu-link primary" : "export-menu-link";
+          const content = <><span>{item.label}</span>{item.hint ? <small>{item.hint}</small> : null}</>;
+          if (item.onClick) {
+            return <button
+              className={className}
+              key={item.label}
+              type="button"
+              style={{ width: "100%", textAlign: "left" }}
+              onClick={(event) => {
+                item.onClick?.();
+                event.currentTarget.closest("details")?.removeAttribute("open");
+              }}
+            >
+              {content}
+            </button>;
+          }
+          return <a className={className} key={item.href || item.label} href={item.href || "#"} target="_blank" rel="noreferrer">
+            {content}
+          </a>;
+        })}
       </div>)}
     </div>
   </details>;
