@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-const [filterSource, routesPage, mcpHome, dashboardOverview, sessionLoader] = await Promise.all([
+const [filterSource, routesPage, mcpHome, dashboardOverview, sessionLoader, cleanupScript] = await Promise.all([
   readFile(new URL("../src/lib/data/internal-smoke.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/app/routes/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../src/app/mcp/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../src/features/dashboard/persisted-overview.ts", import.meta.url), "utf8"),
-  readFile(new URL("../src/lib/mcp-sessions/load-mcp-sessions.ts", import.meta.url), "utf8")
+  readFile(new URL("../src/lib/mcp-sessions/load-mcp-sessions.ts", import.meta.url), "utf8"),
+  readFile(new URL("../ops/cleanup-f05-smoke-fixtures.mjs", import.meta.url), "utf8")
 ]);
 
 test("internal production smoke names are recognized only by exact reserved prefixes", () => {
@@ -37,4 +38,15 @@ test("MCP session history excludes smoke routes, sessions and their counters", (
   assert.match(sessionLoader, /!isInternalSmokeRecord\(session\)/);
   assert.match(sessionLoader, /visibleRouteIds\.has\(text\(session\.route_id\)\)/);
   assert.match(sessionLoader, /const sessions = scopedSessions/);
+});
+
+test("stale fixture cleanup archives exact reserved routes and verifies database absence", () => {
+  assert.match(cleanupScript, /const SMOKE_PREFIX = "__NPP_F05_RUNTIME_SMOKE__"/);
+  assert.match(cleanupScript, /startsWith\(SMOKE_PREFIX\)/);
+  assert.match(cleanupScript, /\/api\/routes\/\$\{encodeURIComponent\(routeId\)\}\/archive/);
+  assert.match(cleanupScript, /X-Actor-Type": "service"/);
+  assert.match(cleanupScript, /X-Actor-Authentication/);
+  assert.match(cleanupScript, /waitUntilAbsent/);
+  assert.match(cleanupScript, /fixture_route_remains_/);
+  assert.doesNotMatch(cleanupScript, /method:\s*"DELETE"/);
 });
