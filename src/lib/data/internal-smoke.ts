@@ -1,7 +1,5 @@
 const INTERNAL_SMOKE_PREFIXES = [
-  "__NPP_F05_RUNTIME_SMOKE__",
-  "__MCP_V1_API_FULL__",
-  "__MCP_V1_API_F05_"
+  "__NPP_F05_RUNTIME_SMOKE__"
 ] as const;
 
 const IDENTITY_FIELDS = [
