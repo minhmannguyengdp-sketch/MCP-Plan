@@ -15,20 +15,22 @@ function orderItemsTable(order: OrderDetailDto) {
   const rows = order.items.length
     ? order.items.map((item, index) => {
       const itemMeta = [item.sku, item.unit, item.note].map((value) => String(value || "").trim()).filter(Boolean).join(" · ");
+      const specification = "";
       return `<tr>
         <td class="center">${index + 1}</td>
         <td><b>${esc(item.productName)}</b>${itemMeta ? `<span class="item-sub">${esc(itemMeta)}</span>` : ""}</td>
+        <td>${esc(specification)}</td>
         <td class="right">${esc(number(item.quantity))}</td>
         <td class="right">${esc(money(item.unitPrice))}</td>
         <td class="right">${item.discount > 0 ? esc(money(item.discount)) : "-"}</td>
         <td class="right"><b>${esc(money(item.lineTotal))}</b></td>
       </tr>`;
     }).join("")
-    : `<tr><td colspan="6" class="center muted">Đơn hàng chưa có sản phẩm</td></tr>`;
+    : `<tr><td colspan="7" class="center muted">Đơn hàng chưa có sản phẩm</td></tr>`;
 
   return `<table aria-label="Sản phẩm trong đơn">
-    <colgroup><col style="width:7%"/><col style="width:37%"/><col style="width:10%"/><col style="width:16%"/><col style="width:13%"/><col style="width:17%"/></colgroup>
-    <thead><tr><th class="center">STT</th><th>Sản phẩm</th><th class="right">SL</th><th class="right">Đơn giá</th><th class="right">Giảm</th><th class="right">Thành tiền</th></tr></thead>
+    <colgroup><col style="width:6%"/><col style="width:27%"/><col style="width:16%"/><col style="width:8%"/><col style="width:14%"/><col style="width:12%"/><col style="width:17%"/></colgroup>
+    <thead><tr><th class="center">STT</th><th>Sản phẩm</th><th>Quy cách</th><th class="right">SL</th><th class="right">Đơn giá</th><th class="right">Giảm</th><th class="right">Thành tiền</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -58,14 +60,16 @@ export async function GET(request: Request) {
       <div><div class="brand">CÔNG TY TNHH TM NGUYÊN LIỆU HƯNG PHÁT</div><h1>PHIẾU ĐƠN HÀNG</h1><p class="muted">152 Yersin, Phường Đạo Thạnh, Tỉnh Đồng Tháp · 0396 980 168</p></div>
       <div>${kv([["Mã đơn", order.code], ["Ngày đơn", reportDate(order.date)], ["Trạng thái", reportStatus(order.status)]])}</div>
     </div>
-    <div class="summary-grid">
-      <section class="box"><h3>Thông tin khách hàng</h3>${kv([["Khách hàng", order.accountName], ["Điện thoại", order.customerPhone || "Chưa có"], ["Khu vực / tuyến", order.routeName || order.area || "Chưa có"], ["Địa chỉ giao", order.deliveryAddress || "Chưa có"]])}</section>
-      <section class="box"><h3>Thông tin đơn</h3>${kv([["Nhân viên", order.owner || "Chưa phân công"], ["Nguồn đơn", reportSource(order.source)], ["Số dòng hàng", order.items.length], ["Tổng số lượng", order.quantity]])}</section>
-    </div>
+    <section class="box order-info-card">
+      <div class="summary-grid order-info-grid">
+        <div class="info-block"><h3>Thông tin khách hàng</h3>${kv([["Khách hàng", order.accountName], ["Điện thoại", order.customerPhone || "Chưa có"], ["Khu vực / tuyến", order.routeName || order.area || "Chưa có"], ["Địa chỉ giao", order.deliveryAddress || "Chưa có"]])}</div>
+        <div class="info-block"><h3>Thông tin đơn</h3>${kv([["Nhân viên", order.owner || "Chưa phân công"], ["Nguồn đơn", reportSource(order.source)], ["Số dòng hàng", order.items.length], ["Tổng số lượng", order.quantity]])}</div>
+      </div>
+    </section>
     <h2>Sản phẩm</h2>${orderItemsTable(order)}
     <section class="box totals">${kv([["Tạm tính", money(order.subtotal)], ["Giảm giá", order.discountTotal > 0 ? `-${money(order.discountTotal)}` : "-"], ["Tổng cộng", money(order.totalAmount)]])}</section>
     ${order.note ? `<section class="box"><h3>Ghi chú đơn</h3><p>${esc(order.note)}</p></section>` : ""}
-    <div class="signatures"><div class="signature"><b>Khách hàng</b><span>Ký và ghi rõ họ tên</span></div><div class="signature"><b>Nhân viên lập đơn</b><span>Ký và ghi rõ họ tên</span></div><div class="signature"><b>Kho / giao hàng</b><span>Ký và ghi rõ họ tên</span></div></div>`;
+    <div class="signatures order-signatures"><div class="signature"><b>Khách hàng</b><span>Ký và ghi rõ họ tên</span></div><div class="signature"><b>Nhân viên lập đơn</b><span>Ký và ghi rõ họ tên</span></div><div class="signature"><b>Kho / giao hàng</b><span>Ký và ghi rõ họ tên</span></div></div>`;
 
     return htmlResponse(`Phiếu đơn hàng ${order.code}`, body, {
       pageSize: "A5",
